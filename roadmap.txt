@@ -1,0 +1,69 @@
+VEXR — FUTURE FEATURES ROADMAP
+================================
+
+CORE (SHIPPED)
+--------------
+✅ Auth: email/password signup + login, protected routes, Supabase RLS
+✅ Workout logging: log workouts with title, type, date, duration, TSS, zone, notes, planned flag
+✅ Calendar: monthly view, workout dots, multi-workout days, click to view/edit/delete
+✅ Workout detail modal: view all fields, inline edit, delete
+✅ Dashboard: CTL/ATL/TSB stat cards, weekly TSS vs plan bar chart, fitness/fatigue/form line chart
+✅ Upcoming workouts: planned workouts with date >= today shown on dashboard
+✅ Analytics page: sport breakdown, fitness/fatigue area chart, TSS distribution
+✅ Training Plans: create, start, complete, delete plans
+✅ Workout Library: save templates, filter by type, delete
+✅ Real-time sync: Supabase realtime channel keeps all views in sync
+✅ Dark mode only
+✅ Vercel deployment config
+
+AI-POWERED
+-----------
+- AI Coach: analyses CTL/ATL/TSB trends and gives personalised weekly recommendations
+  e.g. "you're carrying too much fatigue, swap Saturday's ride for an easy run"
+- Auto-TSS estimation: describe a workout in plain English and AI calculates TSS for you
+- Race predictor: based on current fitness, predicts finish time for goal race
+- Smart plan generator: input race date and current fitness, AI builds entire training block
+
+SOCIAL
+------
+- Training groups: share a calendar with coach or training partners
+- Segment challenges: compete on specific workout types with friends
+  e.g. who ran the most TSS this week
+- Public athlete profiles: like Strava but focused on structured training data
+
+WEARABLE / DEVICE SYNC
+-----------------------
+- Garmin sync: auto-import workouts so nothing is manual
+- Apple Watch sync: auto-import workouts
+- Strava sync: pull in activities automatically
+- Whoop / Oura HRV integration: factor recovery scores into training recommendations
+
+PLANNING
+--------
+- Drag and drop plan builder: visually move workouts around the calendar
+- Taper calculator: automatically adjusts last 2-3 weeks before race day
+- Multi-sport periodization: build blocks across swim/bike/run with load balancing
+
+ANALYTICS
+---------
+- Power curve: best power at every duration (5s, 1min, 5min, 20min, 60min)
+- Training distribution: visual breakdown of time spent in each zone
+- Injury risk score: flags when training load spikes dangerously fast
+- Year-on-year comparison: how does this week compare to same week last year
+- Pace/power decoupling: tracks aerobic efficiency over time
+
+UX / QUALITY OF LIFE
+---------------------
+- Mobile-first design: fully responsive, works great on phone
+  (TrainingPeaks mobile app is terrible — big opportunity here)
+- One-tap workout logging: log a run in under 30 seconds
+- Offline mode: log workouts without internet, sync later
+- Push notifications: daily workout reminders, weekly summary
+✅ Dark mode only
+
+MONETISATION (when ready)
+--------------------------
+- Free tier: basic logging + calendar
+- Pro tier: analytics, AI coach, device sync
+- Coach tier: manage multiple athletes, shared calendars
+- Marketplace: coaches can sell training plans to users

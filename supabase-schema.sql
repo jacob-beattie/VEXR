@@ -1,0 +1,82 @@
+-- Users profile (extends Supabase auth.users)
+create table profiles (
+  id uuid references auth.users on delete cascade primary key,
+  name text,
+  sport text default 'triathlon',
+  ftp integer default 200,
+  run_pace text default '5:00',
+  css text default '1:45',
+  race_goal text,
+  race_date date,
+  created_at timestamp with time zone default now()
+);
+
+-- Workouts
+create table workouts (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  title text not null,
+  type text not null check (type in ('run', 'ride', 'swim', 'strength', 'rest')),
+  date date not null,
+  duration_minutes integer,
+  tss integer default 0,
+  zone text,
+  notes text,
+  planned boolean default false,
+  created_at timestamp with time zone default now()
+);
+
+-- Training Plans
+create table training_plans (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  name text not null,
+  sport text not null,
+  total_weeks integer not null,
+  current_week integer default 0,
+  status text default 'upcoming' check (status in ('active', 'complete', 'upcoming')),
+  created_at timestamp with time zone default now()
+);
+
+-- Workout Library
+create table workout_library (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  name text not null,
+  type text not null,
+  duration_minutes integer,
+  tss integer default 0,
+  description text,
+  created_at timestamp with time zone default now()
+);
+
+-- Row Level Security
+alter table profiles enable row level security;
+alter table workouts enable row level security;
+alter table training_plans enable row level security;
+alter table workout_library enable row level security;
+
+create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
+create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
+create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = id);
+create policy "Users can view own workouts" on workouts for select using (auth.uid() = user_id);
+create policy "Users can insert own workouts" on workouts for insert with check (auth.uid() = user_id);
+create policy "Users can update own workouts" on workouts for update using (auth.uid() = user_id);
+create policy "Users can delete own workouts" on workouts for delete using (auth.uid() = user_id);
+create policy "Users can view own plans" on training_plans for select using (auth.uid() = user_id);
+create policy "Users can manage own plans" on training_plans for all using (auth.uid() = user_id);
+create policy "Users can manage own library" on workout_library for all using (auth.uid() = user_id);
+
+-- Auto-create profile on signup
+create or replace function handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, name)
+  values (new.id, new.raw_user_meta_data->>'name');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
