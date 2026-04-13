@@ -67,6 +67,33 @@ create policy "Users can view own plans" on training_plans for select using (aut
 create policy "Users can manage own plans" on training_plans for all using (auth.uid() = user_id);
 create policy "Users can manage own library" on workout_library for all using (auth.uid() = user_id);
 
+-- Fitness Benchmarks (FTP / run pace / CSS history)
+create table fitness_benchmarks (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  metric text not null check (metric in ('ftp', 'pace', 'css')),
+  value text not null,
+  recorded_at timestamp with time zone default now()
+);
+
+-- Training Zones (cycling auto-calc, running + swimming manual)
+create table training_zones (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  sport text not null check (sport in ('cycling', 'running', 'swimming')),
+  zone_number integer not null,
+  zone_name text not null,
+  min_value text,
+  max_value text,
+  updated_at timestamp with time zone default now()
+);
+
+alter table fitness_benchmarks enable row level security;
+alter table training_zones enable row level security;
+
+create policy "Users can manage own benchmarks" on fitness_benchmarks for all using (auth.uid() = user_id);
+create policy "Users can manage own zones" on training_zones for all using (auth.uid() = user_id);
+
 -- Auto-create profile on signup
 create or replace function handle_new_user()
 returns trigger as $$

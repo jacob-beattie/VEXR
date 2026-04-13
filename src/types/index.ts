@@ -35,6 +35,25 @@ export interface TrainingPlan {
   status: 'active' | 'complete' | 'upcoming'
 }
 
+export interface FitnessBenchmark {
+  id: string
+  user_id: string
+  metric: 'ftp' | 'pace' | 'css'
+  value: string
+  recorded_at: string
+}
+
+export interface TrainingZone {
+  id: string
+  user_id: string
+  sport: 'cycling' | 'running' | 'swimming'
+  zone_number: number
+  zone_name: string
+  min_value: string | null
+  max_value: string | null
+  updated_at: string
+}
+
 export interface WorkoutLibraryItem {
   id: string
   user_id: string

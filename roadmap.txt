@@ -5,7 +5,7 @@ CORE (SHIPPED)
 --------------
 ✅ Auth: email/password signup + login, protected routes, Supabase RLS
 ✅ Workout logging: log workouts with title, type, date, duration, TSS, zone, notes, planned flag
-✅ Calendar: monthly view, workout dots, multi-workout days, click to view/edit/delete
+✅ Calendar: monthly view, multi-workout day cells (all workouts visible), day-list modal for multi-workout days, click to view/edit/delete
 ✅ Workout detail modal: view all fields, inline edit, delete
 ✅ Dashboard: CTL/ATL/TSB stat cards, weekly TSS vs plan bar chart, fitness/fatigue/form line chart
 ✅ Upcoming workouts: planned workouts with date >= today shown on dashboard
@@ -59,7 +59,6 @@ UX / QUALITY OF LIFE
 - One-tap workout logging: log a run in under 30 seconds
 - Offline mode: log workouts without internet, sync later
 - Push notifications: daily workout reminders, weekly summary
-✅ Dark mode only
 
 MONETISATION (when ready)
 --------------------------

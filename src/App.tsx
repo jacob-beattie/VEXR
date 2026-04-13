@@ -7,6 +7,7 @@ import { WorkoutsProvider, useWorkouts } from './contexts/WorkoutsContext'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
+import { ProfileSettingsModal } from './components/ProfileSettingsModal'
 import { Dashboard } from './pages/Dashboard'
 import { Calendar } from './pages/Calendar'
 import { Analytics } from './pages/Analytics'
@@ -15,6 +16,7 @@ import { Library } from './pages/Library'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import type { Profile } from './types'
+import type { User } from '@supabase/supabase-js'
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) },
@@ -25,9 +27,17 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
 }
 
 // Inner shell — rendered inside WorkoutsProvider, safe to call useWorkouts()
-function AppShell({ signOut, profile }: { signOut: () => Promise<void>; profile: Profile | null }) {
+function AppShell({
+  signOut, profile, setProfile, user,
+}: {
+  signOut: () => Promise<void>
+  profile: Profile | null
+  setProfile: (p: Profile) => void
+  user: User
+}) {
   const { addWorkout } = useWorkouts()
   const [showModal, setShowModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -35,7 +45,7 @@ function AppShell({ signOut, profile }: { signOut: () => Promise<void>; profile:
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: "'Inter', 'Helvetica Neue', sans-serif", display: 'flex' }}>
-      <Sidebar profile={profile} />
+      <Sidebar profile={profile} onProfileClick={() => setShowProfileModal(true)} />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
         <TopBar
@@ -69,6 +79,18 @@ function AppShell({ signOut, profile }: { signOut: () => Promise<void>; profile:
           onSubmit={addWorkout}
         />
       )}
+
+      {showProfileModal && profile && (
+        <ProfileSettingsModal
+          profile={profile}
+          user={user}
+          onClose={() => setShowProfileModal(false)}
+          onSave={updatedProfile => {
+            setProfile(updatedProfile)
+            setShowProfileModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -100,7 +122,7 @@ function ProtectedLayout() {
 
   return (
     <WorkoutsProvider>
-      <AppShell signOut={signOut} profile={profile} />
+      <AppShell signOut={signOut} profile={profile} setProfile={setProfile} user={user} />
     </WorkoutsProvider>
   )
 }

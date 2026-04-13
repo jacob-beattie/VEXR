@@ -4,6 +4,7 @@ import type { Profile } from '../../types'
 
 interface SidebarProps {
   profile: Profile | null
+  onProfileClick: () => void
 }
 
 const navItems = [
@@ -14,7 +15,7 @@ const navItems = [
   { path: '/library', icon: '⊙', label: 'Workout Library' },
 ]
 
-export function Sidebar({ profile }: SidebarProps) {
+export function Sidebar({ profile, onProfileClick }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -48,8 +49,17 @@ export function Sidebar({ profile }: SidebarProps) {
         <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
       </div>
 
-      {/* User card */}
-      <div style={{ margin: '0 12px 24px', background: COLORS.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
+      {/* User card — clickable */}
+      <div
+        onClick={onProfileClick}
+        style={{
+          margin: '0 12px 24px', background: COLORS.card, borderRadius: 10,
+          padding: '12px 14px', border: `1px solid ${COLORS.border}`,
+          cursor: 'pointer', transition: 'border-color 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = COLORS.accent + '60')}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = COLORS.border)}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
