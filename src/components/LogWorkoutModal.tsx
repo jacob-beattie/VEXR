@@ -71,8 +71,10 @@ function computeSimpleTSS(
 }
 
 // Intensity Factor for a single block
-function blockIF(block: WorkoutBlock, type: WorkoutType, ftp: number, threshPace: string, css: string): number {
-  if (type === 'ride') {
+// ride/swim: intensity stored as % (e.g. "70" = 70% FTP/CSS), so IF = pct/100
+// run: intensity stored as pace string, IF = threshPaceSec / avgPaceSec
+function blockIF(block: WorkoutBlock, type: WorkoutType, threshPace: string): number {
+  if (type === 'ride' || type === 'swim') {
     const pct = parseFloat(block.intensity)
     return pct > 0 ? pct / 100 : 0
   }
@@ -81,17 +83,13 @@ function blockIF(block: WorkoutBlock, type: WorkoutType, ftp: number, threshPace
     const avgSec = paceToSeconds(block.intensity)
     return threshSec > 0 && avgSec > 0 ? threshSec / avgSec : 0
   }
-  if (type === 'swim') {
-    const pct = parseFloat(block.intensity)
-    return pct > 0 ? pct / 100 : 0
-  }
   return 0
 }
 
-function computeStructuredTSS(blocks: WorkoutBlock[], type: WorkoutType, ftp: number, threshPace: string, css: string): number {
+function computeStructuredTSS(blocks: WorkoutBlock[], type: WorkoutType, threshPace: string): number {
   return blocks.reduce((sum, block) => {
     const durationHrs = (block.durationMinutes * block.reps) / 60
-    const IF = blockIF(block, type, ftp, threshPace, css)
+    const IF = blockIF(block, type, threshPace)
     return sum + Math.round(durationHrs * IF * IF * 100)
   }, 0)
 }
@@ -173,7 +171,7 @@ function BlockRow({ block, index, workoutType, ftp, threshPace, css, dragSrcIdx,
   } else if (workoutType === 'run' && threshPace) {
     const threshSec = paceToSeconds(threshPace)
     const pSec = paceToSeconds(block.intensity)
-    if (threshSec > 0 && pSec > 0) hint = `≈ ${Math.round(threshSec / pSec * 100)}% thresh`
+    if (threshSec > 0 && pSec > 0) hint = `≈ ${Math.round(threshSec / pSec * 100)}% of threshold`
   } else if (workoutType === 'swim' && css) {
     const cssSec = paceToSeconds(css)
     const pct = parseFloat(block.intensity)
@@ -382,7 +380,7 @@ function StructuredBuilder({ blocks, setBlocks, workoutType, ftp, threshPace, cs
   }
 
   const totalDuration = computeStructuredDuration(blocks)
-  const totalTSS = computeStructuredTSS(blocks, workoutType, ftp, threshPace, css)
+  const totalTSS = computeStructuredTSS(blocks, workoutType, threshPace)
 
   return (
     <div>
@@ -518,7 +516,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
   ), [form.type, form.duration_minutes, avgPace, avgPower, swimDistance, rpe, ftp, threshPace, css])
 
   const structuredTss = useMemo(() =>
-    computeStructuredTSS(blocks, form.type, ftp, threshPace, css),
+    computeStructuredTSS(blocks, form.type, threshPace),
     [blocks, form.type, ftp, threshPace, css]
   )
 
