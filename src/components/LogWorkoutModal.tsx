@@ -105,7 +105,7 @@ function computeStructuredDuration(blocks: WorkoutBlock[]): number {
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
   interval: COLORS.accent,
-  rest: COLORS.muted,
+  rest: '#7b8fa6',
   cooldown: COLORS.green,
 }
 
@@ -471,6 +471,8 @@ function StructuredBuilder({ blocks, setBlocks, workoutType, ftp, threshPace, cs
 
 // ─── Main modal ──────────────────────────────────────────────────────────────
 
+const SESSION_FOCUS = ['Recovery', 'Endurance', 'Tempo', 'Threshold', 'Intervals', 'Race', 'Long']
+
 const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
 
 export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutModalProps) {
@@ -772,66 +774,82 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
                 </div>
               )}
 
-              {/* TSS + Zone row (simple mode) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>
-                    TSS
-                    {tssOverride === null && (
-                      <span style={{ marginLeft: 6, color: COLORS.accent, fontWeight: 700, fontSize: 9, letterSpacing: '0.08em' }}>AUTO</span>
-                    )}
-                  </label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {editingTss ? (
-                      <input
-                        type="number"
-                        style={{ ...inputStyle, flex: 1 }}
-                        value={tssOverride ?? simpleTss}
-                        onChange={e => setTssOverride(parseInt(e.target.value) || 0)}
-                        min={0}
-                        autoFocus
-                      />
-                    ) : (
-                      <div style={{
-                        ...inputStyle, flex: 1,
-                        color: tssOverride !== null ? COLORS.text : COLORS.accent,
-                        fontFamily: "'DM Mono', monospace", fontWeight: 700,
-                      }}>
-                        {effectiveTss}
-                      </div>
-                    )}
-                    {editingTss ? (
-                      <button
-                        type="button"
-                        onClick={() => { setTssOverride(null); setEditingTss(false) }}
-                        style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 10px', color: COLORS.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        Auto
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => { setTssOverride(simpleTss); setEditingTss(true) }}
-                        style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 10px', color: COLORS.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                  {missingBenchmark && (
-                    <div style={{ marginTop: 5, fontSize: 10, color: COLORS.orange }}>
-                      Set your {missingBenchmark} for auto TSS
+              {/* TSS (simple mode) */}
+              <div>
+                <label style={labelStyle}>
+                  TSS
+                  {tssOverride === null && (
+                    <span style={{ marginLeft: 6, color: COLORS.accent, fontWeight: 700, fontSize: 9, letterSpacing: '0.08em' }}>AUTO</span>
+                  )}
+                </label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {editingTss ? (
+                    <input
+                      type="number"
+                      style={{ ...inputStyle, flex: 1 }}
+                      value={tssOverride ?? simpleTss}
+                      onChange={e => setTssOverride(parseInt(e.target.value) || 0)}
+                      min={0}
+                      autoFocus
+                    />
+                  ) : (
+                    <div style={{
+                      ...inputStyle, flex: 1,
+                      color: tssOverride !== null ? COLORS.text : COLORS.accent,
+                      fontFamily: "'DM Mono', monospace", fontWeight: 700,
+                    }}>
+                      {effectiveTss}
                     </div>
                   )}
+                  {editingTss ? (
+                    <button
+                      type="button"
+                      onClick={() => { setTssOverride(null); setEditingTss(false) }}
+                      style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 10px', color: COLORS.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Auto
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setTssOverride(simpleTss); setEditingTss(true) }}
+                      style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 10px', color: COLORS.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label style={labelStyle}>Zone</label>
-                  <input
-                    style={inputStyle}
-                    value={form.zone}
-                    onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}
-                    placeholder="e.g. Zone 2"
-                  />
+                {missingBenchmark && (
+                  <div style={{ marginTop: 5, fontSize: 10, color: COLORS.orange }}>
+                    Set your {missingBenchmark} for auto TSS
+                  </div>
+                )}
+              </div>
+
+              {/* Session Focus (simple mode) */}
+              <div>
+                <label style={labelStyle}>Session Focus <span style={{ color: COLORS.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— optional</span></label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {SESSION_FOCUS.map(f => {
+                    const active = form.zone === f
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setForm(fm => ({ ...fm, zone: active ? '' : f }))}
+                        style={{
+                          background: active ? COLORS.accent + '20' : COLORS.surface,
+                          border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
+                          color: active ? COLORS.accent : COLORS.muted,
+                          borderRadius: 6, padding: '5px 12px',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {f}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </>
@@ -848,14 +866,32 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
                 threshPace={threshPace}
                 css={css}
               />
+
+              {/* Session Focus (structured mode) */}
               <div>
-                <label style={labelStyle}>Zone</label>
-                <input
-                  style={inputStyle}
-                  value={form.zone}
-                  onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}
-                  placeholder="e.g. Zone 2"
-                />
+                <label style={labelStyle}>Session Focus <span style={{ color: COLORS.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— optional</span></label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {SESSION_FOCUS.map(f => {
+                    const active = form.zone === f
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setForm(fm => ({ ...fm, zone: active ? '' : f }))}
+                        style={{
+                          background: active ? COLORS.accent + '20' : COLORS.surface,
+                          border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
+                          color: active ? COLORS.accent : COLORS.muted,
+                          borderRadius: 6, padding: '5px 12px',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {f}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </>
           )}

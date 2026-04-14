@@ -8,7 +8,7 @@ import { useProfile } from '../contexts/ProfileContext'
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
   interval: COLORS.accent,
-  rest: COLORS.muted,
+  rest: '#7b8fa6',
   cooldown: COLORS.green,
 }
 
@@ -253,7 +253,6 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                 {[
                   { label: 'Duration', value: formatDuration(workout.duration_minutes) },
                   { label: 'TSS', value: workout.tss > 0 ? String(workout.tss) : '—' },
-                  { label: 'Zone', value: workout.zone || '—' },
                 ].map(stat => (
                   <div key={stat.label} style={{ background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
                     <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -264,6 +263,20 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                     </div>
                   </div>
                 ))}
+                <div style={{ background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
+                  <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Focus</div>
+                  {workout.zone ? (
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: COLORS.accent,
+                      background: COLORS.accent + '18', border: `1px solid ${COLORS.accent}30`,
+                      borderRadius: 5, padding: '3px 8px',
+                    }}>
+                      {workout.zone}
+                    </span>
+                  ) : (
+                    <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.muted, fontFamily: 'monospace' }}>—</div>
+                  )}
+                </div>
               </div>
 
               {/* Type */}
@@ -384,25 +397,40 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>TSS</label>
-                  <input
-                    type="number"
-                    style={inputStyle}
-                    value={form.tss}
-                    onChange={e => setForm(f => ({ ...f, tss: parseInt(e.target.value) || 0 }))}
-                    min={0}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Zone</label>
-                  <input
-                    style={inputStyle}
-                    value={form.zone}
-                    onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}
-                    placeholder="e.g. Zone 2"
-                  />
+              <div>
+                <label style={labelStyle}>TSS</label>
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={form.tss}
+                  onChange={e => setForm(f => ({ ...f, tss: parseInt(e.target.value) || 0 }))}
+                  min={0}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Session Focus <span style={{ color: COLORS.muted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— optional</span></label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['Recovery', 'Endurance', 'Tempo', 'Threshold', 'Intervals', 'Race', 'Long'].map(f => {
+                    const active = form.zone === f
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setForm(fm => ({ ...fm, zone: active ? '' : f }))}
+                        style={{
+                          background: active ? COLORS.accent + '20' : COLORS.surface,
+                          border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
+                          color: active ? COLORS.accent : COLORS.muted,
+                          borderRadius: 6, padding: '5px 12px',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {f}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
