@@ -23,6 +23,7 @@ create table workouts (
   zone text,
   notes text,
   planned boolean default false,
+  structure jsonb,
   created_at timestamp with time zone default now()
 );
 

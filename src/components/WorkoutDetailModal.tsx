@@ -2,7 +2,98 @@ import { useState } from 'react'
 import { COLORS } from '../lib/colors'
 import { workoutTypes } from './ui/Badge'
 import { Button } from './ui/Button'
-import type { Workout, WorkoutType } from '../types'
+import type { Workout, WorkoutType, WorkoutBlock, BlockType } from '../types'
+import { useProfile } from '../contexts/ProfileContext'
+
+const BLOCK_COLORS: Record<BlockType, string> = {
+  warmup: COLORS.orange,
+  interval: COLORS.accent,
+  rest: COLORS.muted,
+  cooldown: COLORS.green,
+}
+
+const BLOCK_LABELS: Record<BlockType, string> = {
+  warmup: 'Warmup',
+  interval: 'Interval',
+  rest: 'Rest',
+  cooldown: 'Cooldown',
+}
+
+function paceToSeconds(pace: string): number {
+  const parts = pace.split(':')
+  if (parts.length !== 2) return 0
+  return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0)
+}
+
+function secsToPaceStr(secs: number): string {
+  if (!secs || secs <= 0) return ''
+  return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`
+}
+
+interface BlockDisplayProps {
+  block: WorkoutBlock
+  workoutType: WorkoutType
+  ftp?: number
+  css?: string
+  threshPace?: string
+}
+
+function BlockDisplay({ block, workoutType, ftp, css, threshPace }: BlockDisplayProps) {
+  const color = BLOCK_COLORS[block.blockType]
+
+  let intensityStr = ''
+  let intensityHint = ''
+
+  if (workoutType === 'ride') {
+    const pct = parseFloat(block.intensity)
+    intensityStr = `${pct}% FTP`
+    if (ftp && pct > 0) intensityHint = `${Math.round(pct / 100 * ftp)}w`
+  } else if (workoutType === 'run') {
+    intensityStr = `${block.intensity}/km`
+    if (threshPace) {
+      const threshSec = paceToSeconds(threshPace)
+      const pSec = paceToSeconds(block.intensity)
+      if (threshSec > 0 && pSec > 0) intensityHint = `${Math.round(threshSec / pSec * 100)}% threshold`
+    }
+  } else if (workoutType === 'swim') {
+    const pct = parseFloat(block.intensity)
+    intensityStr = `${pct}% CSS`
+    if (css) {
+      const cssSec = paceToSeconds(css)
+      if (cssSec > 0 && pct > 0) intensityHint = `${secsToPaceStr(cssSec / (pct / 100))}/100m`
+    }
+  }
+
+  const repsLabel = block.reps > 1 ? `${block.reps}×` : ''
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '8px 12px',
+      borderLeft: `3px solid ${color}`,
+      background: color + '08',
+      borderRadius: '0 6px 6px 0',
+      marginBottom: 4,
+    }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {repsLabel && <span style={{ marginRight: 4 }}>{repsLabel}</span>}
+            {BLOCK_LABELS[block.blockType]}
+          </span>
+          <span style={{ fontSize: 12, color: COLORS.muted }}>
+            {block.durationMinutes} min
+            {intensityStr && <> @ <span style={{ color: COLORS.text }}>{intensityStr}</span></>}
+            {intensityHint && <span style={{ color: COLORS.muted }}> ({intensityHint})</span>}
+          </span>
+        </div>
+        {block.notes && (
+          <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2, fontStyle: 'italic' }}>{block.notes}</div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 interface WorkoutDetailModalProps {
   workout: Workout
@@ -28,6 +119,7 @@ function formatDuration(minutes: number): string {
 }
 
 export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: WorkoutDetailModalProps) {
+  const { profile } = useProfile()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -185,6 +277,23 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                   {wt.icon} {wt.label}
                 </span>
               </div>
+
+              {/* Structured blocks */}
+              {workout.structure && workout.structure.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Workout Structure</div>
+                  {workout.structure.map(block => (
+                    <BlockDisplay
+                      key={block.id}
+                      block={block}
+                      workoutType={workout.type}
+                      ftp={profile?.ftp}
+                      css={profile?.css}
+                      threshPace={profile?.run_pace}
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* Notes */}
               {workout.notes && (

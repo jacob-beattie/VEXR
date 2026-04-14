@@ -1,5 +1,16 @@
 export type WorkoutType = 'run' | 'ride' | 'swim' | 'strength' | 'rest'
 
+export type BlockType = 'warmup' | 'interval' | 'rest' | 'cooldown'
+
+export interface WorkoutBlock {
+  id: string
+  blockType: BlockType
+  durationMinutes: number
+  reps: number       // 1 = single, 3 = "3×"
+  intensity: string  // "70" = 70% FTP/CSS for ride/swim, "5:00" = pace/km for run
+  notes?: string
+}
+
 export interface Workout {
   id: string
   user_id: string
@@ -11,6 +22,7 @@ export interface Workout {
   zone?: string
   notes?: string
   planned: boolean
+  structure?: WorkoutBlock[] | null
   created_at: string
 }
 
