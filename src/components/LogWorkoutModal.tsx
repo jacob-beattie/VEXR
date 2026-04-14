@@ -256,10 +256,11 @@ function BlockRow({ block, index, workoutType, ftp, threshPace, css, dragSrcIdx,
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <input
             type="number"
+            className="no-spinner"
             value={block.durationMinutes}
             onChange={e => onChange({ ...block, durationMinutes: parseInt(e.target.value) || 0 })}
             min={0}
-            style={{ ...inputSm, width: 44, textAlign: 'center' }}
+            style={{ ...inputSm, width: 56, textAlign: 'center' }}
           />
           <span style={{ fontSize: 11, color: COLORS.muted, flexShrink: 0 }}>min</span>
         </div>
@@ -269,10 +270,11 @@ function BlockRow({ block, index, workoutType, ftp, threshPace, css, dragSrcIdx,
           <span style={{ fontSize: 11, color: COLORS.muted }}>×</span>
           <input
             type="number"
+            className="no-spinner"
             value={block.reps}
             onChange={e => onChange({ ...block, reps: Math.max(1, parseInt(e.target.value) || 1) })}
             min={1}
-            style={{ ...inputSm, width: 36, textAlign: 'center' }}
+            style={{ ...inputSm, width: 48, textAlign: 'center' }}
           />
         </div>
 
@@ -309,19 +311,20 @@ function BlockRow({ block, index, workoutType, ftp, threshPace, css, dragSrcIdx,
       </div>
 
       {/* Row 2: intensity */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <input
           type={workoutType === 'run' ? 'text' : 'number'}
+          className="no-spinner"
           value={block.intensity}
           onChange={e => onChange({ ...block, intensity: e.target.value })}
           placeholder={DEFAULT_INTENSITY[workoutType]?.[block.blockType] ?? '70'}
           min={workoutType !== 'run' ? 0 : undefined}
           max={workoutType !== 'run' ? 200 : undefined}
-          style={{ ...inputSm, width: 60, textAlign: 'center' }}
+          style={{ ...inputSm, width: 76, textAlign: 'center' }}
         />
         <span style={{ fontSize: 11, color: COLORS.muted, flexShrink: 0 }}>{intensityLabel}</span>
         {hint && (
-          <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Mono', monospace" }}>{hint}</span>
+          <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>{hint}</span>
         )}
       </div>
 
