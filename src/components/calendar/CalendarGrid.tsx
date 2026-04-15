@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { COLORS } from '../../lib/colors'
 import { CalendarDay } from './CalendarDay'
 import { workoutTypes } from '../ui/Badge'
@@ -86,8 +85,8 @@ export function CalendarGrid({
           <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.text }}>{MONTHS[month]} {year}</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ display: 'flex', borderRadius: 7, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
-              <button style={toggleStyle(view === 'month')} onClick={() => onViewChange('month')}>Month</button>
-              <button style={{ ...toggleStyle(view === 'week'), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
+              <button style={toggleStyle(true)} onClick={() => onViewChange('month')}>Month</button>
+              <button style={{ ...toggleStyle(false), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
             </div>
             <button onClick={onPrevMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>← Prev</button>
             <button onClick={onNextMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Next →</button>
@@ -144,8 +143,8 @@ export function CalendarGrid({
         <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.text }}>{headerLabel}</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', borderRadius: 7, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
-            <button style={toggleStyle(view === 'month')} onClick={() => onViewChange('month')}>Month</button>
-            <button style={{ ...toggleStyle(view === 'week'), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
+            <button style={toggleStyle(false)} onClick={() => onViewChange('month')}>Month</button>
+            <button style={{ ...toggleStyle(true), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
           </div>
           <button onClick={onPrevWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>← Prev</button>
           <button onClick={onNextWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Next →</button>
