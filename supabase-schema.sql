@@ -24,8 +24,31 @@ create table workouts (
   notes text,
   planned boolean default false,
   structure jsonb,
+  strava_activity_id bigint unique,
+  heart_rate_avg integer,
+  heart_rate_max integer,
   created_at timestamp with time zone default now()
 );
+
+-- Strava OAuth connections (one row per user)
+-- Run this if the table doesn't already exist:
+-- create table strava_connections (
+--   id uuid default gen_random_uuid() primary key,
+--   user_id uuid references profiles(id) on delete cascade unique,
+--   access_token text not null,
+--   refresh_token text not null,
+--   expires_at bigint not null,
+--   athlete_id bigint not null,
+--   athlete_name text,
+--   updated_at timestamp with time zone default now()
+-- );
+
+-- Add athlete_name if the table exists but the column doesn't:
+-- alter table strava_connections add column if not exists athlete_name text;
+
+-- RLS for strava_connections:
+-- alter table strava_connections enable row level security;
+-- create policy "Users can manage own strava connection" on strava_connections for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Training Plans
 create table training_plans (

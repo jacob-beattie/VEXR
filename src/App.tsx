@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from './lib/colors'
-import { supabase } from './lib/supabase'
 import { useAuth } from './hooks/useAuth'
 import { WorkoutsProvider, useWorkouts } from './contexts/WorkoutsContext'
+import { ProfileProvider, useProfile } from './contexts/ProfileContext'
+import { StravaProvider, useStrava } from './contexts/StravaContext'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
@@ -15,7 +16,7 @@ import { Plans } from './pages/Plans'
 import { Library } from './pages/Library'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
-import type { Profile } from './types'
+import { StravaCallback } from './pages/StravaCallback'
 import type { User } from '@supabase/supabase-js'
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
@@ -26,16 +27,36 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
 }
 
-// Inner shell — rendered inside WorkoutsProvider, safe to call useWorkouts()
-function AppShell({
-  signOut, profile, setProfile, user,
-}: {
-  signOut: () => Promise<void>
-  profile: Profile | null
-  setProfile: (p: Profile) => void
-  user: User
-}) {
+// Toast notification driven by StravaContext
+function SyncToast() {
+  const { toastMessage, clearToast } = useStrava()
+  if (!toastMessage) return null
+  return (
+    <div
+      onClick={clearToast}
+      style={{
+        position: 'fixed', bottom: 24, right: 24, zIndex: 100,
+        background: COLORS.card,
+        border: `1px solid #FC4C02`,
+        borderRadius: 10,
+        padding: '12px 18px',
+        display: 'flex', alignItems: 'center', gap: 10,
+        cursor: 'pointer',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        maxWidth: 320,
+      }}
+    >
+      <span style={{ fontSize: 16 }}>🟠</span>
+      <span style={{ fontSize: 13, color: COLORS.text, fontWeight: 600 }}>{toastMessage}</span>
+      <span style={{ fontSize: 16, color: COLORS.muted, marginLeft: 4 }}>×</span>
+    </div>
+  )
+}
+
+// Inner shell — rendered inside all providers
+function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User }) {
   const { addWorkout } = useWorkouts()
+  const { profile, setProfile } = useProfile()
   const [showModal, setShowModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const navigate = useNavigate()
@@ -45,7 +66,10 @@ function AppShell({
 
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: "'Inter', 'Helvetica Neue', sans-serif", display: 'flex' }}>
-      <Sidebar profile={profile} onProfileClick={() => setShowProfileModal(true)} />
+      <Sidebar
+        onProfileClick={() => setShowProfileModal(true)}
+        onSignOut={async () => { await signOut(); navigate('/login') }}
+      />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
         <TopBar
@@ -53,15 +77,6 @@ function AppShell({
           subtitle={pageInfo.subtitle}
           onLogWorkout={() => setShowModal(true)}
         />
-
-        <div style={{ position: 'fixed', bottom: 20, right: 24 }}>
-          <button
-            onClick={async () => { await signOut(); navigate('/login') }}
-            style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            Sign out
-          </button>
-        </div>
 
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -91,24 +106,15 @@ function AppShell({
           }}
         />
       )}
+
+      <SyncToast />
     </div>
   )
 }
 
-// Outer guard — handles auth, then mounts the provider + shell
+// Outer guard — handles auth, then mounts providers + shell
 function ProtectedLayout() {
   const { user, loading: authLoading, signOut } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
-
-  useEffect(() => {
-    if (!user) return
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => { if (data) setProfile(data as Profile) })
-  }, [user])
 
   if (authLoading) {
     return (
@@ -121,8 +127,31 @@ function ProtectedLayout() {
   if (!user) return <Navigate to="/login" replace />
 
   return (
+    <ProfileProvider>
+      <WorkoutsProvider>
+        <StravaProvider>
+          <AppShell signOut={signOut} user={user} />
+        </StravaProvider>
+      </WorkoutsProvider>
+    </ProfileProvider>
+  )
+}
+
+// The /strava/callback route also needs StravaProvider (to call refetchConnection)
+// It lives inside ProtectedLayout so auth is already guaranteed
+function StravaCallbackWrapper() {
+  const { user, loading: authLoading } = useAuth()
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 14 }}>
+      Loading…
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  return (
     <WorkoutsProvider>
-      <AppShell signOut={signOut} profile={profile} setProfile={setProfile} user={user} />
+      <StravaProvider>
+        <StravaCallback />
+      </StravaProvider>
     </WorkoutsProvider>
   )
 }
@@ -133,6 +162,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
         <Route path="/*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>

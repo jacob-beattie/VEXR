@@ -53,7 +53,7 @@ function BlockDisplay({ block, workoutType, ftp, css, threshPace }: BlockDisplay
     if (threshPace) {
       const threshSec = paceToSeconds(threshPace)
       const pSec = paceToSeconds(block.intensity)
-      if (threshSec > 0 && pSec > 0) intensityHint = `${Math.round(threshSec / pSec * 100)}% threshold`
+      if (threshSec > 0 && pSec > 0) intensityHint = `${Math.round(threshSec / pSec * 100)}% of threshold`
     }
   } else if (workoutType === 'swim') {
     const pct = parseFloat(block.intensity)
@@ -90,6 +90,32 @@ function BlockDisplay({ block, workoutType, ftp, css, threshPace }: BlockDisplay
         {block.notes && (
           <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2, fontStyle: 'italic' }}>{block.notes}</div>
         )}
+      </div>
+    </div>
+  )
+}
+
+interface StatCardProps {
+  label: string
+  value: string
+  color?: string
+  unit?: string
+}
+
+function StatCard({ label, value, color, unit }: StatCardProps) {
+  return (
+    <div style={{
+      background: COLORS.surface, borderRadius: 8,
+      padding: '12px 14px', border: `1px solid ${COLORS.border}`,
+    }}>
+      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: color ?? COLORS.text, fontFamily: 'DM Mono, monospace' }}>
+          {value}
+        </div>
+        {unit && <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600 }}>{unit}</div>}
       </div>
     </div>
   )
@@ -184,6 +210,37 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
     marginBottom: 6,
   }
 
+  // Build stat cards — only include ones with real data
+  const statCards: StatCardProps[] = []
+
+  if (workout.duration_minutes) {
+    statCards.push({ label: 'Duration', value: formatDuration(workout.duration_minutes) })
+  }
+  if (workout.tss > 0) {
+    statCards.push({ label: 'TSS', value: String(workout.tss), color: COLORS.accent })
+  }
+  if (workout.distance_meters && workout.distance_meters > 0) {
+    statCards.push({ label: 'Distance', value: (workout.distance_meters / 1000).toFixed(1), unit: 'km' })
+  }
+  if (workout.avg_pace) {
+    statCards.push({ label: 'Avg Pace', value: workout.avg_pace, unit: '/km', color: COLORS.green })
+  }
+  if (workout.avg_power && workout.avg_power > 0) {
+    statCards.push({ label: 'Avg Power', value: String(workout.avg_power), unit: 'w', color: COLORS.accent })
+  }
+  if (workout.heart_rate_avg && workout.heart_rate_avg > 0) {
+    statCards.push({ label: 'Avg HR', value: String(workout.heart_rate_avg), unit: 'bpm', color: '#f87171' })
+  }
+  if (workout.heart_rate_max && workout.heart_rate_max > 0) {
+    statCards.push({ label: 'Max HR', value: String(workout.heart_rate_max), unit: 'bpm', color: COLORS.orange })
+  }
+  if (workout.calories && workout.calories > 0) {
+    statCards.push({ label: 'Calories', value: String(workout.calories), unit: 'kcal' })
+  }
+  if (workout.elevation_gain && workout.elevation_gain > 0) {
+    statCards.push({ label: 'Elevation', value: String(workout.elevation_gain), unit: 'm', color: COLORS.purple })
+  }
+
   return (
     <div
       onClick={onClose}
@@ -201,37 +258,43 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
           border: `1px solid ${COLORS.border}`,
           borderRadius: 16,
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 520,
           maxHeight: '90vh',
           overflowY: 'auto',
           position: 'relative',
-          overflow: 'hidden',
         }}
       >
         {/* Colour bar */}
-        <div style={{ height: 3, background: wt.color, opacity: 0.8 }} />
+        <div style={{ height: 3, background: wt.color, opacity: 0.8, borderRadius: '16px 16px 0 0' }} />
 
-        <div style={{ padding: 28, overflowY: 'auto', maxHeight: 'calc(90vh - 3px)' }}>
+        <div style={{ padding: 28 }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
-                width: 40, height: 40, borderRadius: 10,
+                width: 44, height: 44, borderRadius: 10,
                 background: wt.color + '20',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, flexShrink: 0,
+                fontSize: 22, flexShrink: 0,
               }}>
                 {wt.icon}
               </div>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.text }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.text, lineHeight: 1.2 }}>
                   {mode === 'edit' ? 'Edit Workout' : workout.title}
                 </div>
                 {mode === 'view' && (
-                  <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>
-                    {formatDate(workout.date)}
+                  <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>{formatDate(workout.date)}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, color: wt.color,
+                      background: wt.color + '18', border: `1px solid ${wt.color}30`,
+                      borderRadius: 4, padding: '2px 7px',
+                    }}>
+                      {wt.label}
+                    </span>
                     {workout.planned && (
-                      <span style={{ marginLeft: 8, color: COLORS.accent, fontWeight: 600, fontSize: 11 }}>● PLANNED</span>
+                      <span style={{ color: COLORS.accent, fontWeight: 600, fontSize: 11 }}>● PLANNED</span>
                     )}
                   </div>
                 )}
@@ -248,48 +311,26 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
           {/* ── VIEW MODE ── */}
           {mode === 'view' && (
             <>
-              {/* Stat row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-                {[
-                  { label: 'Duration', value: formatDuration(workout.duration_minutes) },
-                  { label: 'TSS', value: workout.tss > 0 ? String(workout.tss) : '—' },
-                ].map(stat => (
-                  <div key={stat.label} style={{ background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
-                    <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-                      {stat.label}
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>
-                      {stat.value}
-                    </div>
-                  </div>
-                ))}
-                <div style={{ background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
-                  <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Focus</div>
-                  {workout.zone ? (
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, color: COLORS.accent,
-                      background: COLORS.accent + '18', border: `1px solid ${COLORS.accent}30`,
-                      borderRadius: 5, padding: '3px 8px',
-                    }}>
-                      {workout.zone}
-                    </span>
-                  ) : (
-                    <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.muted, fontFamily: 'monospace' }}>—</div>
-                  )}
+              {/* Stats grid — only populated cards */}
+              {statCards.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+                  {statCards.map(s => <StatCard key={s.label} {...s} />)}
                 </div>
-              </div>
+              )}
 
-              {/* Type */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Type</div>
-                <span style={{
-                  fontSize: 12, fontWeight: 700, color: wt.color,
-                  background: wt.color + '18', border: `1px solid ${wt.color}30`,
-                  borderRadius: 6, padding: '4px 10px',
-                }}>
-                  {wt.icon} {wt.label}
-                </span>
-              </div>
+              {/* Session Focus badge */}
+              {workout.zone && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Session Focus</div>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, color: COLORS.accent,
+                    background: COLORS.accent + '18', border: `1px solid ${COLORS.accent}30`,
+                    borderRadius: 6, padding: '5px 12px',
+                  }}>
+                    {workout.zone}
+                  </span>
+                </div>
+              )}
 
               {/* Structured blocks */}
               {workout.structure && workout.structure.length > 0 && (
@@ -311,15 +352,41 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
               {/* Notes */}
               {workout.notes && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Notes</div>
+                  <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Notes</div>
                   <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.6, background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
                     {workout.notes}
                   </div>
                 </div>
               )}
 
+              {/* Strava link */}
+              {workout.strava_activity_id && (
+                <div style={{ marginBottom: 20 }}>
+                  <a
+                    href={`https://www.strava.com/activities/${workout.strava_activity_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontSize: 12, fontWeight: 600, color: '#FC4C02',
+                      background: '#FC4C0210', border: '1px solid #FC4C0230',
+                      borderRadius: 6, padding: '6px 12px',
+                      textDecoration: 'none',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#FC4C0220')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#FC4C0210')}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#FC4C02">
+                      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                    </svg>
+                    View on Strava
+                  </a>
+                </div>
+              )}
+
               {/* Actions */}
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
                 <Button onClick={() => setMode('edit')} style={{ flex: 1 }}>Edit</Button>
                 <Button
                   variant="secondary"

@@ -23,7 +23,20 @@ export interface Workout {
   notes?: string
   planned: boolean
   structure?: WorkoutBlock[] | null
+  strava_activity_id?: number | null
+  heart_rate_avg?: number | null
+  heart_rate_max?: number | null
+  distance_meters?: number | null
+  calories?: number | null
+  elevation_gain?: number | null
+  avg_power?: number | null
+  avg_pace?: string | null
   created_at: string
+}
+
+export interface StravaConnection {
+  athlete_id: number
+  athlete_name: string | null
 }
 
 export interface Profile {

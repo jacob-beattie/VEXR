@@ -9,12 +9,19 @@ CORE (SHIPPED)
 ✅ Workout detail modal: view all fields, inline edit, delete
 ✅ Dashboard: CTL/ATL/TSB stat cards, weekly TSS vs plan bar chart, fitness/fatigue/form line chart
 ✅ Upcoming workouts: planned workouts with date >= today shown on dashboard
-✅ Analytics page: sport breakdown, fitness/fatigue area chart, TSS distribution
+✅ Analytics page: fitness/fatigue/form chart, weekly TSS, sport breakdown, volume trends, zone distribution, date range toggle
 ✅ Training Plans: create, start, complete, delete plans
 ✅ Workout Library: save templates, filter by type, delete
 ✅ Real-time sync: Supabase realtime channel keeps all views in sync
 ✅ Dark mode only
 ✅ Vercel deployment config
+✅ Dashboard redesign: today's workout + mark complete, CTL/ATL/TSB cards, race countdown, weekly load progress, upcoming 4 days
+✅ Profile Settings: name/sport/FTP/pace/CSS, benchmark history charts, training zones (cycling auto-calc, running/swimming manual)
+✅ TSS auto-calculation in Log Workout modal: type-specific inputs (run=avg pace, ride=avg power, swim=distance, strength/rest=RPE slider), read-only auto TSS with Edit/Auto override toggle
+✅ Structured workout builder: Simple/Structured mode toggle (run/ride/swim), drag-to-reorder interval blocks (Warmup/Interval/Rest/Cooldown), per-block duration/reps/intensity/notes, auto TSS + duration from blocks, structured data saved as JSONB in workouts.structure column
+✅ Session Focus picker: replaces zone text input with pill selector (Recovery/Endurance/Tempo/Threshold/Intervals/Race/Long), shown as badge in workout detail view
+✅ Strava OAuth sync: connect/disconnect in Profile Settings, auto-import on login, manual sync, toast notifications; imports title, type, date, duration, TSS, HR, distance, elevation, power, pace, calories; deduplicates by strava_activity_id
+✅ Workout detail modal expanded: rich stat grid (only populated cards), Session Focus badge, structured blocks, notes, "View on Strava" link
 
 AI-POWERED
 -----------
@@ -35,7 +42,6 @@ WEARABLE / DEVICE SYNC
 -----------------------
 - Garmin sync: auto-import workouts so nothing is manual
 - Apple Watch sync: auto-import workouts
-- Strava sync: pull in activities automatically
 - Whoop / Oura HRV integration: factor recovery scores into training recommendations
 
 PLANNING

@@ -12,11 +12,13 @@ interface FitnessMetrics {
 interface WorkoutsContextValue {
   workouts: Workout[]
   loading: boolean
+  refetchWorkouts: () => Promise<void>
   addWorkout: (workout: Omit<Workout, 'id' | 'user_id' | 'created_at'>) => Promise<void>
   updateWorkout: (id: string, updates: Partial<Workout>) => Promise<void>
   deleteWorkout: (id: string) => Promise<void>
   getWorkoutsForMonth: (year: number, month: number) => Workout[]
   getWorkoutsForWeek: () => Workout[]
+  getTodaysWorkouts: () => Workout[]
   calculateFitnessMetrics: () => FitnessMetrics
   getWeeklyTSS: () => number
   getWeeklyLoadHistory: (weeks?: number) => Array<{ week: string; tss: number; planned: number }>
@@ -99,11 +101,24 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
 
   // ─── Derived data helpers ────────────────────────────────────────────────
 
+  // toISOString() converts to UTC which breaks date matching for timezones
+  // ahead of UTC (e.g. AEST). Always build keys from local date parts instead.
+  const localDateKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  const formatDateLabel = (d: Date) =>
+    d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
   const getWorkoutsForMonth = (year: number, month: number): Workout[] =>
     workouts.filter(w => {
       const d = new Date(w.date + 'T00:00:00')
       return d.getFullYear() === year && d.getMonth() === month
     })
+
+  const getTodaysWorkouts = (): Workout[] => {
+    const todayKey = localDateKey(new Date())
+    return workouts.filter(w => w.date.split('T')[0] === todayKey)
+  }
 
   const getWorkoutsForWeek = (): Workout[] => {
     const now = new Date()
@@ -134,7 +149,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     for (let i = 89; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(today.getDate() - i)
-      const key = d.toISOString().split('T')[0]
+      const key = localDateKey(d)
       const tss = tssByDay[key] || 0
       ctl = ctl + ctlK * (tss - ctl)
       atl = atl + atlK * (tss - atl)
@@ -187,7 +202,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
         return d >= weekStart && d <= weekEnd
       })
       return {
-        week: `W${i + 1}`,
+        week: formatDateLabel(weekStart),
         tss: ww.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0),
         planned: ww.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0),
       }
@@ -211,14 +226,14 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     for (let i = 0; i <= totalDays; i++) {
       const d = new Date(startDate)
       d.setDate(startDate.getDate() + i)
-      const key = d.toISOString().split('T')[0]
+      const key = localDateKey(d)
       const tss = tssByDay[key] || 0
       ctl = ctl + ctlK * (tss - ctl)
       atl = atl + atlK * (tss - atl)
       const daysFromEnd = Math.floor((today.getTime() - d.getTime()) / 86400000)
       const weeksFromEnd = Math.floor(daysFromEnd / 7)
       if (d.getDay() === 0 && weeksFromEnd < weeks) {
-        snapshots.push({ ctl: Math.round(ctl), atl: Math.round(atl), label: `W${weeks - weeksFromEnd}`, order: weeks - weeksFromEnd })
+        snapshots.push({ ctl: Math.round(ctl), atl: Math.round(atl), label: formatDateLabel(d), order: weeks - weeksFromEnd })
       }
     }
     return snapshots
@@ -243,8 +258,9 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   return (
     <WorkoutsContext.Provider value={{
       workouts, loading,
+      refetchWorkouts: fetchWorkouts,
       addWorkout, updateWorkout, deleteWorkout,
-      getWorkoutsForMonth, getWorkoutsForWeek,
+      getWorkoutsForMonth, getWorkoutsForWeek, getTodaysWorkouts,
       calculateFitnessMetrics, getWeeklyTSS,
       getWeeklyLoadHistory, getDailyWeekLoad,
       getFitnessHistory, getUpcomingWorkouts,

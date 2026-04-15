@@ -4,7 +4,10 @@ import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
 import type { Profile, FitnessBenchmark } from '../types'
 import { Button } from './ui/Button'
+import { useStrava } from '../contexts/StravaContext'
 import type { User } from '@supabase/supabase-js'
+
+const STRAVA_ORANGE = '#FC4C02'
 
 // ─── Zone constants ───────────────────────────────────────────────────────────
 
@@ -248,6 +251,8 @@ interface ProfileSettingsModalProps {
 }
 
 export function ProfileSettingsModal({ profile, user, onClose, onSave }: ProfileSettingsModalProps) {
+  const { connection, syncing, triggerSync, disconnect } = useStrava()
+
   const [form, setForm] = useState({
     name: profile.name || '',
     sport: profile.sport || '',
@@ -735,6 +740,99 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 color={COLORS.purple}
                 unit="min/100m"
               />
+            </div>
+          )}
+        </div>
+
+        {/* ── Section 4: Strava Integration ── */}
+        <div style={sectionStyle}>
+          <div style={sectionLabelStyle}>Strava Integration</div>
+
+          {connection ? (
+            /* Connected state */
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: COLORS.green, flexShrink: 0,
+                }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>
+                    Strava Connected
+                  </div>
+                  {connection.athlete_name && (
+                    <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 1 }}>
+                      {connection.athlete_name}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={triggerSync}
+                  disabled={syncing}
+                  style={{
+                    background: STRAVA_ORANGE + '18',
+                    border: `1px solid ${STRAVA_ORANGE}60`,
+                    borderRadius: 8,
+                    color: syncing ? COLORS.muted : STRAVA_ORANGE,
+                    fontSize: 12, fontWeight: 700,
+                    padding: '8px 16px', cursor: syncing ? 'default' : 'pointer',
+                    fontFamily: 'inherit', transition: 'all 0.12s',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <span className={syncing ? 'spinning' : ''} style={{ display: 'inline-block', fontSize: 13 }}>⟳</span>
+                  {syncing ? 'Syncing…' : 'Sync Now'}
+                </button>
+                <button
+                  onClick={disconnect}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${COLORS.border}`,
+                    borderRadius: 8,
+                    color: COLORS.muted,
+                    fontSize: 12, fontWeight: 600,
+                    padding: '8px 16px', cursor: 'pointer',
+                    fontFamily: 'inherit', transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = COLORS.orange; e.currentTarget.style.borderColor = COLORS.orange + '60' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = COLORS.muted; e.currentTarget.style.borderColor = COLORS.border }}
+                >
+                  Disconnect
+                </button>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: COLORS.muted }}>
+                Syncs the last 30 days of activities automatically on login.
+              </div>
+            </div>
+          ) : (
+            /* Not connected state */
+            <div>
+              <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 16, lineHeight: 1.5 }}>
+                Connect Strava to automatically import your workouts. Activities sync in the background every time you log in.
+              </div>
+              <a
+                href={`https://www.strava.com/oauth/authorize?client_id=${import.meta.env.VITE_STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(import.meta.env.VITE_STRAVA_REDIRECT_URI)}&response_type=code&scope=activity:read_all`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: STRAVA_ORANGE,
+                  border: 'none',
+                  borderRadius: 8,
+                  color: '#fff',
+                  fontSize: 13, fontWeight: 700,
+                  padding: '10px 20px',
+                  textDecoration: 'none',
+                  transition: 'opacity 0.12s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                </svg>
+                Connect Strava
+              </a>
             </div>
           )}
         </div>

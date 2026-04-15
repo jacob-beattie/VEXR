@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from '../../lib/colors'
-import type { Profile } from '../../types'
+import { useProfile } from '../../contexts/ProfileContext'
+import { useStrava } from '../../contexts/StravaContext'
 
 interface SidebarProps {
-  profile: Profile | null
   onProfileClick: () => void
+  onSignOut: () => void
 }
 
 const navItems = [
@@ -15,18 +16,15 @@ const navItems = [
   { path: '/library', icon: '⊙', label: 'Workout Library' },
 ]
 
-export function Sidebar({ profile, onProfileClick }: SidebarProps) {
+export function Sidebar({ onProfileClick, onSignOut }: SidebarProps) {
+  const { profile } = useProfile()
+  const { syncing, connection } = useStrava()
   const navigate = useNavigate()
   const location = useLocation()
 
   const initials = profile?.name
     ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
-
-  const raceDate = profile?.race_date ? new Date(profile.race_date) : null
-  const daysUntilRace = raceDate
-    ? Math.ceil((raceDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null
 
   return (
     <div style={{
@@ -117,21 +115,39 @@ export function Sidebar({ profile, onProfileClick }: SidebarProps) {
         )
       })}
 
-      {/* Race goal */}
-      {profile?.race_goal && (
-        <div style={{ marginTop: 'auto', padding: '0 20px' }}>
-          <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.08em', marginBottom: 8, textTransform: 'uppercase' }}>Race Goal</div>
-          <div style={{ background: COLORS.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${COLORS.border}` }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.text }}>{profile.race_goal}</div>
-            {raceDate && (
-              <div style={{ fontSize: 10, color: COLORS.muted, marginTop: 2 }}>
-                {raceDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                {daysUntilRace !== null && daysUntilRace > 0 && ` · ${daysUntilRace} days`}
-              </div>
-            )}
+      {/* Sign out + Strava indicator */}
+      <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Strava sync status */}
+        {(syncing || connection) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0 2px',
+            fontSize: 11, color: syncing ? '#FC4C02' : COLORS.muted,
+            fontWeight: syncing ? 600 : 400,
+          }}>
+            <span className={syncing ? 'spinning' : ''} style={{ fontSize: 11, display: 'inline-block', lineHeight: 1 }}>
+              {syncing ? '⟳' : '●'}
+            </span>
+            {syncing ? 'Syncing from Strava…' : 'Strava connected'}
           </div>
-        </div>
-      )}
+        )}
+
+        <button
+          onClick={onSignOut}
+          style={{
+            width: '100%', padding: '9px 14px',
+            background: 'none', border: `1px solid ${COLORS.border}`,
+            borderRadius: 8, color: COLORS.muted,
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            textAlign: 'left', fontFamily: 'inherit',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = COLORS.text; e.currentTarget.style.borderColor = COLORS.muted }}
+          onMouseLeave={e => { e.currentTarget.style.color = COLORS.muted; e.currentTarget.style.borderColor = COLORS.border }}
+        >
+          Sign out
+        </button>
+      </div>
     </div>
   )
 }
