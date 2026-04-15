@@ -144,11 +144,19 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       const d = w.date.split('T')[0]
       tssByDay[d] = (tssByDay[d] || 0) + (w.tss || 0)
     })
+    // Correct exponential decay constants (TrainingPeaks PMC model)
+    const ctlK = 1 - Math.exp(-1 / 42)
+    const atlK = 1 - Math.exp(-1 / 7)
+    // Warm up from the earliest workout so CTL is not underestimated
+    const allDates = Object.keys(tssByDay).sort()
+    const warmupStart = allDates.length > 0
+      ? new Date(allDates[0] + 'T00:00:00')
+      : new Date(today.getTime() - 90 * 86400000)
     let ctl = 0, atl = 0
-    const ctlK = 1 / 42, atlK = 1 / 7
-    for (let i = 89; i >= 0; i--) {
-      const d = new Date(today)
-      d.setDate(today.getDate() - i)
+    const totalDays = Math.floor((today.getTime() - warmupStart.getTime()) / 86400000)
+    for (let i = 0; i <= totalDays; i++) {
+      const d = new Date(warmupStart)
+      d.setDate(warmupStart.getDate() + i)
       const key = localDateKey(d)
       const tss = tssByDay[key] || 0
       ctl = ctl + ctlK * (tss - ctl)
@@ -217,10 +225,15 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       const d = w.date.split('T')[0]
       tssByDay[d] = (tssByDay[d] || 0) + (w.tss || 0)
     })
-    const ctlK = 1 / 42, atlK = 1 / 7
+    // Correct exponential decay constants
+    const ctlK = 1 - Math.exp(-1 / 42)
+    const atlK = 1 - Math.exp(-1 / 7)
     let ctl = 0, atl = 0
-    const startDate = new Date(today)
-    startDate.setDate(today.getDate() - weeks * 7 - 42)
+    // Warm up from earliest workout so CTL is accurate
+    const allDates = Object.keys(tssByDay).sort()
+    const startDate = allDates.length > 0
+      ? new Date(allDates[0] + 'T00:00:00')
+      : new Date(today.getTime() - (weeks * 7 + 42) * 86400000)
     const totalDays = Math.floor((today.getTime() - startDate.getTime()) / 86400000)
     const snapshots: Array<{ ctl: number; atl: number; label: string; order: number }> = []
     for (let i = 0; i <= totalDays; i++) {

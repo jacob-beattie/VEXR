@@ -20,21 +20,37 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export function FitnessChart({ data }: FitnessChartProps) {
+  const hasData = data.some(d => d.fitness > 0 || d.fatigue > 0)
+
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
         Fitness · Fatigue · Form
       </div>
-      <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={data}>
-          <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} />
-          <Line type="monotone" dataKey="fitness" stroke={COLORS.accent} strokeWidth={2} dot={false} name="Fitness" />
-          <Line type="monotone" dataKey="fatigue" stroke={COLORS.orange} strokeWidth={2} dot={false} name="Fatigue" />
-          <Line type="monotone" dataKey="form" stroke={COLORS.green} strokeWidth={2} dot={false} name="Form" strokeDasharray="4 2" />
-        </LineChart>
-      </ResponsiveContainer>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={data}>
+            <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} interval={data.length > 12 ? Math.floor(data.length / 6) : 0} />
+            <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Line type="monotone" dataKey="fitness" stroke={COLORS.accent} strokeWidth={2} dot={false} name="Fitness" />
+            <Line type="monotone" dataKey="fatigue" stroke={COLORS.orange} strokeWidth={2} dot={false} name="Fatigue" />
+            <Line type="monotone" dataKey="form" stroke={COLORS.green} strokeWidth={2} dot={false} name="Form" strokeDasharray="4 2" />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div style={{
+          height: 180,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 8,
+        }}>
+          <div style={{ fontSize: 13, color: COLORS.muted }}>No workout data yet</div>
+          <div style={{ fontSize: 11, color: COLORS.muted, opacity: 0.6 }}>
+            Log workouts with TSS to see your fitness trend
+          </div>
+        </div>
+      )}
     </div>
   )
 }

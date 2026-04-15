@@ -81,7 +81,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/library" element={<Library />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

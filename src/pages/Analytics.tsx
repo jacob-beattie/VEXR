@@ -1,13 +1,20 @@
+import { useState } from 'react'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { AnalyticsPage } from '../components/analytics/AnalyticsPage'
+import { COLORS } from '../lib/colors'
 
-export function Analytics() {
+interface AnalyticsProps {
+  onOpenProfile?: () => void
+}
+
+export function Analytics({ onOpenProfile }: AnalyticsProps) {
+  const [weeks, setWeeks] = useState(8)
   const { workouts, getFitnessHistory, getWeeklyLoadHistory, loading } = useWorkouts()
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#5a6478' }}>
-        Loading...
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: COLORS.muted }}>
+        Loading…
       </div>
     )
   }
@@ -15,8 +22,11 @@ export function Analytics() {
   return (
     <AnalyticsPage
       workouts={workouts}
-      fitnessHistory={getFitnessHistory(8)}
-      weeklyHistory={getWeeklyLoadHistory(8)}
+      fitnessHistory={getFitnessHistory(weeks)}
+      weeklyHistory={getWeeklyLoadHistory(weeks)}
+      weeks={weeks}
+      onWeeksChange={setWeeks}
+      onOpenProfile={onOpenProfile}
     />
   )
 }
