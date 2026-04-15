@@ -33,7 +33,7 @@ src/
     layout/      — Sidebar, TopBar
     ui/          — Button, Badge
     dashboard/   — StatCard, WeeklyLoadChart, FitnessChart, UpcomingWorkouts
-    calendar/    — CalendarGrid, CalendarDay
+    calendar/    — CalendarGrid, CalendarDay, WeeklySummary
     analytics/   — AnalyticsPage
     plans/       — PlansPage
     library/     — LibraryPage
@@ -81,7 +81,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 
 - Auth: email/password, Supabase RLS
 - Workout logging modal with all fields
-- Calendar: monthly view, multi-workout cells, day modal
+- Calendar: month and week view toggle; month view shows all workouts in day cells; week view shows full-width 7-column layout with larger workout cards (title, duration, TSS, distance); WeeklySummary strip appears above calendar in both views — row 1: activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport breakdowns), row 2: CTL/ATL/TSB displayed large with coloured top-border cards (cyan/orange/green-or-red)
 - Workout detail: view, inline edit, delete
 - Dashboard (daily driver): today's planned workout + mark complete button, CTL/ATL/TSB stat cards, race countdown, weekly load progress bar with day breakdown, upcoming 4 days
 - Analytics (deep dive): fitness/fatigue/form area chart, weekly TSS actual vs planned bar chart, training by sport breakdown, volume by sport stacked bar chart, zone distribution — all with 4W/8W/12W/6M range toggle

@@ -24,6 +24,8 @@ CORE (SHIPPED)
 ✅ Workout detail modal expanded: rich stat grid (only populated cards), Session Focus badge, structured blocks, notes, "View on Strava" link
 ✅ Analytics page expanded: YTD summary stats, Training Monotony score, Best Performances section, zone empty state with profile settings shortcut
 ✅ CTL/ATL/TSB fix: correct exponential decay constants, warmup from earliest workout for accurate fitness history
+✅ Calendar week view: full-width 7-column layout, larger workout cards showing title/duration/TSS/distance
+✅ Weekly Summary strip: appears above calendar in both month and week views; row 1 = activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport); row 2 = CTL/ATL/TSB displayed large with coloured top-border cards (cyan/orange/green or red for form)
 
 AI-POWERED
 -----------
