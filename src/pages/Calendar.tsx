@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useWorkouts } from '../contexts/WorkoutsContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { CalendarGrid } from '../components/calendar/CalendarGrid'
 import { WeeklySummary } from '../components/calendar/WeeklySummary'
+import { DayBottomSheet } from '../components/calendar/DayBottomSheet'
 import { LogWorkoutModal } from '../components/LogWorkoutModal'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
@@ -18,6 +20,7 @@ function getMondayOfWeek(d: Date): Date {
 
 export function Calendar() {
   const { workouts, addWorkout, updateWorkout, deleteWorkout } = useWorkouts()
+  const isMobile = useIsMobile()
   const now = new Date()
 
   // ── Navigation state ────────────────────────────────────────────────────────
@@ -26,11 +29,12 @@ export function Calendar() {
   const [month, setMonth] = useState(now.getMonth())
   const [weekStart, setWeekStart] = useState<Date>(getMondayOfWeek(now))
 
-  // ── Modal state ─────────────────────────────────────────────────────────────
+  // ── Modal / sheet state ─────────────────────────────────────────────────────
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [dayWorkouts, setDayWorkouts] = useState<Workout[]>([])
   const [detailWorkout, setDetailWorkout] = useState<Workout | null>(null)
   const [showLogModal, setShowLogModal] = useState(false)
+  const [showBottomSheet, setShowBottomSheet] = useState(false)
 
   // ── Navigation handlers ─────────────────────────────────────────────────────
   const prevMonth = () => {
@@ -54,7 +58,6 @@ export function Calendar() {
 
   const handleViewChange = (v: 'month' | 'week') => {
     if (v === 'week') {
-      // Switch to the week containing the first of the viewed month (or today if same month)
       const base = month === now.getMonth() && year === now.getFullYear()
         ? now
         : new Date(year, month, 1)
@@ -68,11 +71,21 @@ export function Calendar() {
     if (clicked.length === 0) {
       setSelectedDate(date)
       setShowLogModal(true)
-    } else if (clicked.length === 1) {
-      setDetailWorkout(clicked[0])
+      return
+    }
+
+    setSelectedDate(date)
+    setDayWorkouts(clicked)
+
+    if (isMobile) {
+      // Mobile: always use bottom sheet for any day with workouts
+      setShowBottomSheet(true)
     } else {
-      setSelectedDate(date)
-      setDayWorkouts(clicked)
+      // Desktop: single workout → detail modal, multiple → list modal
+      if (clicked.length === 1) {
+        setDetailWorkout(clicked[0])
+      }
+      // multiple: dayWorkouts state already set, DayWorkoutsModal will render
     }
   }
 
@@ -81,6 +94,7 @@ export function Calendar() {
     setDetailWorkout(null)
     setSelectedDate(null)
     setShowLogModal(false)
+    setShowBottomSheet(false)
   }
 
   const logDate = selectedDate
@@ -109,8 +123,19 @@ export function Calendar() {
         />
       </div>
 
-      {/* Multi-workout day list */}
-      {dayWorkouts.length > 1 && !detailWorkout && (
+      {/* Mobile: bottom sheet for day workouts */}
+      {isMobile && showBottomSheet && selectedDate && !detailWorkout && (
+        <DayBottomSheet
+          date={selectedDate}
+          workouts={dayWorkouts}
+          onSelectWorkout={w => { setShowBottomSheet(false); setDetailWorkout(w) }}
+          onAddWorkout={() => { setShowBottomSheet(false); setShowLogModal(true) }}
+          onClose={closeAll}
+        />
+      )}
+
+      {/* Desktop: multi-workout day list modal */}
+      {!isMobile && dayWorkouts.length > 1 && !detailWorkout && (
         <DayWorkoutsModal
           date={selectedDate!}
           workouts={dayWorkouts}

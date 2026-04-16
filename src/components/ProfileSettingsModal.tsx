@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import type { Profile, FitnessBenchmark } from '../types'
 import { Button } from './ui/Button'
 import { useStrava } from '../contexts/StravaContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 import type { User } from '@supabase/supabase-js'
 
 const STRAVA_ORANGE = '#FC4C02'
@@ -162,26 +163,31 @@ function ZonesEditorTable({
   color: string
   unit: string
 }) {
+  const isMobile = useIsMobile()
   const inputStyle: React.CSSProperties = {
     background: COLORS.surface,
     border: `1px solid ${COLORS.border}`,
     borderRadius: 6,
-    padding: '6px 8px',
+    padding: isMobile ? '5px 6px' : '6px 8px',
     color: COLORS.text,
     fontSize: 12,
-    width: 80,
+    width: isMobile ? 64 : 80,
     outline: 'none',
     fontFamily: "'DM Mono', monospace",
     boxSizing: 'border-box',
   }
 
+  const colTemplate = isMobile ? '28px 1fr 68px 68px' : '36px 1fr 90px 90px'
+  const colGap = isMobile ? 6 : 10
+  const colPad = isMobile ? '0 8px' : '0 14px'
+
   return (
     <div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '36px 1fr 90px 90px',
-        gap: 10,
-        padding: '0 14px',
+        gridTemplateColumns: colTemplate,
+        gap: colGap,
+        padding: colPad,
         marginBottom: 6,
       }}>
         <div />
@@ -193,10 +199,10 @@ function ZonesEditorTable({
         {zones.map((zone, i) => (
           <div key={zone.zone_number} style={{
             display: 'grid',
-            gridTemplateColumns: '36px 1fr 90px 90px',
-            gap: 10,
+            gridTemplateColumns: colTemplate,
+            gap: colGap,
             alignItems: 'center',
-            padding: '8px 14px',
+            padding: isMobile ? '7px 8px' : '8px 14px',
             background: COLORS.bg,
             borderRadius: 8,
             border: `1px solid ${COLORS.border}`,
@@ -252,6 +258,7 @@ interface ProfileSettingsModalProps {
 
 export function ProfileSettingsModal({ profile, user, onClose, onSave }: ProfileSettingsModalProps) {
   const { connection, syncing, triggerSync, disconnect } = useStrava()
+  const isMobile = useIsMobile()
 
   const [form, setForm] = useState({
     name: profile.name || '',
@@ -469,7 +476,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     background: COLORS.card,
     border: `1px solid ${COLORS.border}`,
     borderRadius: 12,
-    padding: '22px 24px',
+    padding: isMobile ? '16px 14px' : '22px 24px',
     marginBottom: 20,
   }
 
@@ -481,12 +488,12 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
 
   return (
     <div
-      onClick={onClose}
+      onClick={isMobile ? undefined : onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(0,0,0,0.78)',
+        background: isMobile ? COLORS.surface : 'rgba(0,0,0,0.78)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '28px 16px',
+        padding: isMobile ? 0 : '28px 16px',
         overflowY: 'auto',
       }}
     >
@@ -494,12 +501,14 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         onClick={e => e.stopPropagation()}
         style={{
           background: COLORS.surface,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: 16,
-          padding: '32px 36px',
+          border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
+          borderRadius: isMobile ? 0 : 16,
+          padding: isMobile ? '20px 16px' : '32px 36px',
           width: '100%',
-          maxWidth: 880,
-          marginBottom: 28,
+          maxWidth: isMobile ? undefined : 880,
+          marginBottom: isMobile ? 0 : 28,
+          minHeight: isMobile ? '100dvh' : undefined,
+          boxSizing: 'border-box',
         }}
       >
         {/* Header */}
@@ -564,7 +573,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 placeholder="e.g. 4:30"
               />
             </div>
-            <div>
+            <div style={{ gridColumn: isMobile ? '1 / -1' : undefined }}>
               <label style={labelStyle}>CSS (min/100m)</label>
               <input
                 style={inputStyle}
@@ -573,7 +582,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 placeholder="e.g. 1:45"
               />
             </div>
-            <div />
+            {!isMobile && <div />}
             <div>
               <label style={labelStyle}>Race Goal</label>
               <input
@@ -601,7 +610,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           {loadingData ? (
             <div style={{ color: COLORS.muted, fontSize: 13, padding: '16px 0' }}>Loading…</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 16 }}>
               <BenchmarkSparkline
                 label="FTP"
                 unit="w"

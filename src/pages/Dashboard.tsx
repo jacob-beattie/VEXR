@@ -4,6 +4,7 @@ import { useProfile } from '../contexts/ProfileContext'
 import { StatCard } from '../components/dashboard/StatCard'
 import { COLORS } from '../lib/colors'
 import { workoutTypes } from '../components/ui/Badge'
+import { useIsMobile } from '../hooks/useIsMobile'
 import type { Workout } from '../types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -41,7 +42,9 @@ function TodayWorkoutCard({ workout, onComplete, completing }: {
   return (
     <div style={{
       background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
+      borderTop: `1px solid ${COLORS.border}`,
+      borderRight: `1px solid ${COLORS.border}`,
+      borderBottom: `1px solid ${COLORS.border}`,
       borderLeft: `3px solid ${wt.color}`,
       borderRadius: 12,
       padding: '20px 24px',
@@ -318,6 +321,7 @@ export function Dashboard() {
   const { loading, updateWorkout, getTodaysWorkouts, getWorkoutsForWeek, calculateFitnessMetrics, getUpcomingWorkouts } = useWorkouts()
   const { profile } = useProfile()
   const [completing, setCompleting] = useState<string | null>(null)
+  const isMobile = useIsMobile()
 
   const todaysWorkouts = getTodaysWorkouts()
   const todayPlanned = todaysWorkouts.filter(w => w.planned)
@@ -357,7 +361,12 @@ export function Dashboard() {
       }
 
       {/* Stat cards + race countdown */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+        gap: isMobile ? 10 : 14,
+        marginBottom: 20,
+      }}>
         <StatCard label="Fitness (CTL)" value={ctl} color={COLORS.accent} hint={ctl < 10 ? 'Log more workouts to build your score' : undefined} />
         <StatCard label="Fatigue (ATL)" value={atl} color={COLORS.orange} hint={atl < 10 ? 'Log more workouts to build your score' : undefined} />
         <StatCard label="Form (TSB)" value={tsb} color={COLORS.green} />
@@ -365,7 +374,7 @@ export function Dashboard() {
       </div>
 
       {/* Weekly progress + upcoming */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
         <WeeklyProgressCard weekWorkouts={weekWorkouts} />
         <UpcomingDaysCard workouts={upcoming} />
       </div>

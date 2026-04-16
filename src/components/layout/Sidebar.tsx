@@ -6,6 +6,9 @@ import { useStrava } from '../../contexts/StravaContext'
 interface SidebarProps {
   onProfileClick: () => void
   onSignOut: () => void
+  isMobile?: boolean
+  isOpen?: boolean
+  onClose?: () => void
 }
 
 const navItems = [
@@ -16,7 +19,7 @@ const navItems = [
   { path: '/library', icon: '⊙', label: 'Workout Library' },
 ]
 
-export function Sidebar({ onProfileClick, onSignOut }: SidebarProps) {
+export function Sidebar({ onProfileClick, onSignOut, isMobile = false, isOpen = false, onClose }: SidebarProps) {
   const { profile } = useProfile()
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
@@ -26,25 +29,63 @@ export function Sidebar({ onProfileClick, onSignOut }: SidebarProps) {
     ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
 
+  const handleNav = (path: string) => {
+    navigate(path)
+    if (isMobile && onClose) onClose()
+  }
+
+  const sidebarStyle: React.CSSProperties = isMobile
+    ? {
+        width: 260,
+        flexShrink: 0,
+        background: COLORS.surface,
+        borderRight: `1px solid ${COLORS.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '24px 0',
+        height: '100vh',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 200,
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s ease',
+        overflowY: 'auto',
+      }
+    : {
+        width: 220,
+        flexShrink: 0,
+        background: COLORS.surface,
+        borderRight: `1px solid ${COLORS.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '24px 0',
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+      }
+
   return (
-    <div style={{
-      width: 220,
-      flexShrink: 0,
-      background: COLORS.surface,
-      borderRight: `1px solid ${COLORS.border}`,
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '24px 0',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-    }}>
-      {/* Logo */}
-      <div style={{ padding: '0 20px 28px' }}>
-        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
-          <span style={{ color: COLORS.accent }}>VEX</span><span style={{ color: COLORS.text }}>R</span>
+    <div style={sidebarStyle}>
+      {/* Logo + close button row */}
+      <div style={{ padding: '0 20px 28px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
+            <span style={{ color: COLORS.accent }}>VEX</span><span style={{ color: COLORS.text }}>R</span>
+          </div>
+          <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
         </div>
-        <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
+        {isMobile && (
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', color: COLORS.muted,
+              fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {/* User card — clickable */}
@@ -98,12 +139,12 @@ export function Sidebar({ onProfileClick, onSignOut }: SidebarProps) {
         return (
           <button
             key={item.path}
-            onClick={() => navigate(item.path)}
+            onClick={() => handleNav(item.path)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '11px 20px',
               background: active ? COLORS.accentDim : 'transparent',
-              border: 'none',
+              borderTop: 'none', borderRight: 'none', borderBottom: 'none',
               borderLeft: `3px solid ${active ? COLORS.accent : 'transparent'}`,
               color: active ? COLORS.accent : COLORS.muted,
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -117,7 +158,6 @@ export function Sidebar({ onProfileClick, onSignOut }: SidebarProps) {
 
       {/* Sign out + Strava indicator */}
       <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* Strava sync status */}
         {(syncing || connection) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,

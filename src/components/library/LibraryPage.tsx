@@ -4,6 +4,7 @@ import type { WorkoutLibraryItem, WorkoutType } from '../../types'
 import { supabase } from '../../lib/supabase'
 import { Badge, workoutTypes } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface LibraryPageProps {
   items: WorkoutLibraryItem[]
@@ -20,6 +21,7 @@ const emptyForm = {
 }
 
 export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPageProps) {
+  const isMobile = useIsMobile()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -61,9 +63,14 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {/* Type filter */}
-        <div style={{ display: 'flex', gap: 8 }}>
+
+      {/* Filter strip — scrollable on mobile */}
+      <div style={{
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch' as unknown as undefined,
+        paddingBottom: 2,
+      }}>
+        <div style={{ display: 'flex', gap: 8, minWidth: 'max-content' }}>
           {(['all', 'run', 'ride', 'swim', 'strength', 'rest'] as const).map(t => (
             <button
               key={t}
@@ -73,27 +80,44 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
                 border: `1px solid ${filter === t ? COLORS.accent : COLORS.border}`,
                 color: filter === t ? COLORS.accent : COLORS.muted,
                 borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600,
-                cursor: 'pointer', textTransform: 'capitalize',
+                cursor: 'pointer', textTransform: 'capitalize', whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
               }}
             >
               {t === 'all' ? 'All' : workoutTypes[t].icon + ' ' + workoutTypes[t].label}
             </button>
           ))}
         </div>
-        <Button onClick={() => setShowForm(v => !v)}>
-          {showForm ? 'Cancel' : '+ Add Workout'}
-        </Button>
       </div>
 
+      {/* Desktop: inline Add button */}
+      {!isMobile && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -12 }}>
+          <Button onClick={() => setShowForm(v => !v)}>
+            {showForm ? 'Cancel' : '+ Add Workout'}
+          </Button>
+        </div>
+      )}
+
       {showForm && (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 24 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: COLORS.text }}>Add to Library</div>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? '18px 16px' : 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>Add to Library</div>
+            {isMobile && (
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 22, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            )}
+          </div>
           <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Name</label>
               <input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sweet Spot Intervals" required />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Type</label>
                 <select style={inputStyle} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as WorkoutType }))}>
@@ -108,7 +132,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
                 <label style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Duration (min)</label>
                 <input type="number" style={inputStyle} value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: parseInt(e.target.value) || 0 }))} min={0} />
               </div>
-              <div>
+              <div style={{ gridColumn: isMobile ? '1 / -1' : undefined }}>
                 <label style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>TSS</label>
                 <input type="number" style={inputStyle} value={form.tss} onChange={e => setForm(f => ({ ...f, tss: parseInt(e.target.value) || 0 }))} min={0} />
               </div>
@@ -137,7 +161,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
           <div style={{ fontSize: 13, color: COLORS.muted }}>Add your go-to workouts to quickly log them</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
           {filtered.map(item => {
             const wt = workoutTypes[item.type]
             const h = Math.floor(item.duration_minutes / 60)
@@ -172,14 +196,14 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
                   {onAddToCalendar && (
                     <button
                       onClick={() => onAddToCalendar(item)}
-                      style={{ background: wt.color + '20', border: `1px solid ${wt.color}40`, color: wt.color, borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flex: 1 }}
+                      style={{ background: wt.color + '20', border: `1px solid ${wt.color}40`, color: wt.color, borderRadius: 6, padding: '7px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flex: 1, fontFamily: 'inherit' }}
                     >
                       + Schedule
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(item.id)}
-                    style={{ background: COLORS.orange + '20', border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    style={{ background: COLORS.orange + '20', border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, borderRadius: 6, padding: '7px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flex: onAddToCalendar ? undefined : 1, fontFamily: 'inherit' }}
                   >
                     Delete
                   </button>
@@ -188,6 +212,36 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
             )
           })}
         </div>
+      )}
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <button
+          onClick={() => setShowForm(v => !v)}
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            right: 16,
+            zIndex: 90,
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: showForm ? COLORS.surface : COLORS.accent,
+            border: showForm ? `1px solid ${COLORS.border}` : 'none',
+            color: showForm ? COLORS.muted : '#000',
+            fontSize: 26,
+            fontWeight: 300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            fontFamily: 'system-ui, sans-serif',
+            lineHeight: 1,
+          }}
+        >
+          {showForm ? '×' : '+'}
+        </button>
       )}
     </div>
   )

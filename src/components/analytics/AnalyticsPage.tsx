@@ -6,6 +6,7 @@ import {
 import { COLORS } from '../../lib/colors'
 import type { Workout, WorkoutType } from '../../types'
 import { workoutTypes } from '../ui/Badge'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,7 @@ interface AnalyticsPageProps {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, onWeeksChange, onOpenProfile }: AnalyticsPageProps) {
+  const isMobile = useIsMobile()
   const volumeHistory = getVolumeHistory(workouts, weeks)
   const zoneDist = getZoneDistribution(workouts)
   const hasZoneData = zoneDist.some(z => z.zone !== 'Unspecified')
@@ -230,7 +232,8 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
   const ytd = getYTDStats(workouts)
   const best = getBestPerformances(workouts)
 
-  const tickInterval = (len: number) => len > 12 ? Math.floor(len / 6) : 0
+  const tickInterval = (len: number) =>
+    isMobile ? Math.max(1, Math.floor(len / 3)) : (len > 12 ? Math.floor(len / 6) : 0)
 
   // Sport breakdown (range-filtered)
   const sportTotals = workouts.filter(w => !w.planned).reduce<Record<string, { count: number; tss: number; minutes: number }>>((acc, w) => {
@@ -257,7 +260,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* YTD Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12 }}>
         {[
           { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count), color: COLORS.accent },
           { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours), color: COLORS.green },
@@ -305,7 +308,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
                   <stop offset="95%" stopColor={COLORS.accent} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval(fitnessHistory.length)} />
+              <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={tickInterval(fitnessHistory.length)} />
               <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="fitness" stroke={COLORS.accent}  strokeWidth={2} fill="url(#fitGrad)" name="Fitness (CTL)" dot={false} />
@@ -319,14 +322,14 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       </ChartCard>
 
       {/* Weekly TSS + Sport breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
 
         {/* Weekly TSS actual vs planned */}
         <ChartCard title="Weekly TSS — Actual vs Planned">
           {weeklyHistory.some(w => w.tss > 0 || w.planned > 0) ? (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weeklyHistory} barGap={3}>
-                <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval(weeklyHistory.length)} />
+                <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={tickInterval(weeklyHistory.length)} />
                 <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="planned" fill={COLORS.subtle}  radius={[3, 3, 0, 0]} name="Planned" />
@@ -372,14 +375,14 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       </div>
 
       {/* Volume trends + Zone distribution */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
 
         {/* Volume trends (stacked bar, hours) */}
         <ChartCard title="Volume by Sport (hours)">
           {volumeHistory.some(w => w.run + w.ride + w.swim + w.strength > 0) ? (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={volumeHistory} barSize={12}>
-                <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval(volumeHistory.length)} />
+                <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={tickInterval(volumeHistory.length)} />
                 <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} unit="h" />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="run"      stackId="vol" fill={COLORS.green}   radius={[0, 0, 0, 0]} name="Run" />
@@ -453,7 +456,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
           Training Monotony
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? 12 : 24 }}>
           <div>
             <div style={{ fontSize: 36, fontWeight: 800, color: monotonyColor, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
               {monotony !== null ? monotony.toFixed(2) : '—'}
@@ -465,7 +468,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
               Avg daily TSS ÷ standard deviation of daily TSS over the selected range.
               A lower score means more varied training stimulus.
             </div>
-            <div style={{ display: 'flex', gap: 20, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: isMobile ? 10 : 20, marginTop: 10, flexWrap: 'wrap' }}>
               {[
                 { range: '< 1.5', label: 'Good variety', color: COLORS.green },
                 { range: '1.5 – 2.0', label: 'Moderate risk', color: COLORS.orange },
@@ -486,7 +489,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
           Best Performances
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
             {
               label: 'Longest Run',

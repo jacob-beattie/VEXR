@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Workout, WorkoutType } from '../../types'
 
 interface WeeklySummaryProps {
@@ -48,6 +49,7 @@ function computeFitnessAtDate(allWorkouts: Workout[], targetDate: Date) {
 }
 
 export function WeeklySummary({ workouts, weekStart, horizontal = false }: WeeklySummaryProps) {
+  const isMobile = useIsMobile()
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6)
   weekEnd.setHours(23, 59, 59, 999)
@@ -111,7 +113,7 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
 
     // Shared small card style
     const smallCard = (label: string, value: string, valueColor: string, sub?: string) => (
-      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 14px', textAlign: 'center', minWidth: 72 }}>
+      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 14px', textAlign: 'center', minWidth: 72, flexShrink: 0 }}>
         <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
         <div style={{ fontSize: 15, fontWeight: 800, color: valueColor, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{value}</div>
         {sub && <div style={{ fontSize: 9, color: COLORS.muted, fontFamily: 'DM Mono, monospace', marginTop: 3 }}>{sub}</div>}
@@ -122,7 +124,12 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Row 1 — Activity stats */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'flex-start',
+          flexWrap: isMobile ? 'nowrap' : 'wrap',
+          overflowX: isMobile ? 'auto' : 'visible',
+          paddingBottom: isMobile ? 4 : 0,
+        }}>
           {smallCard('Workouts', String(completed.length), COLORS.text)}
           {smallCard('Duration', formatDuration(totalMinutes), COLORS.text)}
           {smallCard('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `/ ${plannedTSS} planned` : undefined)}
@@ -147,7 +154,12 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
 
         {/* Row 2 — Fitness metrics */}
         {hasFitness && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <div style={{
+            display: 'flex', gap: 8, alignItems: 'stretch',
+            overflowX: isMobile ? 'auto' : 'visible',
+            flexWrap: isMobile ? 'nowrap' : 'wrap',
+            paddingBottom: isMobile ? 4 : 0,
+          }}>
             {[
               { label: 'CTL', value: fitness.ctl, color: COLORS.accent, desc: 'Fitness' },
               { label: 'ATL', value: fitness.atl, color: COLORS.orange, desc: 'Fatigue' },
@@ -156,7 +168,7 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
               <div key={m.label} style={{
                 background: COLORS.surface, border: `1px solid ${COLORS.border}`,
                 borderTop: `2px solid ${m.color}`,
-                borderRadius: 8, padding: '10px 20px', textAlign: 'center', minWidth: 90,
+                borderRadius: 8, padding: '10px 20px', textAlign: 'center', minWidth: 90, flexShrink: 0,
               }}>
                 <div style={{ fontSize: 9, color: m.color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{m.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: m.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{m.value}</div>

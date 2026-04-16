@@ -4,6 +4,7 @@ import { workoutTypes } from './ui/Badge'
 import { Button } from './ui/Button'
 import type { Workout, WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { useProfile } from '../contexts/ProfileContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
@@ -146,6 +147,7 @@ function formatDuration(minutes: number): string {
 
 export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: WorkoutDetailModalProps) {
   const { profile } = useProfile()
+  const isMobile = useIsMobile()
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -243,23 +245,26 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
 
   return (
     <div
-      onClick={onClose}
+      onClick={isMobile ? undefined : onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(0,0,0,0.7)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16,
+        background: isMobile ? COLORS.card : 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'center',
+        padding: isMobile ? 0 : 16,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
           background: COLORS.card,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: 16,
+          border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
+          borderRadius: isMobile ? 0 : 16,
           width: '100%',
-          maxWidth: 520,
-          maxHeight: '90vh',
+          maxWidth: isMobile ? '100%' : 520,
+          maxHeight: isMobile ? '100dvh' : '90vh',
+          height: isMobile ? '100dvh' : undefined,
           overflowY: 'auto',
           position: 'relative',
         }}
@@ -313,7 +318,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
             <>
               {/* Stats grid — only populated cards */}
               {statCards.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
                   {statCards.map(s => <StatCard key={s.label} {...s} />)}
                 </div>
               )}

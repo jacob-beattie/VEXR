@@ -4,6 +4,7 @@ import type { WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { Button } from './ui/Button'
 import { workoutTypes } from './ui/Badge'
 import { useProfile } from '../contexts/ProfileContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 interface LogWorkoutModalProps {
   onClose: () => void
@@ -203,7 +204,9 @@ function BlockRow({ block, index, workoutType, ftp, threshPace, css, dragSrcIdx,
       onDragEnd={() => { /* handled by parent drop */ }}
       style={{
         background: COLORS.surface,
-        border: `1px solid ${isTarget ? color + '80' : COLORS.border}`,
+        borderTop: `1px solid ${isTarget ? color + '80' : COLORS.border}`,
+        borderRight: `1px solid ${isTarget ? color + '80' : COLORS.border}`,
+        borderBottom: `1px solid ${isTarget ? color + '80' : COLORS.border}`,
         borderLeft: `3px solid ${color}`,
         borderRadius: 8,
         padding: '10px 12px',
@@ -478,6 +481,7 @@ const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
 
 export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutModalProps) {
   const { profile } = useProfile()
+  const isMobile = useIsMobile()
 
   const [form, setForm] = useState({
     title: '',
@@ -596,24 +600,27 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
 
   return (
     <div
-      onClick={onClose}
+      onClick={isMobile ? undefined : onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(0,0,0,0.7)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16,
+        background: isMobile ? COLORS.card : 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'center',
+        padding: isMobile ? 0 : 16,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
           background: COLORS.card,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: 16,
-          padding: 28,
+          border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
+          borderRadius: isMobile ? 0 : 16,
+          padding: isMobile ? '20px 16px' : 28,
           width: '100%',
-          maxWidth: 540,
-          maxHeight: '90vh',
+          maxWidth: isMobile ? '100%' : 540,
+          maxHeight: isMobile ? '100dvh' : '90vh',
+          height: isMobile ? '100dvh' : undefined,
           overflowY: 'auto',
         }}
       >

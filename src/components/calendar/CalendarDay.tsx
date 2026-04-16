@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Workout } from '../../types'
 
 interface CalendarDayProps {
@@ -10,16 +11,96 @@ interface CalendarDayProps {
   onClick?: () => void
 }
 
-const MAX_VISIBLE = 3
+const MOBILE_MAX_DOTS = 2
+const DESKTOP_MAX_VISIBLE = 3
 
 export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProps) {
   const [hovered, setHovered] = useState(false)
-  if (day === null) return <div style={{ aspectRatio: '1', borderRadius: 8 }} />
+  const isMobile = useIsMobile()
+
+  if (day === null) return <div style={{ borderRadius: 8, ...(isMobile ? { minHeight: 64 } : { aspectRatio: '1' }) }} />
 
   const hasWorkouts = workouts.length > 0
-  const visible = workouts.slice(0, MAX_VISIBLE)
-  const overflow = workouts.length - MAX_VISIBLE
   const firstWt = hasWorkouts ? workoutTypes[workouts[0].type] : null
+
+  // ── MOBILE layout ────────────────────────────────────────────────────────────
+  if (isMobile) {
+    const visibleDots = workouts.slice(0, MOBILE_MAX_DOTS)
+    const overflow = workouts.length - MOBILE_MAX_DOTS
+    const totalTSS = workouts.reduce((s, w) => s + (w.tss || 0), 0)
+
+    return (
+      <div
+        onClick={hasWorkouts ? onClick : undefined}
+        style={{
+          minHeight: 64,
+          borderRadius: 8,
+          border: isToday
+            ? `2px solid ${COLORS.accent}`
+            : `1px solid ${COLORS.border}`,
+          background: isToday ? COLORS.accentDim : COLORS.surface,
+          cursor: hasWorkouts ? 'pointer' : 'default',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '5px 5px 4px',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Day number */}
+        <span style={{
+          fontSize: 11,
+          fontWeight: isToday ? 700 : 500,
+          color: isToday ? COLORS.accent : COLORS.muted,
+          lineHeight: 1,
+          flexShrink: 0,
+          marginBottom: hasWorkouts ? 4 : 0,
+        }}>
+          {day}
+        </span>
+
+        {hasWorkouts && (
+          <>
+            {/* Workout dots */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+              {visibleDots.map(workout => {
+                const wt = workoutTypes[workout.type]
+                return (
+                  <div key={workout.id} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <div style={{
+                      width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                      background: wt.color,
+                    }} />
+                    <span style={{ fontSize: 10, lineHeight: 1 }}>{wt.icon}</span>
+                  </div>
+                )
+              })}
+              {overflow > 0 && (
+                <div style={{ fontSize: 8, color: COLORS.muted, lineHeight: 1, fontWeight: 600 }}>
+                  +{overflow}
+                </div>
+              )}
+            </div>
+
+            {/* Total TSS */}
+            {totalTSS > 0 && (
+              <div style={{
+                fontSize: 9, color: COLORS.muted,
+                fontFamily: 'DM Mono, monospace',
+                lineHeight: 1, marginTop: 2,
+              }}>
+                {totalTSS}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── DESKTOP layout (unchanged) ───────────────────────────────────────────────
+  const visible = workouts.slice(0, DESKTOP_MAX_VISIBLE)
+  const overflow = workouts.length - DESKTOP_MAX_VISIBLE
 
   return (
     <div
@@ -44,7 +125,6 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
         boxSizing: 'border-box',
       }}
     >
-      {/* Day number */}
       <span style={{
         fontSize: 11,
         fontWeight: isToday ? 700 : 500,
@@ -55,7 +135,6 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
         {day}
       </span>
 
-      {/* Workout rows — flex-grow fills remaining height, space-evenly distributes */}
       {hasWorkouts && (
         <div style={{
           flex: 1,

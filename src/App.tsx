@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from './lib/colors'
 import { useAuth } from './hooks/useAuth'
+import { useIsMobile } from './hooks/useIsMobile'
 import { WorkoutsProvider, useWorkouts } from './contexts/WorkoutsContext'
 import { ProfileProvider, useProfile } from './contexts/ProfileContext'
 import { StravaProvider, useStrava } from './contexts/StravaContext'
@@ -27,15 +28,57 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
 }
 
+const bottomNavItems = [
+  { path: '/dashboard', icon: '◈', label: 'Home' },
+  { path: '/calendar', icon: '⊞', label: 'Calendar' },
+  { path: '/analytics', icon: '∿', label: 'Analytics' },
+  { path: '/plans', icon: '≡', label: 'Plans' },
+  { path: '/library', icon: '⊙', label: 'Library' },
+]
+
+function BottomNav() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+      background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
+      display: 'flex', height: 60, paddingBottom: 'env(safe-area-inset-bottom)',
+    }}>
+      {bottomNavItems.map(item => {
+        const active = location.pathname === item.path
+        return (
+          <button
+            key={item.path}
+            onClick={() => navigate(item.path)}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 3,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: active ? COLORS.accent : COLORS.muted,
+              borderTop: `2px solid ${active ? COLORS.accent : 'transparent'}`,
+              transition: 'color 0.15s',
+              padding: '0 4px',
+            }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</span>
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.04em' }}>{item.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Toast notification driven by StravaContext
-function SyncToast() {
+function SyncToast({ isMobile }: { isMobile: boolean }) {
   const { toastMessage, clearToast } = useStrava()
   if (!toastMessage) return null
   return (
     <div
       onClick={clearToast}
       style={{
-        position: 'fixed', bottom: 24, right: 24, zIndex: 100,
+        position: 'fixed', bottom: isMobile ? 76 : 24, right: 24, zIndex: 100,
         background: COLORS.card,
         border: `1px solid #FC4C02`,
         borderRadius: 10,
@@ -59,23 +102,71 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
   const { profile, setProfile } = useProfile()
   const [showModal, setShowModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const isMobile = useIsMobile()
 
   const pageInfo = pageTitles[location.pathname] || { title: 'Vexr', subtitle: '' }
 
+  // Close sidebar whenever route changes on mobile
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false)
+  }, [location.pathname, isMobile])
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [isMobile, sidebarOpen])
+
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, color: COLORS.text, fontFamily: "'Inter', 'Helvetica Neue', sans-serif", display: 'flex' }}>
-      <Sidebar
-        onProfileClick={() => setShowProfileModal(true)}
-        onSignOut={async () => { await signOut(); navigate('/login') }}
-      />
+      {/* Mobile overlay behind sidebar */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 190,
+            background: 'rgba(0,0,0,0.55)',
+          }}
+        />
+      )}
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px' }}>
+      {/* Sidebar — hidden on mobile unless open */}
+      {!isMobile && (
+        <Sidebar
+          onProfileClick={() => setShowProfileModal(true)}
+          onSignOut={async () => { await signOut(); navigate('/login') }}
+        />
+      )}
+      {isMobile && (
+        <Sidebar
+          onProfileClick={() => { setShowProfileModal(true); setSidebarOpen(false) }}
+          onSignOut={async () => { await signOut(); navigate('/login') }}
+          isMobile
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: isMobile ? '20px 16px' : '28px 32px',
+        paddingBottom: isMobile ? 76 : 28,
+        minWidth: 0,
+      }}>
         <TopBar
           title={pageInfo.title}
           subtitle={pageInfo.subtitle}
           onLogWorkout={() => setShowModal(true)}
+          onMenuClick={() => setSidebarOpen(true)}
+          isMobile={isMobile}
         />
 
         <Routes>
@@ -87,6 +178,9 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>
+
+      {/* Bottom nav — mobile only */}
+      {isMobile && <BottomNav />}
 
       {showModal && (
         <LogWorkoutModal
@@ -107,7 +201,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         />
       )}
 
-      <SyncToast />
+      <SyncToast isMobile={isMobile} />
     </div>
   )
 }
