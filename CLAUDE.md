@@ -28,7 +28,7 @@ src/
   types/         — all TypeScript interfaces (index.ts)
   hooks/         — useAuth, useIsMobile
   contexts/      — WorkoutsContext (workouts + derived fitness metrics)
-  pages/         — Dashboard, Calendar, Analytics, Plans, Library, Login, Signup
+  pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Login, Signup
   components/
     layout/      — Sidebar, TopBar
     ui/          — Button, Badge
@@ -56,6 +56,7 @@ Tables (all with RLS enabled, users can only access their own rows):
 | `workout_library` | user_id, name, type, duration_minutes, tss, description |
 | `fitness_benchmarks` | user_id, metric (ftp/pace/css), value (text), recorded_at |
 | `training_zones` | user_id, sport (cycling/running/swimming), zone_number, zone_name, min_value, max_value, updated_at |
+| `ai_briefings` | user_id, briefing (text), generated_at; max 9 per user, pruned on insert |
 
 Profile is auto-created on signup via `handle_new_user` trigger.
 
@@ -96,11 +97,14 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Analytics page: YTD summary stats row (workouts/hours/distance/TSS), Training Monotony score card (avg TSS ÷ stddev, colour-coded), Best Performances section (longest run/ride, highest TSS, best TSS week, YTD sport counts), zone empty state with "Open Profile Settings" button
 - CTL/ATL/TSB calculation: canonical PMC engine in `src/lib/calculateMetrics.ts` (`calculatePMC`); used by dashboard, analytics, and calendar WeeklySummary — all three always in sync. Excludes planned workouts from TSS. Warms up from earliest actual workout. Uses ms-based day iteration (no setDate bugs). `buildTssByDay` + `runPMC` are exported for reuse.
 - Full mobile responsiveness (390px / iPhone 15): sidebar hamburger + slide-in overlay, bottom nav bar (5 tabs, z-index 100), stat cards 2×2 grid, scrollable WeeklySummary strip, calendar month view with dot layout + DayBottomSheet, calendar week view vertical stacking with horizontal workout cards, full-screen modals (LogWorkout/WorkoutDetail/ProfileSettings), analytics 2-col grids + mobile X-axis tick density, Library FAB + scrollable filter strip — all via `useIsMobile` hook (`src/hooks/useIsMobile.ts`)
+- AI Coach page (`/ai-coach`): metrics row (CTL/ATL/TSB/race countdown), weekly briefing card (cyan left border + gradient top glow), quick stats row (training phase/weekly compliance/TSS comparison/CTL trend), briefing history accordion (last 8). Edge function `supabase/functions/ai-briefing` calls Claude API (claude-sonnet-4-6), 24h cache with `force` override, accumulates history up to 9 entries. Requires `ANTHROPIC_API_KEY` Supabase secret and `ai_briefings` table. Dashboard has subtle ✦ banner linking to /ai-coach.
+- Log Workout button moved from TopBar to Sidebar (desktop) and a mobile FAB (bottom: 80px, right: 16px, hidden on /library). TopBar now accepts optional `titleIcon`/`titleIconColor` props for per-page icon decoration.
 
 ## Page roles (important — don't overlap these)
 
 - **Dashboard** = daily driver. Today's workout, this week's load, near-term upcoming. No multi-week charts.
 - **Analytics** = deep dive. All multi-week trend charts, fitness history, zone distribution, volume trends.
+- **AI Coach** = personalised coaching. Weekly briefing from Claude, fitness metrics, training phase, briefing history.
 
 ## Rules
 

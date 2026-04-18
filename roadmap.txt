@@ -32,8 +32,7 @@ CORE (SHIPPED)
 
 AI-POWERED
 -----------
-- AI Coach: analyses CTL/ATL/TSB trends and gives personalised weekly recommendations
-  e.g. "you're carrying too much fatigue, swap Saturday's ride for an easy run"
+✅ AI Coach: weekly briefing page (/ai-coach) — CTL/ATL/TSB metrics row, Claude-generated personalised briefing (24h cache + force refresh), quick stats (training phase/compliance/TSS/CTL trend), briefing history accordion; edge function calls claude-sonnet-4-6, accumulates up to 9 briefings per user
 - Auto-TSS estimation: describe a workout in plain English and AI calculates TSS for you
 - Race predictor: based on current fitness, predicts finish time for goal race
 - Smart plan generator: input race date and current fitness, AI builds entire training block
