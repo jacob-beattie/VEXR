@@ -6,6 +6,7 @@ import { useStrava } from '../../contexts/StravaContext'
 interface SidebarProps {
   onProfileClick: () => void
   onSignOut: () => void
+  onLogWorkout: () => void
   isMobile?: boolean
   isOpen?: boolean
   onClose?: () => void
@@ -15,11 +16,12 @@ const navItems = [
   { path: '/dashboard', icon: '◈', label: 'Dashboard' },
   { path: '/calendar', icon: '⊞', label: 'Calendar' },
   { path: '/analytics', icon: '∿', label: 'Analytics' },
+  { path: '/ai-coach', icon: '✦', label: 'AI Coach' },
   { path: '/plans', icon: '≡', label: 'Training Plans' },
   { path: '/library', icon: '⊙', label: 'Workout Library' },
 ]
 
-export function Sidebar({ onProfileClick, onSignOut, isMobile = false, isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = false, isOpen = false, onClose }: SidebarProps) {
   const { profile } = useProfile()
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
@@ -158,6 +160,27 @@ export function Sidebar({ onProfileClick, onSignOut, isMobile = false, isOpen = 
 
       {/* Sign out + Strava indicator */}
       <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button
+          onClick={onLogWorkout}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: '#00e5ff',
+            border: 'none',
+            borderRadius: 10,
+            color: '#000000',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            textAlign: 'center',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#00e5ff')}
+        >
+          + Log Workout
+        </button>
         {(syncing || connection) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,

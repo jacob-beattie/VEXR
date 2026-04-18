@@ -35,6 +35,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   animation: spin 1s linear infinite;
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+}
+
 /* Hide number input spinners — used in structured block builder */
 input.no-spinner::-webkit-outer-spin-button,
 input.no-spinner::-webkit-inner-spin-button {

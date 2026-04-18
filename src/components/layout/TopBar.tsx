@@ -1,15 +1,15 @@
 import { COLORS } from '../../lib/colors'
-import { Button } from '../ui/Button'
 
 interface TopBarProps {
   title: string
   subtitle?: string
-  onLogWorkout: () => void
+  titleIcon?: string
+  titleIconColor?: string
   onMenuClick?: () => void
   isMobile?: boolean
 }
 
-export function TopBar({ title, subtitle, onLogWorkout, onMenuClick, isMobile = false }: TopBarProps) {
+export function TopBar({ title, subtitle, titleIcon, titleIconColor, onMenuClick, isMobile = false }: TopBarProps) {
   return (
     <div style={{
       display: 'flex',
@@ -32,27 +32,17 @@ export function TopBar({ title, subtitle, onLogWorkout, onMenuClick, isMobile = 
           </button>
         )}
         <div>
-          <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: COLORS.text }}>{title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {titleIcon && (
+              <span style={{ fontSize: isMobile ? 16 : 18, color: titleIconColor ?? COLORS.accent, lineHeight: 1 }}>
+                {titleIcon}
+              </span>
+            )}
+            <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: COLORS.text }}>{title}</div>
+          </div>
           {subtitle && !isMobile && <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 3 }}>{subtitle}</div>}
         </div>
       </div>
-      {isMobile ? (
-        <button
-          onClick={onLogWorkout}
-          style={{
-            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-            background: COLORS.accent, border: 'none',
-            color: '#000', fontSize: 24, fontWeight: 400,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-          aria-label="Log workout"
-        >
-          +
-        </button>
-      ) : (
-        <Button onClick={onLogWorkout}>+ Log Workout</Button>
-      )}
     </div>
   )
 }

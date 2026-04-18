@@ -13,6 +13,7 @@ import { ProfileSettingsModal } from './components/ProfileSettingsModal'
 import { Dashboard } from './pages/Dashboard'
 import { Calendar } from './pages/Calendar'
 import { Analytics } from './pages/Analytics'
+import { AICoach } from './pages/AICoach'
 import { Plans } from './pages/Plans'
 import { Library } from './pages/Library'
 import { Login } from './pages/Login'
@@ -20,10 +21,11 @@ import { Signup } from './pages/Signup'
 import { StravaCallback } from './pages/StravaCallback'
 import type { User } from '@supabase/supabase-js'
 
-const pageTitles: Record<string, { title: string; subtitle: string }> = {
+const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) },
   '/calendar': { title: 'Training Calendar', subtitle: 'Track and plan your sessions' },
   '/analytics': { title: 'Performance Analytics', subtitle: 'Trends, fitness, and load analysis' },
+  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: '#00e5ff' },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
 }
@@ -31,9 +33,9 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
 const bottomNavItems = [
   { path: '/dashboard', icon: '◈', label: 'Home' },
   { path: '/calendar', icon: '⊞', label: 'Calendar' },
-  { path: '/analytics', icon: '∿', label: 'Analytics' },
+  { path: '/analytics', icon: '∿', label: 'Stats' },
+  { path: '/ai-coach', icon: '✦', label: 'Coach' },
   { path: '/plans', icon: '≡', label: 'Plans' },
-  { path: '/library', icon: '⊙', label: 'Library' },
 ]
 
 function BottomNav() {
@@ -142,12 +144,14 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         <Sidebar
           onProfileClick={() => setShowProfileModal(true)}
           onSignOut={async () => { await signOut(); navigate('/login') }}
+          onLogWorkout={() => setShowModal(true)}
         />
       )}
       {isMobile && (
         <Sidebar
           onProfileClick={() => { setShowProfileModal(true); setSidebarOpen(false) }}
           onSignOut={async () => { await signOut(); navigate('/login') }}
+          onLogWorkout={() => { setShowModal(true); setSidebarOpen(false) }}
           isMobile
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -164,7 +168,8 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         <TopBar
           title={pageInfo.title}
           subtitle={pageInfo.subtitle}
-          onLogWorkout={() => setShowModal(true)}
+          titleIcon={pageInfo.titleIcon}
+          titleIconColor={pageInfo.titleIconColor}
           onMenuClick={() => setSidebarOpen(true)}
           isMobile={isMobile}
         />
@@ -173,6 +178,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
+          <Route path="/ai-coach" element={<AICoach />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/library" element={<Library />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -181,6 +187,36 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
 
       {/* Bottom nav — mobile only */}
       {isMobile && <BottomNav />}
+
+      {/* Mobile FAB — hidden on /library which has its own FAB */}
+      {isMobile && location.pathname !== '/library' && (
+        <button
+          onClick={() => setShowModal(true)}
+          aria-label="Log workout"
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            right: 16,
+            zIndex: 95,
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: '#00e5ff',
+            border: 'none',
+            color: '#000',
+            fontSize: 24,
+            fontWeight: 400,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 20px #00e5ff40',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          +
+        </button>
+      )}
 
       {showModal && (
         <LogWorkoutModal

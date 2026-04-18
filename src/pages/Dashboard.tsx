@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
 import { StatCard } from '../components/dashboard/StatCard'
@@ -33,10 +34,11 @@ function formatUpcomingDate(dateStr: string): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TodayWorkoutCard({ workout, onComplete, completing }: {
+function TodayWorkoutCard({ workout, onComplete, completing, onCoachClick }: {
   workout: Workout
   onComplete: (w: Workout) => void
   completing: boolean
+  onCoachClick: () => void
 }) {
   const wt = workoutTypes[workout.type]
   return (
@@ -49,53 +51,84 @@ function TodayWorkoutCard({ workout, onComplete, completing }: {
       borderRadius: 12,
       padding: '20px 24px',
       marginBottom: 20,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 18,
     }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-        background: wt.color + '20',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22,
-      }}>
-        {wt.icon}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 10, flexShrink: 0,
+          background: wt.color + '20',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 22,
+        }}>
+          {wt.icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, color: wt.color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+            Today's Workout
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {workout.title}
+          </div>
+          <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3, display: 'flex', gap: 10 }}>
+            {workout.duration_minutes > 0 && <span>{formatDuration(workout.duration_minutes)}</span>}
+            {workout.tss > 0 && <span>{workout.tss} TSS</span>}
+            {workout.zone && <span>{workout.zone}</span>}
+            {workout.notes && <span style={{ fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{workout.notes}</span>}
+          </div>
+        </div>
+        <button
+          onClick={() => onComplete(workout)}
+          disabled={completing}
+          style={{
+            flexShrink: 0,
+            padding: '9px 18px',
+            borderRadius: 8,
+            border: `1px solid ${COLORS.green}`,
+            background: completing ? COLORS.green + '20' : COLORS.green + '15',
+            color: COLORS.green,
+            fontSize: 12, fontWeight: 700, cursor: completing ? 'not-allowed' : 'pointer',
+            transition: 'all 0.15s', fontFamily: 'inherit', opacity: completing ? 0.6 : 1,
+          }}
+        >
+          {completing ? 'Saving…' : '✓ Mark Complete'}
+        </button>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: wt.color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
-          Today's Workout
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {workout.title}
-        </div>
-        <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3, display: 'flex', gap: 10 }}>
-          {workout.duration_minutes > 0 && <span>{formatDuration(workout.duration_minutes)}</span>}
-          {workout.tss > 0 && <span>{workout.tss} TSS</span>}
-          {workout.zone && <span>{workout.zone}</span>}
-          {workout.notes && <span style={{ fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{workout.notes}</span>}
-        </div>
-      </div>
-      <button
-        onClick={() => onComplete(workout)}
-        disabled={completing}
-        style={{
-          flexShrink: 0,
-          padding: '9px 18px',
-          borderRadius: 8,
-          border: `1px solid ${COLORS.green}`,
-          background: completing ? COLORS.green + '20' : COLORS.green + '15',
-          color: COLORS.green,
-          fontSize: 12, fontWeight: 700, cursor: completing ? 'not-allowed' : 'pointer',
-          transition: 'all 0.15s', fontFamily: 'inherit', opacity: completing ? 0.6 : 1,
-        }}
-      >
-        {completing ? 'Saving…' : '✓ Mark Complete'}
-      </button>
+      <CoachBanner onClick={onCoachClick} />
     </div>
   )
 }
 
-function RestDayCard({ completedToday }: { completedToday: Workout[] }) {
+function CoachBanner({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 14,
+        paddingTop: 12,
+        borderTop: `1px solid ${COLORS.border}`,
+        background: 'none',
+        border: 'none',
+        borderRadius: 0,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        padding: '12px 0 0',
+        width: '100%',
+      }}
+    >
+      <span style={{ fontSize: 11, color: COLORS.accent }}>✦</span>
+      <span style={{ fontSize: 11, color: COLORS.muted, transition: 'color 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.color = COLORS.accent)}
+        onMouseLeave={e => (e.currentTarget.style.color = COLORS.muted)}
+      >
+        View your AI coaching briefing →
+      </span>
+    </button>
+  )
+}
+
+function RestDayCard({ completedToday, onCoachClick }: { completedToday: Workout[]; onCoachClick: () => void }) {
   return (
     <div style={{
       background: COLORS.card,
@@ -103,33 +136,33 @@ function RestDayCard({ completedToday }: { completedToday: Workout[] }) {
       borderRadius: 12,
       padding: '18px 24px',
       marginBottom: 20,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
     }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-        background: COLORS.subtle,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18,
-      }}>
-        {completedToday.length > 0 ? '✓' : '—'}
-      </div>
-      <div>
-        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>
-          Today
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+          background: COLORS.subtle,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18,
+        }}>
+          {completedToday.length > 0 ? '✓' : '—'}
         </div>
-        {completedToday.length > 0 ? (
-          <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.green }}>
-            {completedToday.length} workout{completedToday.length > 1 ? 's' : ''} completed
-            <span style={{ color: COLORS.muted, fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
-              {completedToday.reduce((s, w) => s + (w.tss || 0), 0)} TSS
-            </span>
+        <div>
+          <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>
+            Today
           </div>
-        ) : (
-          <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.muted }}>No workout scheduled — rest day</div>
-        )}
+          {completedToday.length > 0 ? (
+            <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.green }}>
+              {completedToday.length} workout{completedToday.length > 1 ? 's' : ''} completed
+              <span style={{ color: COLORS.muted, fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
+                {completedToday.reduce((s, w) => s + (w.tss || 0), 0)} TSS
+              </span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.muted }}>No workout scheduled — rest day</div>
+          )}
+        </div>
       </div>
+      <CoachBanner onClick={onCoachClick} />
     </div>
   )
 }
@@ -322,6 +355,7 @@ export function Dashboard() {
   const { profile } = useProfile()
   const [completing, setCompleting] = useState<string | null>(null)
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
 
   const todaysWorkouts = getTodaysWorkouts()
   const todayPlanned = todaysWorkouts.filter(w => w.planned)
@@ -356,8 +390,8 @@ export function Dashboard() {
     <>
       {/* Today's workout */}
       {todayPlanned.length > 0
-        ? <TodayWorkoutCard workout={todayPlanned[0]} onComplete={handleMarkComplete} completing={completing === todayPlanned[0].id} />
-        : <RestDayCard completedToday={todayCompleted} />
+        ? <TodayWorkoutCard workout={todayPlanned[0]} onComplete={handleMarkComplete} completing={completing === todayPlanned[0].id} onCoachClick={() => navigate('/ai-coach')} />
+        : <RestDayCard completedToday={todayCompleted} onCoachClick={() => navigate('/ai-coach')} />
       }
 
       {/* Stat cards + race countdown */}
