@@ -24,6 +24,8 @@ CORE (SHIPPED)
 ✅ Workout detail modal expanded: rich stat grid (only populated cards), Session Focus badge, structured blocks, notes, "View on Strava" link
 ✅ Analytics page expanded: YTD summary stats, Training Monotony score, Best Performances section, zone empty state with profile settings shortcut
 ✅ CTL/ATL/TSB fix: correct exponential decay constants, warmup from earliest workout for accurate fitness history
+✅ PMC engine refactor: canonical calculatePMC in src/lib/calculateMetrics.ts — shared by dashboard, analytics, and calendar WeeklySummary so all three views always show identical numbers; excludes planned workouts from TSS; ms-based day iteration
+✅ Analytics Training by Sport: now correctly filters to selected date range (4W/8W/12W/6M) instead of showing all-time data
 ✅ Calendar week view: full-width 7-column layout, larger workout cards showing title/duration/TSS/distance
 ✅ Weekly Summary strip: appears above calendar in both month and week views; row 1 = activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport); row 2 = CTL/ATL/TSB displayed large with coloured top-border cards (cyan/orange/green or red for form)
 ✅ Mobile responsiveness: full 390px (iPhone 15) support across all pages and modals — sidebar hamburger + overlay, bottom nav bar, stat cards 2×2, scrollable WeeklySummary, calendar month view dot layout + DayBottomSheet, calendar week view vertical stack, full-screen modals (LogWorkout/WorkoutDetail/ProfileSettings), analytics 2-col grids, Library FAB + scrollable filter strip — via useIsMobile hook

@@ -3,6 +3,7 @@ import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Workout, WorkoutType } from '../../types'
+import { calculatePMC } from '../../lib/calculateMetrics'
 
 interface WeeklySummaryProps {
   workouts: Workout[]
@@ -23,30 +24,6 @@ function formatDuration(minutes: number): string {
   return `${h}h ${m}m`
 }
 
-function computeFitnessAtDate(allWorkouts: Workout[], targetDate: Date) {
-  const ctlK = 1 - Math.exp(-1 / 42)
-  const atlK = 1 - Math.exp(-1 / 7)
-  const tssByDay: Record<string, number> = {}
-  allWorkouts.filter(w => !w.planned).forEach(w => {
-    const key = w.date.split('T')[0]
-    tssByDay[key] = (tssByDay[key] || 0) + (w.tss || 0)
-  })
-  const allDates = Object.keys(tssByDay).sort()
-  if (!allDates.length) return { ctl: 0, atl: 0, tsb: 0 }
-  const startDate = new Date(allDates[0] + 'T00:00:00')
-  const target = new Date(targetDate)
-  target.setHours(0, 0, 0, 0)
-  const totalDays = Math.floor((target.getTime() - startDate.getTime()) / 86400000)
-  let ctl = 0, atl = 0
-  for (let i = 0; i <= totalDays; i++) {
-    const d = new Date(startDate)
-    d.setDate(startDate.getDate() + i)
-    const tss = tssByDay[localDateKey(d)] || 0
-    ctl = ctl + ctlK * (tss - ctl)
-    atl = atl + atlK * (tss - atl)
-  }
-  return { ctl: Math.round(ctl), atl: Math.round(atl), tsb: Math.round(ctl - atl) }
-}
 
 export function WeeklySummary({ workouts, weekStart, horizontal = false }: WeeklySummaryProps) {
   const isMobile = useIsMobile()
@@ -87,8 +64,9 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
   const maxMinutes = Math.max(...sportStats.map(s => s.minutes), 1)
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const fitnessDate = weekEnd < today ? weekEnd : today
-  const fitness = computeFitnessAtDate(workouts, fitnessDate)
+  const fitnessDate = new Date(weekEnd < today ? weekEnd : today)
+  fitnessDate.setHours(0, 0, 0, 0)
+  const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
   const tsbColor = fitness.tsb > 5 ? COLORS.green : fitness.tsb < -20 ? COLORS.orange : COLORS.accent
 

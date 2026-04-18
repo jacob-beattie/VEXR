@@ -24,7 +24,7 @@ Built as a solo project. Goal is to eventually monetise with free/pro/coach tier
 
 ```
 src/
-  lib/           — supabase client, color constants
+  lib/           — supabase client, color constants, calculateMetrics (PMC engine)
   types/         — all TypeScript interfaces (index.ts)
   hooks/         — useAuth, useIsMobile
   contexts/      — WorkoutsContext (workouts + derived fitness metrics)
@@ -94,7 +94,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Strava OAuth integration: connect/disconnect in Profile Settings, auto-sync once per session, manual "Sync Now" button, toast notifications; edge functions `strava-auth` (token exchange) and `strava-sync` (import last 30 days); imports title, type, date, duration, TSS, HR, distance, elevation, power, pace, calories; deduplicates by strava_activity_id
 - Workout detail modal: rich stat grid (only shows cards with data), Session Focus badge, structured block breakdown, notes, "View on Strava" link for imported activities
 - Analytics page: YTD summary stats row (workouts/hours/distance/TSS), Training Monotony score card (avg TSS ÷ stddev, colour-coded), Best Performances section (longest run/ride, highest TSS, best TSS week, YTD sport counts), zone empty state with "Open Profile Settings" button
-- CTL/ATL fix: decay constants now use correct exponential formula (1 - e^(-1/42) and 1 - e^(-1/7)); warmup now starts from earliest workout in DB rather than fixed 90-day window — fixes underestimated CTL causing overly negative TSB
+- CTL/ATL/TSB calculation: canonical PMC engine in `src/lib/calculateMetrics.ts` (`calculatePMC`); used by dashboard, analytics, and calendar WeeklySummary — all three always in sync. Excludes planned workouts from TSS. Warms up from earliest actual workout. Uses ms-based day iteration (no setDate bugs). `buildTssByDay` + `runPMC` are exported for reuse.
 - Full mobile responsiveness (390px / iPhone 15): sidebar hamburger + slide-in overlay, bottom nav bar (5 tabs, z-index 100), stat cards 2×2 grid, scrollable WeeklySummary strip, calendar month view with dot layout + DayBottomSheet, calendar week view vertical stacking with horizontal workout cards, full-screen modals (LogWorkout/WorkoutDetail/ProfileSettings), analytics 2-col grids + mobile X-axis tick density, Library FAB + scrollable filter strip — all via `useIsMobile` hook (`src/hooks/useIsMobile.ts`)
 
 ## Page roles (important — don't overlap these)

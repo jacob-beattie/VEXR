@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Workout } from '../types'
+import { calculatePMC } from '../lib/calculateMetrics'
 
 interface FitnessMetrics {
   ctl: number
@@ -139,30 +140,9 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const calculateFitnessMetrics = (): FitnessMetrics => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const tssByDay: Record<string, number> = {}
-    workouts.forEach(w => {
-      const d = w.date.split('T')[0]
-      tssByDay[d] = (tssByDay[d] || 0) + (w.tss || 0)
-    })
-    // Correct exponential decay constants (TrainingPeaks PMC model)
-    const ctlK = 1 - Math.exp(-1 / 42)
-    const atlK = 1 - Math.exp(-1 / 7)
-    // Warm up from the earliest workout so CTL is not underestimated
-    const allDates = Object.keys(tssByDay).sort()
-    const warmupStart = allDates.length > 0
-      ? new Date(allDates[0] + 'T00:00:00')
-      : new Date(today.getTime() - 90 * 86400000)
-    let ctl = 0, atl = 0
-    const totalDays = Math.floor((today.getTime() - warmupStart.getTime()) / 86400000)
-    for (let i = 0; i <= totalDays; i++) {
-      const d = new Date(warmupStart)
-      d.setDate(warmupStart.getDate() + i)
-      const key = localDateKey(d)
-      const tss = tssByDay[key] || 0
-      ctl = ctl + ctlK * (tss - ctl)
-      atl = atl + atlK * (tss - atl)
-    }
-    return { ctl: Math.round(ctl), atl: Math.round(atl), tsb: Math.round(ctl - atl) }
+    // windowStart = today (we only need `current`, not history)
+    const { current } = calculatePMC(workouts, today, today)
+    return current
   }
 
   const getWeeklyTSS = (): number =>
@@ -220,38 +200,14 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const getFitnessHistory = (weeks = 8) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const tssByDay: Record<string, number> = {}
-    workouts.forEach(w => {
-      const d = w.date.split('T')[0]
-      tssByDay[d] = (tssByDay[d] || 0) + (w.tss || 0)
-    })
-    // Correct exponential decay constants
-    const ctlK = 1 - Math.exp(-1 / 42)
-    const atlK = 1 - Math.exp(-1 / 7)
-    let ctl = 0, atl = 0
-    // Warm up from earliest workout so CTL is accurate
-    const allDates = Object.keys(tssByDay).sort()
-    const startDate = allDates.length > 0
-      ? new Date(allDates[0] + 'T00:00:00')
-      : new Date(today.getTime() - (weeks * 7 + 42) * 86400000)
-    const totalDays = Math.floor((today.getTime() - startDate.getTime()) / 86400000)
-    const snapshots: Array<{ ctl: number; atl: number; label: string; order: number }> = []
-    for (let i = 0; i <= totalDays; i++) {
-      const d = new Date(startDate)
-      d.setDate(startDate.getDate() + i)
-      const key = localDateKey(d)
-      const tss = tssByDay[key] || 0
-      ctl = ctl + ctlK * (tss - ctl)
-      atl = atl + atlK * (tss - atl)
-      const daysFromEnd = Math.floor((today.getTime() - d.getTime()) / 86400000)
-      const weeksFromEnd = Math.floor(daysFromEnd / 7)
-      if (d.getDay() === 0 && weeksFromEnd < weeks) {
-        snapshots.push({ ctl: Math.round(ctl), atl: Math.round(atl), label: formatDateLabel(d), order: weeks - weeksFromEnd })
-      }
-    }
-    return snapshots
-      .sort((a, b) => a.order - b.order)
-      .map(s => ({ week: s.label, fitness: s.ctl, fatigue: s.atl, form: s.ctl - s.atl }))
+    const windowStart = new Date(today.getTime() - weeks * 7 * 86400000)
+    const { history } = calculatePMC(workouts, windowStart, today)
+    return history.map(d => ({
+      week: d.label,
+      fitness: d.ctl,
+      fatigue: d.atl,
+      form: d.tsb,
+    }))
   }
 
   // Returns planned workouts with date >= today (today's planned workouts are included).

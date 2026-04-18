@@ -236,7 +236,15 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
     isMobile ? Math.max(1, Math.floor(len / 3)) : (len > 12 ? Math.floor(len / 6) : 0)
 
   // Sport breakdown (range-filtered)
-  const sportTotals = workouts.filter(w => !w.planned).reduce<Record<string, { count: number; tss: number; minutes: number }>>((acc, w) => {
+  const rangeStart = new Date()
+  rangeStart.setHours(0, 0, 0, 0)
+  rangeStart.setDate(rangeStart.getDate() - weeks * 7)
+
+  const sportTotals = workouts.filter(w => {
+    if (w.planned) return false
+    const d = new Date(w.date + 'T00:00:00')
+    return d >= rangeStart
+  }).reduce<Record<string, { count: number; tss: number; minutes: number }>>((acc, w) => {
     if (!acc[w.type]) acc[w.type] = { count: 0, tss: 0, minutes: 0 }
     acc[w.type].count++
     acc[w.type].tss += w.tss || 0
