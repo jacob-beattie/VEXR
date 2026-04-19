@@ -69,6 +69,9 @@ UX / QUALITY OF LIFE
 ✅ Mobile-first design: fully responsive, works great on phone
   (TrainingPeaks mobile app is terrible — big opportunity here)
 ✅ First-time user onboarding: 3-step flow (name+sport → benchmarks → Strava), progress bar, tooltips, fade transitions, welcome banner on dashboard
+✅ Calendar UX: click empty day to log workout with date pre-filled; planned vs completed visual distinction (dashed/solid borders, opacity, PLANNED badge, hollow/solid dots on mobile)
+✅ Weekly summary strip redesign: single panel with text+divider stats layout, sport rows, CTL/ATL/TSB panel on right — no individual card boxes
+✅ Performance: lazy-loaded pages + manualChunks vendor splitting, main bundle 962KB → 33KB
 - One-tap workout logging: log a run in under 30 seconds
 - Offline mode: log workouts without internet, sync later
 - Push notifications: daily workout reminders, weekly summary

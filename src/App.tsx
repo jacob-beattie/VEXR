@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from './lib/colors'
 import { useAuth } from './hooks/useAuth'
@@ -10,17 +10,26 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
 import { ProfileSettingsModal } from './components/ProfileSettingsModal'
-import { Dashboard } from './pages/Dashboard'
-import { Calendar } from './pages/Calendar'
-import { Analytics } from './pages/Analytics'
-import { AICoach } from './pages/AICoach'
-import { Plans } from './pages/Plans'
-import { Library } from './pages/Library'
-import { Login } from './pages/Login'
-import { Signup } from './pages/Signup'
-import { StravaCallback } from './pages/StravaCallback'
-import { Onboarding } from './pages/Onboarding'
 import type { User } from '@supabase/supabase-js'
+
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
+const Calendar = lazy(() => import('./pages/Calendar').then(m => ({ default: m.Calendar })))
+const Analytics = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })))
+const AICoach = lazy(() => import('./pages/AICoach').then(m => ({ default: m.AICoach })))
+const Plans = lazy(() => import('./pages/Plans').then(m => ({ default: m.Plans })))
+const Library = lazy(() => import('./pages/Library').then(m => ({ default: m.Library })))
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })))
+const Signup = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signup })))
+const StravaCallback = lazy(() => import('./pages/StravaCallback').then(m => ({ default: m.StravaCallback })))
+const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })))
+
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 14, fontFamily: "'Inter', sans-serif" }}>
+      Loading…
+    </div>
+  )
+}
 
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
   '/dashboard': { title: 'Dashboard', subtitle: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) },
@@ -182,15 +191,17 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
           isMobile={isMobile}
         />
 
-        <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
-          <Route path="/ai-coach" element={<AICoach />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
+            <Route path="/ai-coach" element={<AICoach />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
       </div>
 
       {/* Bottom nav — mobile only */}
@@ -297,13 +308,15 @@ function StravaCallbackWrapper() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
-        <Route path="/*" element={<ProtectedLayout />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
+          <Route path="/*" element={<ProtectedLayout />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

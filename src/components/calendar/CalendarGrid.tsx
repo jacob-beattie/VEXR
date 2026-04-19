@@ -58,7 +58,7 @@ export function CalendarGrid({
     borderRight: `1px solid ${active ? COLORS.accent : COLORS.border}`,
     borderBottom: `1px solid ${active ? COLORS.accent : COLORS.border}`,
     borderLeft: `1px solid ${active ? COLORS.accent : COLORS.border}`,
-    background: active ? COLORS.accentDim : 'transparent',
+    background: active ? COLORS.accentDim : COLORS.card,
     color: active ? COLORS.accent : COLORS.muted,
   })
 
@@ -91,9 +91,9 @@ export function CalendarGrid({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{MONTHS[month]} {year}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{ display: 'flex', borderRadius: 7, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               <button style={toggleStyle(true)} onClick={() => onViewChange('month')}>Month</button>
-              <button style={{ ...toggleStyle(false), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
+              <button style={toggleStyle(false)} onClick={() => onViewChange('week')}>Week</button>
             </div>
             <button onClick={onPrevMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
             <button onClick={onNextMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>
@@ -149,9 +149,9 @@ export function CalendarGrid({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{headerLabel}</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ display: 'flex', borderRadius: 7, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             <button style={toggleStyle(false)} onClick={() => onViewChange('month')}>Month</button>
-            <button style={{ ...toggleStyle(true), borderLeft: `1px solid ${COLORS.border}`, borderRadius: 0 }} onClick={() => onViewChange('week')}>Week</button>
+            <button style={toggleStyle(true)} onClick={() => onViewChange('week')}>Week</button>
           </div>
           <button onClick={onPrevWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
           <button onClick={onNextWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>

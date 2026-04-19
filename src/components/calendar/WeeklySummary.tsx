@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
+import React from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
-import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Workout, WorkoutType } from '../../types'
 import { calculatePMC } from '../../lib/calculateMetrics'
 
@@ -26,7 +26,6 @@ function formatDuration(minutes: number): string {
 
 
 export function WeeklySummary({ workouts, weekStart, horizontal = false }: WeeklySummaryProps) {
-  const isMobile = useIsMobile()
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6)
   weekEnd.setHours(23, 59, 59, 999)
@@ -87,75 +86,113 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
   if (horizontal) {
     if (completed.length === 0 && planned.length === 0) return null
 
-    const tsbPositive = fitness.tsb >= 0
+    const tsbValueColor = fitness.tsb >= 0 ? COLORS.green : '#ef4444'
 
-    // Shared small card style
-    const smallCard = (label: string, value: string, valueColor: string, sub?: string) => (
-      <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '8px 14px', textAlign: 'center', minWidth: 72, flexShrink: 0 }}>
-        <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-        <div style={{ fontSize: 15, fontWeight: 800, color: valueColor, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{value}</div>
-        {sub && <div style={{ fontSize: 9, color: COLORS.muted, fontFamily: 'DM Mono, monospace', marginTop: 3 }}>{sub}</div>}
+    // Inline divider between stats
+    const divider = (
+      <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', flexShrink: 0 }} />
+    )
+
+    // Label + value text pair — no box
+    const stat = (label: string, value: string, valueColor = COLORS.text, sub?: string) => (
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: valueColor, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>{value}</div>
+        {sub && <div style={{ fontSize: 10, color: COLORS.muted, whiteSpace: 'nowrap', marginTop: 1 }}>{sub}</div>}
       </div>
     )
 
+    // Core stats to always show
+    const coreStats: React.ReactElement[] = [
+      stat('Workouts', String(completed.length), COLORS.text, planned.length > 0 ? `+${planned.length} planned` : undefined),
+      stat('Duration', formatDuration(totalMinutes)),
+      stat('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `+${plannedTSS} planned` : undefined),
+    ]
+    if (totalDistance > 0) coreStats.push(stat('Distance', `${(totalDistance / 1000).toFixed(1)} km`))
+    if (totalElevation > 0) coreStats.push(stat('Elevation', `${totalElevation} m`))
+    if (totalCalories > 0) coreStats.push(stat('Calories', totalCalories.toLocaleString()))
+
     return (
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{
+        background: COLORS.surface,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        padding: '14px 20px',
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: 0,
+        overflowX: 'auto',
+      }}>
 
-        {/* Row 1 — Activity stats */}
-        <div style={{
-          display: 'flex', gap: 8, alignItems: 'flex-start',
-          flexWrap: isMobile ? 'nowrap' : 'wrap',
-          overflowX: isMobile ? 'auto' : 'visible',
-          paddingBottom: isMobile ? 4 : 0,
-        }}>
-          {smallCard('Workouts', String(completed.length), COLORS.text, planned.length > 0 ? `+ ${planned.length} planned` : undefined)}
-          {smallCard('Duration', formatDuration(totalMinutes), COLORS.text)}
-          {smallCard('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `+ ${plannedTSS} planned` : undefined)}
-          {totalDistance > 0 && smallCard('Distance', `${(totalDistance / 1000).toFixed(1)}km`, COLORS.text)}
-          {totalElevation > 0 && smallCard('Elevation', `${totalElevation}m`, COLORS.text)}
-          {totalCalories > 0 && smallCard('Calories', totalCalories.toLocaleString(), COLORS.text)}
+        {/* LEFT — activity stats + sport rows */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0, flexShrink: 0 }}>
+          {/* Core stats with dividers between */}
+          {coreStats.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+              {i > 0 && divider}
+              {s}
+            </div>
+          ))}
 
-          {/* Sport breakdown — same card style, sport colour on label only */}
+          {/* Sport rows — after a slightly larger gap */}
           {sportStats.length > 0 && (
-            <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', margin: '0 2px' }} />
+            <>
+              <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', flexShrink: 0, margin: '0 4px' }} />
+              {sportStats.map((s, i) => {
+                const wt = workoutTypes[s.type]
+                return (
+                  <div key={s.type} style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                    {i > 0 && divider}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        {wt.icon} {wt.label}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: wt.color, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>
+                        {formatDuration(s.minutes)}
+                      </div>
+                      {s.distanceM > 0 && (
+                        <div style={{ fontSize: 10, color: COLORS.muted, whiteSpace: 'nowrap', marginTop: 1 }}>
+                          {(s.distanceM / 1000).toFixed(1)} km
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
           )}
-          {sportStats.map(s => {
-            const wt = workoutTypes[s.type]
-            return smallCard(
-              `${wt.icon} ${wt.label}`,
-              formatDuration(s.minutes),
-              wt.color,
-              s.distanceM > 0 ? `${(s.distanceM / 1000).toFixed(1)}km` : undefined
-            )
-          })}
         </div>
 
-        {/* Row 2 — Fitness metrics */}
+        {/* VERTICAL DIVIDER between left and right */}
+        {hasFitness && (
+          <div style={{ width: 1, background: COLORS.border, flexShrink: 0, margin: '0 20px' }} />
+        )}
+
+        {/* RIGHT — fitness metrics */}
         {hasFitness && (
           <div style={{
-            display: 'flex', gap: 8, alignItems: 'stretch',
-            overflowX: isMobile ? 'auto' : 'visible',
-            flexWrap: isMobile ? 'nowrap' : 'wrap',
-            paddingBottom: isMobile ? 4 : 0,
+            background: COLORS.card,
+            borderRadius: 8,
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 20,
+            flexShrink: 0,
           }}>
             {[
-              { label: 'CTL', value: fitness.ctl, color: COLORS.accent, desc: 'Fitness' },
-              { label: 'ATL', value: fitness.atl, color: COLORS.orange, desc: 'Fatigue' },
-              { label: 'TSB', value: fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb), color: tsbPositive ? COLORS.green : '#ef4444', desc: 'Form' },
-            ].map(m => (
-              <div key={m.label} style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderTop: `2px solid ${m.color}`,
-                borderRadius: 8, padding: '10px 20px', textAlign: 'center', minWidth: 90, flexShrink: 0,
-              }}>
-                <div style={{ fontSize: 9, color: m.color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{m.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: m.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{m.value}</div>
-                <div style={{ fontSize: 9, color: COLORS.muted, marginTop: 4, letterSpacing: '0.06em' }}>{m.desc}</div>
+              { label: 'CTL', value: String(fitness.ctl), color: COLORS.accent, sub: undefined },
+              { label: 'ATL', value: String(fitness.atl), color: COLORS.orange, sub: undefined },
+              { label: 'TSB', value: fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb), color: tsbValueColor, sub: undefined },
+            ].map((m, i) => (
+              <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
+                {i > 0 && <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch' }} />}
+                <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4, whiteSpace: 'nowrap' }}>{m.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: m.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{m.value}</div>
+                  {m.sub && <div style={{ fontSize: 9, color: COLORS.muted, marginTop: 4, whiteSpace: 'nowrap' }}>{m.sub}</div>}
+                </div>
               </div>
             ))}
-            <div style={{ fontSize: 10, color: COLORS.muted, fontStyle: 'italic', alignSelf: 'flex-end', paddingBottom: 4, paddingLeft: 4 }}>
-              as of {weekEnd < today ? 'end of week' : 'today'}
-            </div>
           </div>
         )}
       </div>
