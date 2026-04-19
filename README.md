@@ -1,73 +1,205 @@
-# React + TypeScript + Vite
+# VEXR
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### Train. Track. Perform.
 
-Currently, two official plugins are available:
+A modern endurance training platform built for triathletes, cyclists, runners and swimmers. Vexr gives athletes the analytics and AI coaching tools previously only available to professional athletes.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What is Vexr?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Vexr is a TrainingPeaks alternative built with a focus on:
 
-## Expanding the ESLint configuration
+- **Better UX** — clean, fast, mobile-first design
+- **AI coaching** — personalised weekly briefings powered by Claude
+- **Automatic sync** — connect Strava and never log manually again
+- **Real metrics** — accurate CTL/ATL/TSB calculations for fitness tracking
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Features
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Core
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed
+- 📊 **Performance Dashboard** — CTL/ATL/TSB stat cards, weekly load, upcoming workouts
+- 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony
+- 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
+- 📚 **Workout Library** — save and reuse workout templates
+- 🗓️ **Training Plans** — create and track multi-week training blocks
+
+### AI
+
+- 🤖 **AI Coach** — weekly briefings powered by Claude, personalised to your CTL/ATL/TSB and race goal
+- ✦ **Smart Recommendations** — training phase detection, compliance tracking, CTL trend analysis
+
+### Sync & Data
+
+- 🔄 **Strava Sync** — auto-import workouts with HR, power, pace, distance and elevation
+- 📏 **Benchmark Tracking** — FTP, run pace and CSS history with trend charts
+- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim
+
+### UX
+
+- 📱 **Mobile First** — fully responsive, bottom nav, touch-friendly modals
+- 🌙 **Dark Mode** — always dark, optimised for athlete use
+- ⚡ **Real-time Sync** — Supabase realtime keeps all views in sync instantly
+
+---
+
+## Tech Stack
+
+| Layer          | Technology                               |
+| -------------- | ---------------------------------------- |
+| Frontend       | React + Vite + TypeScript                |
+| Styling        | Inline styles with design system         |
+| Charts         | Recharts                                 |
+| Routing        | React Router v6                          |
+| Backend        | Supabase (PostgreSQL + Auth + Realtime)  |
+| Edge Functions | Supabase Edge Functions (Deno)           |
+| AI             | Anthropic Claude API (claude-sonnet-4-6) |
+| Deployment     | Vercel                                   |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- A Supabase account
+- A Strava API app (for sync)
+- An Anthropic API account (for AI Coach)
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/yourusername/vexr.git
+cd vexr
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Set up environment variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env.local` file in the root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_STRAVA_CLIENT_ID=your_strava_client_id
+VITE_STRAVA_CLIENT_SECRET=your_strava_client_secret
+VITE_STRAVA_REDIRECT_URI=http://localhost:5173/strava/callback
+```
+
+### 3. Set up Supabase
+
+- Create a new Supabase project
+- Run the SQL schema from `supabase-schema.sql` in the SQL editor
+- Enable Email auth in Authentication settings
+- Disable email confirmations for local development
+
+### 4. Set up Supabase Edge Function secrets
+
+```bash
+supabase secrets set STRAVA_CLIENT_SECRET=your_strava_client_secret
+supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+### 5. Deploy Edge Functions
+
+```bash
+supabase functions deploy strava-auth
+supabase functions deploy strava-sync
+supabase functions deploy ai-briefing
+```
+
+### 6. Run locally
+
+```bash
+npm run dev
+```
+
+App runs at `http://localhost:5173`
+
+---
+
+## Database Schema
+
+| Table                | Description                                           |
+| -------------------- | ----------------------------------------------------- |
+| `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal |
+| `workouts`           | All workouts — completed and planned                  |
+| `training_plans`     | Multi-week training blocks                            |
+| `workout_library`    | Saved workout templates                               |
+| `fitness_benchmarks` | FTP/pace/CSS history over time                        |
+| `training_zones`     | Custom training zones per sport                       |
+| `strava_connections` | Strava OAuth tokens                                   |
+| `ai_briefings`       | Cached AI coaching briefings                          |
+
+---
+
+## CTL/ATL/TSB Calculations
+
+Vexr uses the standard Performance Management Chart (PMC) formulas:
+
+```
+CTL today = CTL yesterday + (TSS today - CTL yesterday) × (1 - e^(-1/42))
+ATL today = ATL yesterday + (TSS today - ATL yesterday) × (1 - e^(-1/7))
+TSB today = CTL today - ATL today
+```
+
+- **CTL** (Chronic Training Load) = Fitness — 42 day exponential weighted average
+- **ATL** (Acute Training Load) = Fatigue — 7 day exponential weighted average
+- **TSB** (Training Stress Balance) = Form — how fresh you are
+
+Calculations start from your earliest workout and only include completed workouts (not planned).
+
+---
+
+## Deployment
+
+### Vercel
+
+1. Connect your GitHub repo to Vercel
+2. Add all environment variables in Vercel project settings
+3. Deploy — Vercel auto-deploys on every push to main
+
+### Update Strava callback for production
+
+In your Strava API settings update the callback domain to your Vercel domain.
+
+### Update Supabase for production
+
+In Supabase Authentication settings update the Site URL and add your Vercel URL to redirect URLs.
+
+---
+
+## Roadmap
+
+See `vexr-features-roadmap.txt` for the full feature roadmap.
+
+**Coming soon:**
+
+- Race finish time predictor
+- Drag and drop calendar
+- Garmin direct sync
+- Whoop/Oura HRV integration
+- Auto-TSS from plain English description
+- Coach tier — manage multiple athletes
+- Monetisation — free vs pro tiers
+
+---
+
+## Contributing
+
+This is currently a solo project in active development. If you're an endurance athlete and want to give feedback or report bugs, open an issue on GitHub.
+
+---
+
+## License
+
+MIT
+
+---
+
+Built with ♥ for endurance athletes by endurance athletes.
