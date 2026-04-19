@@ -27,24 +27,29 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
   if (isMobile) {
     const visibleDots = workouts.slice(0, MOBILE_MAX_DOTS)
     const overflow = workouts.length - MOBILE_MAX_DOTS
-    const totalTSS = workouts.reduce((s, w) => s + (w.tss || 0), 0)
+    const totalTSS = workouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0)
 
     return (
       <div
-        onClick={hasWorkouts ? onClick : undefined}
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
           minHeight: 64,
           borderRadius: 8,
           border: isToday
             ? `2px solid ${COLORS.accent}`
             : `1px solid ${COLORS.border}`,
-          background: isToday ? COLORS.accentDim : COLORS.surface,
-          cursor: hasWorkouts ? 'pointer' : 'default',
+          background: isToday
+            ? COLORS.accentDim
+            : !hasWorkouts && hovered ? COLORS.subtle : COLORS.surface,
+          cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
           padding: '5px 5px 4px',
           boxSizing: 'border-box',
           overflow: 'hidden',
+          transition: 'background 0.15s',
         }}
       >
         {/* Day number */}
@@ -59,17 +64,33 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
           {day}
         </span>
 
+        {!hasWorkouts && (
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, color: hovered ? COLORS.muted : COLORS.border,
+            transition: 'color 0.15s',
+          }}>
+            +
+          </div>
+        )}
+
         {hasWorkouts && (
           <>
             {/* Workout dots */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
               {visibleDots.map(workout => {
                 const wt = workoutTypes[workout.type]
+                const isPlanned = workout.planned
                 return (
-                  <div key={workout.id} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <div key={workout.id} style={{ display: 'flex', alignItems: 'center', gap: 3, opacity: isPlanned ? 0.65 : 1 }}>
+                    {/* Solid dot = completed, ring = planned */}
                     <div style={{
                       width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                      background: wt.color,
+                      background: isPlanned ? 'transparent' : wt.color,
+                      borderTop: isPlanned ? `1.5px solid ${wt.color}` : 'none',
+                      borderRight: isPlanned ? `1.5px solid ${wt.color}` : 'none',
+                      borderBottom: isPlanned ? `1.5px solid ${wt.color}` : 'none',
+                      borderLeft: isPlanned ? `1.5px solid ${wt.color}` : 'none',
                     }} />
                     <span style={{ fontSize: 10, lineHeight: 1 }}>{wt.icon}</span>
                   </div>
@@ -82,7 +103,7 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
               )}
             </div>
 
-            {/* Total TSS */}
+            {/* Completed TSS only */}
             {totalTSS > 0 && (
               <div style={{
                 fontSize: 9, color: COLORS.muted,
@@ -98,7 +119,7 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
     )
   }
 
-  // ── DESKTOP layout (unchanged) ───────────────────────────────────────────────
+  // ── DESKTOP layout ───────────────────────────────────────────────────────────
   const visible = workouts.slice(0, DESKTOP_MAX_VISIBLE)
   const overflow = workouts.length - DESKTOP_MAX_VISIBLE
 
@@ -106,17 +127,21 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={hasWorkouts ? onClick : undefined}
+      onClick={onClick}
       style={{
         aspectRatio: '1',
         borderRadius: 8,
         border: isToday
           ? `2px solid ${COLORS.accent}`
-          : `1px solid ${hovered && hasWorkouts ? firstWt!.color + '50' : COLORS.border}`,
-        background: hovered && hasWorkouts
-          ? firstWt!.color + '0d'
-          : isToday ? COLORS.accentDim : COLORS.surface,
-        cursor: hasWorkouts ? 'pointer' : 'default',
+          : hasWorkouts && hovered
+            ? `1px solid ${firstWt!.color + '50'}`
+            : `1px solid ${COLORS.border}`,
+        background: !hasWorkouts && hovered
+          ? COLORS.subtle
+          : hasWorkouts && hovered
+            ? firstWt!.color + '0d'
+            : isToday ? COLORS.accentDim : COLORS.surface,
+        cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
         padding: '6px 7px',
@@ -135,6 +160,16 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
         {day}
       </span>
 
+      {!hasWorkouts && (
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18, color: hovered ? COLORS.muted : COLORS.border,
+          fontWeight: 300, transition: 'color 0.15s',
+        }}>
+          +
+        </div>
+      )}
+
       {hasWorkouts && (
         <div style={{
           flex: 1,
@@ -146,9 +181,19 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
         }}>
           {visible.map(workout => {
             const wt = workoutTypes[workout.type]
+            const isPlanned = workout.planned
             return (
-              <div key={workout.id}>
-                <div style={{ height: 2, borderRadius: 1, background: wt.color, opacity: 0.85, marginBottom: 2 }} />
+              <div key={workout.id} style={{ opacity: isPlanned ? 0.72 : 1 }}>
+                {/* Top indicator: solid bar for completed, dashed for planned */}
+                {isPlanned ? (
+                  <div style={{
+                    height: 0, marginBottom: 3,
+                    borderTop: `1px dashed ${wt.color}bb`,
+                    borderRight: 'none', borderBottom: 'none', borderLeft: 'none',
+                  }} />
+                ) : (
+                  <div style={{ height: 2, borderRadius: 1, background: wt.color, opacity: 0.85, marginBottom: 2 }} />
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{
                     fontSize: 11,
@@ -163,11 +208,16 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
                   }}>
                     {wt.icon} {wt.label}
                   </span>
-                  {workout.tss > 0 && (
-                    <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'monospace', lineHeight: 1, flexShrink: 0, marginLeft: 2 }}>
-                      {workout.tss}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0, marginLeft: 2 }}>
+                    {isPlanned && (
+                      <span style={{ fontSize: 7, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.04em' }}>PLN</span>
+                    )}
+                    {workout.tss > 0 && (
+                      <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'monospace', lineHeight: 1 }}>
+                        {workout.tss}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )

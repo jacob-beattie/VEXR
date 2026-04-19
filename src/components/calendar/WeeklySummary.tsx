@@ -108,9 +108,9 @@ export function WeeklySummary({ workouts, weekStart, horizontal = false }: Weekl
           overflowX: isMobile ? 'auto' : 'visible',
           paddingBottom: isMobile ? 4 : 0,
         }}>
-          {smallCard('Workouts', String(completed.length), COLORS.text)}
+          {smallCard('Workouts', String(completed.length), COLORS.text, planned.length > 0 ? `+ ${planned.length} planned` : undefined)}
           {smallCard('Duration', formatDuration(totalMinutes), COLORS.text)}
-          {smallCard('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `/ ${plannedTSS} planned` : undefined)}
+          {smallCard('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `+ ${plannedTSS} planned` : undefined)}
           {totalDistance > 0 && smallCard('Distance', `${(totalDistance / 1000).toFixed(1)}km`, COLORS.text)}
           {totalElevation > 0 && smallCard('Elevation', `${totalElevation}m`, COLORS.text)}
           {totalCalories > 0 && smallCard('Calories', totalCalories.toLocaleString(), COLORS.text)}
