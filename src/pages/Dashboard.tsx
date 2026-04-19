@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
@@ -354,8 +354,15 @@ export function Dashboard() {
   const { loading, updateWorkout, getTodaysWorkouts, getWorkoutsForWeek, calculateFitnessMetrics, getUpcomingWorkouts } = useWorkouts()
   const { profile } = useProfile()
   const [completing, setCompleting] = useState<string | null>(null)
+  const [showWelcome, setShowWelcome] = useState(() => sessionStorage.getItem('onboardingWelcome') === 'true')
   const isMobile = useIsMobile()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (showWelcome) {
+      sessionStorage.removeItem('onboardingWelcome')
+    }
+  }, [showWelcome])
 
   const todaysWorkouts = getTodaysWorkouts()
   const todayPlanned = todaysWorkouts.filter(w => w.planned)
@@ -388,6 +395,39 @@ export function Dashboard() {
 
   return (
     <>
+      {/* Welcome banner for new users who skipped Strava */}
+      {showWelcome && (
+        <div style={{
+          background: COLORS.card,
+          borderTop: `1px solid ${COLORS.border}`,
+          borderRight: `1px solid ${COLORS.border}`,
+          borderBottom: `1px solid ${COLORS.border}`,
+          borderLeft: `3px solid ${COLORS.accent}`,
+          borderRadius: 12,
+          padding: '14px 20px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.text }}>
+            <span style={{ color: COLORS.accent, fontWeight: 700 }}>Welcome to Vexr!</span>{' '}
+            Log your first workout to get started.
+          </span>
+          <button
+            onClick={() => setShowWelcome(false)}
+            style={{
+              background: 'none', border: 'none', color: COLORS.muted,
+              fontSize: 16, cursor: 'pointer', padding: '0 4px', flexShrink: 0,
+              fontFamily: 'inherit',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Today's workout */}
       {todayPlanned.length > 0
         ? <TodayWorkoutCard workout={todayPlanned[0]} onComplete={handleMarkComplete} completing={completing === todayPlanned[0].id} onCoachClick={() => navigate('/ai-coach')} />

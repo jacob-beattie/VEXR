@@ -19,6 +19,7 @@ import { Library } from './pages/Library'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import { StravaCallback } from './pages/StravaCallback'
+import { Onboarding } from './pages/Onboarding'
 import type { User } from '@supabase/supabase-js'
 
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
@@ -110,6 +111,13 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
   const isMobile = useIsMobile()
 
   const pageInfo = pageTitles[location.pathname] || { title: 'Vexr', subtitle: '' }
+
+  // Redirect to onboarding if not completed
+  useEffect(() => {
+    if (profile && profile.onboarding_completed === false) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [profile, navigate])
 
   // Close sidebar whenever route changes on mobile
   useEffect(() => {
@@ -292,6 +300,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
         <Route path="/*" element={<ProtectedLayout />} />
       </Routes>

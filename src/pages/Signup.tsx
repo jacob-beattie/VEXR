@@ -25,7 +25,7 @@ export function Signup() {
     try {
       await signUp(email, password, name)
       setSuccess(true)
-      setTimeout(() => navigate('/dashboard'), 2000)
+      setTimeout(() => navigate('/onboarding'), 1500)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Signup failed')
     } finally {

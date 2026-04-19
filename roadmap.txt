@@ -68,6 +68,7 @@ UX / QUALITY OF LIFE
 ---------------------
 ✅ Mobile-first design: fully responsive, works great on phone
   (TrainingPeaks mobile app is terrible — big opportunity here)
+✅ First-time user onboarding: 3-step flow (name+sport → benchmarks → Strava), progress bar, tooltips, fade transitions, welcome banner on dashboard
 - One-tap workout logging: log a run in under 30 seconds
 - Offline mode: log workouts without internet, sync later
 - Push notifications: daily workout reminders, weekly summary

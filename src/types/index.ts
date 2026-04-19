@@ -48,6 +48,7 @@ export interface Profile {
   css: string
   race_goal?: string
   race_date?: string
+  onboarding_completed?: boolean
 }
 
 export interface TrainingPlan {
