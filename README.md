@@ -74,7 +74,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/vexr.git
+git clone https://github.com/jacob-beattie/vexr.git
 cd vexr
 npm install
 ```
@@ -176,7 +176,7 @@ In Supabase Authentication settings update the Site URL and add your Vercel URL 
 
 ## Roadmap
 
-See `vexr-features-roadmap.txt` for the full feature roadmap.
+See `roadmap.txt` for the full feature roadmap.
 
 **Coming soon:**
 
