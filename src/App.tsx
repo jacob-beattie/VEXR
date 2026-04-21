@@ -32,13 +32,13 @@ function PageLoader() {
 }
 
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
-  '/dashboard': { title: 'Dashboard', subtitle: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) },
   '/calendar': { title: 'Training Calendar', subtitle: 'Track and plan your sessions' },
   '/analytics': { title: 'Performance Analytics', subtitle: 'Trends, fitness, and load analysis' },
   '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: '#00e5ff' },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
 }
+
 
 const bottomNavItems = [
   { path: '/dashboard', icon: '◈', label: 'Home' },
@@ -113,12 +113,33 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
   const { addWorkout } = useWorkouts()
   const { profile, setProfile } = useProfile()
   const [showModal, setShowModal] = useState(false)
+  const [logWorkoutDate, setLogWorkoutDate] = useState<string | undefined>()
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
 
+  // Custom events from Dashboard (and other pages) to open modals
+  useEffect(() => {
+    const handleOpenLog = (e: Event) => {
+      const date = (e as CustomEvent<{ date?: string }>).detail?.date
+      setLogWorkoutDate(date)
+      setShowModal(true)
+    }
+    const handleOpenProfile = () => setShowProfileModal(true)
+    const handleOpenMenu = () => setSidebarOpen(true)
+    window.addEventListener('vexr:openLogWorkout', handleOpenLog)
+    window.addEventListener('vexr:openProfileSettings', handleOpenProfile)
+    window.addEventListener('vexr:openMenu', handleOpenMenu)
+    return () => {
+      window.removeEventListener('vexr:openLogWorkout', handleOpenLog)
+      window.removeEventListener('vexr:openProfileSettings', handleOpenProfile)
+      window.removeEventListener('vexr:openMenu', handleOpenMenu)
+    }
+  }, [])
+
+  const isDashboard = location.pathname === '/dashboard'
   const pageInfo = pageTitles[location.pathname] || { title: 'Vexr', subtitle: '' }
 
   // Redirect to onboarding if not completed
@@ -161,14 +182,14 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         <Sidebar
           onProfileClick={() => setShowProfileModal(true)}
           onSignOut={async () => { await signOut(); navigate('/login') }}
-          onLogWorkout={() => setShowModal(true)}
+          onLogWorkout={() => { setLogWorkoutDate(undefined); setShowModal(true) }}
         />
       )}
       {isMobile && (
         <Sidebar
           onProfileClick={() => { setShowProfileModal(true); setSidebarOpen(false) }}
           onSignOut={async () => { await signOut(); navigate('/login') }}
-          onLogWorkout={() => { setShowModal(true); setSidebarOpen(false) }}
+          onLogWorkout={() => { setLogWorkoutDate(undefined); setShowModal(true); setSidebarOpen(false) }}
           isMobile
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -182,14 +203,16 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         paddingBottom: isMobile ? 76 : 28,
         minWidth: 0,
       }}>
-        <TopBar
-          title={pageInfo.title}
-          subtitle={pageInfo.subtitle}
-          titleIcon={pageInfo.titleIcon}
-          titleIconColor={pageInfo.titleIconColor}
-          onMenuClick={() => setSidebarOpen(true)}
-          isMobile={isMobile}
-        />
+        {!isDashboard && (
+          <TopBar
+            title={pageInfo.title}
+            subtitle={pageInfo.subtitle}
+            titleIcon={pageInfo.titleIcon}
+            titleIconColor={pageInfo.titleIconColor}
+            onMenuClick={() => setSidebarOpen(true)}
+            isMobile={isMobile}
+          />
+        )}
 
         <Suspense fallback={null}>
           <Routes>
@@ -210,7 +233,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
       {/* Mobile FAB — hidden on /library which has its own FAB */}
       {isMobile && location.pathname !== '/library' && (
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setLogWorkoutDate(undefined); setShowModal(true) }}
           aria-label="Log workout"
           style={{
             position: 'fixed',
@@ -239,8 +262,9 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
 
       {showModal && (
         <LogWorkoutModal
-          onClose={() => setShowModal(false)}
+          onClose={() => { setShowModal(false); setLogWorkoutDate(undefined) }}
           onSubmit={addWorkout}
+          initialDate={logWorkoutDate}
         />
       )}
 

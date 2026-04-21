@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
-import { StatCard } from '../components/dashboard/StatCard'
 import { COLORS } from '../lib/colors'
 import { workoutTypes } from '../components/ui/Badge'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { supabase } from '../lib/supabase'
 import type { Workout } from '../types'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function localDateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -18,273 +19,172 @@ function formatDuration(minutes: number): string {
   if (!minutes) return '—'
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (h === 0) return `${m} min`
+  if (h === 0) return `${m}m`
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
 }
 
-function formatUpcomingDate(dateStr: string): string {
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function getISOWeek(): number {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const w1 = new Date(d.getFullYear(), 0, 4)
+  return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7)
+}
+
+function daysUntil(dateStr: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return Math.ceil((new Date(dateStr + 'T00:00:00').getTime() - today.getTime()) / 86400000)
+}
+
+function formatUpcomingDay(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
-  const today = new Date(); today.setHours(0,0,0,0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
-  d.setHours(0,0,0,0)
+  d.setHours(0, 0, 0, 0)
+  if (d.getTime() === today.getTime()) return 'Today'
   if (d.getTime() === tomorrow.getTime()) return 'Tomorrow'
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Fitness Area Chart ───────────────────────────────────────────────────────
 
-function TodayWorkoutCard({ workout, onComplete, completing, onCoachClick }: {
-  workout: Workout
-  onComplete: (w: Workout) => void
-  completing: boolean
-  onCoachClick: () => void
-}) {
-  const wt = workoutTypes[workout.type]
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number }>; label?: string }) {
+  if (!active || !payload?.length) return null
   return (
-    <div style={{
-      background: COLORS.card,
-      borderTop: `1px solid ${COLORS.border}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `3px solid ${wt.color}`,
-      borderRadius: 12,
-      padding: '20px 24px',
-      marginBottom: 20,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-          background: wt.color + '20',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22,
-        }}>
-          {wt.icon}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, color: wt.color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
-            Today's Workout
-          </div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {workout.title}
-          </div>
-          <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 3, display: 'flex', gap: 10 }}>
-            {workout.duration_minutes > 0 && <span>{formatDuration(workout.duration_minutes)}</span>}
-            {workout.tss > 0 && <span>{workout.tss} TSS</span>}
-            {workout.zone && <span>{workout.zone}</span>}
-            {workout.notes && <span style={{ fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{workout.notes}</span>}
-          </div>
-        </div>
-        <button
-          onClick={() => onComplete(workout)}
-          disabled={completing}
-          style={{
-            flexShrink: 0,
-            padding: '9px 18px',
-            borderRadius: 8,
-            border: `1px solid ${COLORS.green}`,
-            background: completing ? COLORS.green + '20' : COLORS.green + '15',
-            color: COLORS.green,
-            fontSize: 12, fontWeight: 700, cursor: completing ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s', fontFamily: 'inherit', opacity: completing ? 0.6 : 1,
-          }}
-        >
-          {completing ? 'Saving…' : '✓ Mark Complete'}
-        </button>
-      </div>
-      <CoachBanner onClick={onCoachClick} />
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
+      <div style={{ color: COLORS.muted, marginBottom: 6 }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color, fontWeight: 600 }}>{p.name}: {p.value}</div>
+      ))}
     </div>
   )
 }
 
-function CoachBanner({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 14,
-        paddingTop: 12,
-        borderTop: `1px solid ${COLORS.border}`,
-        background: 'none',
-        border: 'none',
-        borderRadius: 0,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        padding: '12px 0 0',
-        width: '100%',
-      }}
-    >
-      <span style={{ fontSize: 11, color: COLORS.accent }}>✦</span>
-      <span style={{ fontSize: 11, color: COLORS.muted, transition: 'color 0.15s' }}
-        onMouseEnter={e => (e.currentTarget.style.color = COLORS.accent)}
-        onMouseLeave={e => (e.currentTarget.style.color = COLORS.muted)}
-      >
-        View your AI coaching briefing →
-      </span>
-    </button>
-  )
-}
+function FitnessAreaChart({ data }: { data: Array<{ week: string; fitness: number; fatigue: number; form: number }> }) {
+  const hasData = data.some(d => d.fitness > 0 || d.fatigue > 0)
+  const tickInterval = data.length > 28 ? Math.floor(data.length / 8) : data.length > 14 ? 6 : 0
 
-function RestDayCard({ completedToday, onCoachClick }: { completedToday: Workout[]; onCoachClick: () => void }) {
   return (
-    <div style={{
-      background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
-      padding: '18px 24px',
-      marginBottom: 20,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: COLORS.subtle,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18,
-        }}>
-          {completedToday.length > 0 ? '✓' : '—'}
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          Fitness · Fatigue · Form
         </div>
-        <div>
-          <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>
-            Today
-          </div>
-          {completedToday.length > 0 ? (
-            <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.green }}>
-              {completedToday.length} workout{completedToday.length > 1 ? 's' : ''} completed
-              <span style={{ color: COLORS.muted, fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
-                {completedToday.reduce((s, w) => s + (w.tss || 0), 0)} TSS
-              </span>
+        <div style={{ display: 'flex', gap: 14, marginLeft: 'auto' }}>
+          {[
+            { label: 'CTL', color: COLORS.purple },
+            { label: 'ATL', color: COLORS.orange },
+            { label: 'TSB', color: COLORS.green },
+          ].map(({ label, color }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: COLORS.muted }}>
+              <div style={{ width: 20, height: 2, borderRadius: 1, background: color }} />
+              {label}
             </div>
-          ) : (
-            <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.muted }}>No workout scheduled — rest day</div>
-          )}
+          ))}
         </div>
       </div>
-      <CoachBanner onClick={onCoachClick} />
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={190}>
+          <AreaChart data={data} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="ctlFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLORS.purple} stopOpacity={0.25} />
+                <stop offset="100%" stopColor={COLORS.purple} stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="atlFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLORS.orange} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={COLORS.orange} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} interval={tickInterval} />
+            <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+            <Tooltip content={<ChartTooltip />} />
+            <Area type="monotone" dataKey="fitness" stroke={COLORS.purple} strokeWidth={2} fill="url(#ctlFill)" dot={false} name="CTL" />
+            <Area type="monotone" dataKey="fatigue" stroke={COLORS.orange} strokeWidth={2} fill="url(#atlFill)" dot={false} name="ATL" />
+            <Area type="monotone" dataKey="form" stroke={COLORS.green} strokeWidth={1.5} fill="none" dot={false} name="TSB" strokeDasharray="4 2" />
+          </AreaChart>
+        </ResponsiveContainer>
+      ) : (
+        <div style={{ height: 190, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <div style={{ fontSize: 13, color: COLORS.muted }}>No workout data yet</div>
+          <div style={{ fontSize: 11, color: COLORS.muted, opacity: 0.6 }}>Log workouts with TSS to see your fitness trend</div>
+        </div>
+      )}
     </div>
   )
 }
 
-function RaceCountdownCard({ goal, date }: { goal?: string; date?: string }) {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const raceDate = date ? new Date(date + 'T00:00:00') : null
-  const days = raceDate ? Math.ceil((raceDate.getTime() - today.getTime()) / 86400000) : null
+// ─── Weekly Load ──────────────────────────────────────────────────────────────
 
-  if (!goal || days === null || days < 0) {
-    return (
-      <div style={{
-        background: COLORS.card, border: `1px solid ${COLORS.border}`,
-        borderRadius: 12, padding: '20px 24px', flex: 1, minWidth: 140,
-        position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.4 }} />
-        <div style={{ color: COLORS.muted, fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Race Goal</div>
-        <div style={{ fontSize: 13, color: COLORS.muted }}>Set in profile settings</div>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{
-      background: COLORS.card, border: `1px solid ${COLORS.border}`,
-      borderRadius: 12, padding: '20px 24px', flex: 1, minWidth: 140,
-      position: 'relative', overflow: 'hidden',
-    }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.purple, opacity: 0.8 }} />
-      <div style={{ color: COLORS.muted, fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Race Goal</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ fontSize: 32, fontWeight: 800, color: COLORS.text, fontFamily: "'DM Mono', monospace" }}>{days}</span>
-        <span style={{ color: COLORS.muted, fontSize: 13 }}>days</span>
-      </div>
-      <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: COLORS.purple, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {goal}
-      </div>
-      <div style={{ fontSize: 10, color: COLORS.muted, marginTop: 2 }}>
-        {raceDate!.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-      </div>
-    </div>
-  )
-}
-
-function WeeklyProgressCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
+function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
   const actual = weekWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const planned = weekWorkouts.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const target = actual + planned
   const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0
 
-  // Build Mon–Sun day breakdown
   const now = new Date()
-  const dow = now.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  const monday = new Date(now)
-  monday.setDate(now.getDate() + diff)
-  monday.setHours(0, 0, 0, 0)
+  const diff = now.getDay() === 0 ? -6 : 1 - now.getDay()
+  const monday = new Date(now); monday.setDate(now.getDate() + diff); monday.setHours(0, 0, 0, 0)
 
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    d.setHours(0, 0, 0, 0)
+    const d = new Date(monday); d.setDate(monday.getDate() + i); d.setHours(0, 0, 0, 0)
     const key = localDateKey(d)
-    const dayWorkouts = weekWorkouts.filter(w => w.date.split('T')[0] === key)
-    const done = dayWorkouts.filter(w => !w.planned)
-    const pending = dayWorkouts.filter(w => w.planned)
-    const isPast = d.getTime() < now.setHours(0, 0, 0, 0)
-    const isToday = d.getTime() === new Date().setHours(0, 0, 0, 0)
-    const label = ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]
-    return { label, done, pending, isPast, isToday, key }
+    const dw = weekWorkouts.filter(w => w.date.split('T')[0] === key)
+    const done = dw.filter(w => !w.planned)
+    const pending = dw.filter(w => w.planned)
+    return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i], done, pending, isToday: localDateKey(new Date()) === key }
   })
 
   const sportColor = (type: string) => workoutTypes[type as keyof typeof workoutTypes]?.color ?? COLORS.muted
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
         Weekly Load
       </div>
-
-      {/* Progress bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <div style={{ fontSize: 11, color: COLORS.muted }}>
-          <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: COLORS.text, fontSize: 14 }}>{actual}</span>
-          {target > 0 && <span> / {target} TSS</span>}
+          <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: COLORS.text, fontSize: 16 }}>{actual}</span>
+          {target > 0 && <span style={{ fontSize: 12 }}> / {target} TSS</span>}
         </div>
         <div style={{ fontSize: 12, fontWeight: 700, color: pct >= 80 ? COLORS.green : pct >= 50 ? COLORS.accent : COLORS.muted }}>
           {target > 0 ? `${pct}%` : 'No load planned'}
         </div>
       </div>
-      <div style={{ height: 6, background: COLORS.subtle, borderRadius: 4, marginBottom: 20, overflow: 'hidden' }}>
+      <div style={{ height: 6, background: COLORS.subtle, borderRadius: 4, marginBottom: 18, overflow: 'hidden' }}>
         <div style={{
           height: '100%', borderRadius: 4, transition: 'width 0.4s ease',
           width: `${pct}%`,
           background: pct >= 80 ? COLORS.green : COLORS.accent,
         }} />
       </div>
-
-      {/* Day dots */}
       <div style={{ display: 'flex', gap: 6 }}>
         {days.map((day, i) => {
-          const primaryWorkout = day.done[0] ?? day.pending[0]
-          const color = primaryWorkout ? sportColor(primaryWorkout.type) : COLORS.border
+          const primary = day.done[0] ?? day.pending[0]
+          const color = primary ? sportColor(primary.type) : COLORS.border
           const isDone = day.done.length > 0
-          const hasPending = day.pending.length > 0 && day.done.length === 0
-
+          const hasPending = day.pending.length > 0 && !isDone
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
               <div style={{
-                width: '100%', aspectRatio: '1',
-                borderRadius: 5,
-                background: isDone ? color + '30' : 'transparent',
-                border: `1px solid ${isDone ? color : hasPending ? color + '60' : COLORS.border}`,
-                borderStyle: hasPending ? 'dashed' : 'solid',
+                width: '100%', aspectRatio: '1', borderRadius: 6,
+                background: isDone ? color + '28' : 'transparent',
+                border: `1px ${hasPending ? 'dashed' : 'solid'} ${isDone ? color : hasPending ? color + '70' : COLORS.border}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13,
+                fontSize: 12,
               }}>
                 {isDone && <span style={{ color }}>✓</span>}
-                {hasPending && <span style={{ color: color + '90', fontSize: 10 }}>○</span>}
+                {hasPending && <span style={{ color: color + '90', fontSize: 9 }}>○</span>}
               </div>
-              <div style={{ fontSize: 9, color: day.isToday ? COLORS.accent : COLORS.muted, fontWeight: day.isToday ? 700 : 400, letterSpacing: '0.06em' }}>
+              <div style={{ fontSize: 9, color: day.isToday ? COLORS.accent : COLORS.muted, fontWeight: day.isToday ? 700 : 400 }}>
                 {day.label}
               </div>
             </div>
@@ -295,15 +195,17 @@ function WeeklyProgressCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
   )
 }
 
-function UpcomingDaysCard({ workouts }: { workouts: Workout[] }) {
+// ─── Coming Up ────────────────────────────────────────────────────────────────
+
+function ComingUpCard({ workouts }: { workouts: Workout[] }) {
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
         Coming Up
       </div>
       {workouts.length === 0 ? (
         <div style={{ color: COLORS.muted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-          No planned workouts in the next 4 days
+          No planned workouts ahead
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -313,8 +215,7 @@ function UpcomingDaysCard({ workouts }: { workouts: Workout[] }) {
               <div key={w.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 12px',
-                background: COLORS.bg,
-                borderRadius: 8,
+                background: COLORS.bg, borderRadius: 9,
                 border: `1px solid ${COLORS.border}`,
               }}>
                 <div style={{
@@ -326,16 +227,16 @@ function UpcomingDaysCard({ workouts }: { workouts: Workout[] }) {
                   {wt.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.title}
                   </div>
-                  <div style={{ fontSize: 10, color: COLORS.muted, marginTop: 1 }}>
-                    {formatUpcomingDate(w.date)}{w.duration_minutes > 0 ? ` · ${formatDuration(w.duration_minutes)}` : ''}
+                  <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>
+                    {formatUpcomingDay(w.date)}{w.duration_minutes > 0 ? ` · ${formatDuration(w.duration_minutes)}` : ''}
                   </div>
                 </div>
                 {w.tss > 0 && (
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: wt.color, fontFamily: "'DM Mono', monospace" }}>{w.tss}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: wt.color, fontFamily: "'DM Mono', monospace" }}>{w.tss}</div>
                     <div style={{ fontSize: 9, color: COLORS.muted }}>TSS</div>
                   </div>
                 )}
@@ -348,42 +249,297 @@ function UpcomingDaysCard({ workouts }: { workouts: Workout[] }) {
   )
 }
 
+// ─── AI Coach Teaser ──────────────────────────────────────────────────────────
+
+function AICoachTeaser({ onClick }: { onClick: () => void }) {
+  const [preview, setPreview] = useState<string | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('ai_briefings')
+      .select('briefing')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.briefing) {
+          const idx = data.briefing.search(/[.!?](\s|$)/)
+          const sentence = idx > 0 ? data.briefing.slice(0, idx + 1) : data.briefing
+          setPreview(sentence.length > 150 ? sentence.slice(0, 150) + '…' : sentence)
+        }
+        setChecked(true)
+      })
+  }, [])
+
+  return (
+    <div style={{
+      background: COLORS.card,
+      borderTop: `1px solid ${COLORS.border}`,
+      borderRight: `1px solid ${COLORS.border}`,
+      borderBottom: `1px solid ${COLORS.border}`,
+      borderLeft: `1px solid ${COLORS.border}`,
+      borderRadius: 12,
+      padding: '18px 20px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, transparent, ${COLORS.accent}90, transparent)`,
+      }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 14, color: COLORS.accent }}>✦</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          AI Coach
+        </span>
+      </div>
+      {checked && !preview && (
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.muted, lineHeight: 1.6 }}>
+          Get a personalised weekly briefing based on your current fitness and training load.
+        </p>
+      )}
+      {preview && (
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.text, lineHeight: 1.65, fontStyle: 'italic', opacity: 0.88 }}>
+          "{preview}"
+        </p>
+      )}
+      <button
+        onClick={onClick}
+        style={{
+          background: 'none', border: 'none', padding: 0,
+          color: COLORS.accent, fontSize: 13, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', gap: 5,
+          transition: 'gap 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.gap = '8px')}
+        onMouseLeave={e => (e.currentTarget.style.gap = '5px')}
+      >
+        Read Full Briefing <span style={{ fontSize: 15 }}>→</span>
+      </button>
+    </div>
+  )
+}
+
+// ─── Season Goals ─────────────────────────────────────────────────────────────
+
+interface Goal { id: string; text: string; completed: boolean; created_at: string }
+
+function SeasonGoalsPanel() {
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [inputText, setInputText] = useState('')
+  const [loadingGoals, setLoadingGoals] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('goals')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => { if (data) setGoals(data); setLoadingGoals(false) })
+  }, [])
+
+  const addGoal = async () => {
+    const text = inputText.trim()
+    if (!text || saving) return
+    setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSaving(false); return }
+    const { data, error } = await supabase.from('goals').insert({ text, user_id: user.id }).select().single()
+    if (!error && data) { setGoals(prev => [...prev, data]); setInputText('') }
+    setSaving(false)
+  }
+
+  const toggleGoal = async (goal: Goal) => {
+    const { error } = await supabase.from('goals').update({ completed: !goal.completed }).eq('id', goal.id)
+    if (!error) setGoals(prev => prev.map(g => g.id === goal.id ? { ...g, completed: !g.completed } : g))
+  }
+
+  const deleteGoal = async (id: string) => {
+    const { error } = await supabase.from('goals').delete().eq('id', id)
+    if (!error) setGoals(prev => prev.filter(g => g.id !== id))
+  }
+
+  const incomplete = goals.filter(g => !g.completed)
+  const completed = goals.filter(g => g.completed)
+
+  return (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          Season Goals
+        </div>
+        {goals.length > 0 && (
+          <span style={{ fontSize: 11, color: COLORS.green, fontFamily: "'DM Mono', monospace", fontWeight: 700 }}>
+            {completed.length}/{goals.length}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <input
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addGoal()}
+          placeholder="Add a goal…"
+          style={{
+            flex: 1, padding: '8px 11px', borderRadius: 8,
+            border: `1px solid ${COLORS.border}`,
+            background: COLORS.bg, color: COLORS.text,
+            fontSize: 12, fontFamily: 'inherit', outline: 'none',
+          }}
+          onFocus={e => (e.currentTarget.style.borderColor = COLORS.accent + '70')}
+          onBlur={e => (e.currentTarget.style.borderColor = COLORS.border)}
+        />
+        <button
+          onClick={addGoal}
+          disabled={saving || !inputText.trim()}
+          style={{
+            padding: '8px 13px', borderRadius: 8,
+            border: `1px solid ${COLORS.accent}`,
+            background: COLORS.accent + '15', color: COLORS.accent,
+            fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            opacity: saving || !inputText.trim() ? 0.45 : 1, transition: 'opacity 0.15s',
+          }}
+        >+</button>
+      </div>
+
+      {loadingGoals ? (
+        <div style={{ color: COLORS.muted, fontSize: 12, padding: '4px 0' }}>Loading…</div>
+      ) : goals.length === 0 ? (
+        <div style={{ color: COLORS.muted, fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No goals yet — set your first!</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {[...incomplete, ...completed].map(goal => (
+            <div key={goal.id} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 9,
+              padding: '8px 10px', borderRadius: 8,
+              background: COLORS.bg,
+              border: `1px solid ${goal.completed ? COLORS.green + '25' : COLORS.border}`,
+              opacity: goal.completed ? 0.6 : 1, transition: 'opacity 0.2s',
+            }}>
+              <button
+                onClick={() => toggleGoal(goal)}
+                style={{
+                  flexShrink: 0, marginTop: 1, width: 17, height: 17, borderRadius: 4,
+                  border: `1px solid ${goal.completed ? COLORS.green : COLORS.muted}`,
+                  background: goal.completed ? COLORS.green + '20' : 'transparent',
+                  cursor: 'pointer', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, color: COLORS.green, fontFamily: 'inherit', transition: 'all 0.15s',
+                }}
+              >{goal.completed ? '✓' : ''}</button>
+              <span style={{
+                flex: 1, fontSize: 12,
+                color: goal.completed ? COLORS.muted : COLORS.text,
+                textDecoration: goal.completed ? 'line-through' : 'none',
+                lineHeight: 1.4,
+              }}>{goal.text}</span>
+              <button
+                onClick={() => deleteGoal(goal.id)}
+                style={{
+                  flexShrink: 0, background: 'none', border: 'none',
+                  color: COLORS.muted, fontSize: 15, cursor: 'pointer',
+                  padding: '0 2px', lineHeight: 1, opacity: 0.5,
+                  fontFamily: 'inherit', transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+              >×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, unit, sub, color, dimSub }: {
+  label: string
+  value: string | number
+  unit?: string
+  sub: string
+  color: string
+  dimSub?: boolean
+}) {
+  return (
+    <div style={{
+      background: COLORS.card,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 12,
+      padding: '18px 20px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+        <span style={{ fontSize: 34, fontWeight: 900, color: COLORS.text, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
+          {value}
+        </span>
+        {unit && <span style={{ fontSize: 14, color: COLORS.muted, fontWeight: 500 }}>{unit}</span>}
+      </div>
+      <div style={{ fontSize: 12, color: dimSub ? COLORS.muted : color, fontWeight: 600 }}>
+        {sub}
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
-  const { loading, updateWorkout, getTodaysWorkouts, getWorkoutsForWeek, calculateFitnessMetrics, getUpcomingWorkouts } = useWorkouts()
+  const {
+    loading,
+    getWorkoutsForWeek,
+    calculateFitnessMetrics,
+    getUpcomingWorkouts,
+    getFitnessHistory,
+  } = useWorkouts()
   const { profile } = useProfile()
-  const [completing, setCompleting] = useState<string | null>(null)
   const [showWelcome, setShowWelcome] = useState(() => sessionStorage.getItem('onboardingWelcome') === 'true')
   const isMobile = useIsMobile()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (showWelcome) {
-      sessionStorage.removeItem('onboardingWelcome')
-    }
+    if (showWelcome) sessionStorage.removeItem('onboardingWelcome')
   }, [showWelcome])
 
-  const todaysWorkouts = getTodaysWorkouts()
-  const todayPlanned = todaysWorkouts.filter(w => w.planned)
-  const todayCompleted = todaysWorkouts.filter(w => !w.planned)
   const weekWorkouts = getWorkoutsForWeek()
   const { ctl, atl, tsb } = calculateFitnessMetrics()
+  const fitnessHistory = getFitnessHistory(8)
 
-  // Upcoming next 4 days (excluding today)
-  const todayKey = localDateKey(new Date())
-  const upcoming = getUpcomingWorkouts(5)
-    .filter(w => w.date.split('T')[0] !== todayKey)
-    .slice(0, 4)
+  // CTL delta vs 7 days ago
+  const weekHistory = getFitnessHistory(1)
+  const ctlDelta = weekHistory.length >= 2
+    ? Math.round(weekHistory[weekHistory.length - 1].fitness - weekHistory[0].fitness)
+    : 0
 
-  const handleMarkComplete = async (workout: Workout) => {
-    setCompleting(workout.id)
-    try {
-      await updateWorkout(workout.id, { planned: false })
-    } finally {
-      setCompleting(null)
-    }
+  // Upcoming: next 4 planned workouts from today onward
+  const comingUp = getUpcomingWorkouts(14).slice(0, 4)
+
+  // Dynamic subtitle
+  const weekNum = getISOWeek()
+  let subtitle = `Week ${weekNum}`
+  if (profile?.race_goal && profile?.race_date) {
+    const days = daysUntil(profile.race_date)
+    if (days > 0) subtitle += ` · ${days} day${days === 1 ? '' : 's'} until ${profile.race_goal}`
   }
+
+  // Stat card helpers
+  const tsbColor = tsb > 10 ? COLORS.green : tsb < -10 ? COLORS.orange : COLORS.accent
+  const ctlSub = ctlDelta !== 0 ? `${ctlDelta > 0 ? '↑' : '↓'} ${Math.abs(ctlDelta)} this week` : 'Stable this week'
+  const atlSub = atl > 70 ? 'Heavy training load' : atl > 45 ? 'Moderate load' : atl > 20 ? 'Light load' : 'Very fresh'
+  const tsbSub = tsb > 10 ? '🟢 Fresh — ready to race' : tsb < -20 ? '⚠️ High fatigue' : tsb < -10 ? 'Some fatigue' : 'Balanced form'
+
+  // Race card
+  const raceDays = profile?.race_date ? daysUntil(profile.race_date) : null
+  const hasRace = raceDays !== null && raceDays > 0
 
   if (loading) {
     return (
@@ -393,9 +549,10 @@ export function Dashboard() {
     )
   }
 
+  const firstName = profile?.name?.split(' ')[0] || ''
+
   return (
     <>
-      {/* Welcome banner for new users who skipped Strava */}
       {showWelcome && (
         <div style={{
           background: COLORS.card,
@@ -404,12 +561,9 @@ export function Dashboard() {
           borderBottom: `1px solid ${COLORS.border}`,
           borderLeft: `3px solid ${COLORS.accent}`,
           borderRadius: 12,
-          padding: '14px 20px',
+          padding: '13px 18px',
           marginBottom: 20,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
           <span style={{ fontSize: 13, color: COLORS.text }}>
             <span style={{ color: COLORS.accent, fontWeight: 700 }}>Welcome to Vexr!</span>{' '}
@@ -417,40 +571,124 @@ export function Dashboard() {
           </span>
           <button
             onClick={() => setShowWelcome(false)}
-            style={{
-              background: 'none', border: 'none', color: COLORS.muted,
-              fontSize: 16, cursor: 'pointer', padding: '0 4px', flexShrink: 0,
-              fontFamily: 'inherit',
-            }}
+            style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 16, cursor: 'pointer', padding: '0 4px', flexShrink: 0, fontFamily: 'inherit' }}
           >
             ×
           </button>
         </div>
       )}
 
-      {/* Today's workout */}
-      {todayPlanned.length > 0
-        ? <TodayWorkoutCard workout={todayPlanned[0]} onComplete={handleMarkComplete} completing={completing === todayPlanned[0].id} onCoachClick={() => navigate('/ai-coach')} />
-        : <RestDayCard completedToday={todayCompleted} onCoachClick={() => navigate('/ai-coach')} />
-      }
+      {/* ── Greeting row ──────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 16,
+        marginBottom: 28,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {isMobile && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('vexr:openMenu'))}
+              style={{ background: 'none', border: 'none', color: COLORS.text, fontSize: 20, cursor: 'pointer', padding: '2px 4px', lineHeight: 1, flexShrink: 0, fontFamily: 'inherit' }}
+            >
+              ☰
+            </button>
+          )}
+          <div>
+            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, color: COLORS.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              {getGreeting()}{firstName ? `, ${firstName}` : ''}
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 5, fontWeight: 500 }}>
+              {subtitle}
+            </div>
+          </div>
+        </div>
 
-      {/* Stat cards + race countdown */}
+        {tsb < -20 && !isMobile && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '9px 14px',
+            borderRadius: 8,
+            background: COLORS.orange + '12',
+            borderTop: `1px solid ${COLORS.orange}30`,
+            borderRight: `1px solid ${COLORS.orange}30`,
+            borderBottom: `1px solid ${COLORS.orange}30`,
+            borderLeft: `3px solid ${COLORS.orange}`,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 14 }}>⚠️</span>
+            <span style={{ fontSize: 12, color: COLORS.orange, fontWeight: 600 }}>High Fatigue — consider an easy day</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Stat cards ────────────────────────────────────────────────────── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
         gap: isMobile ? 10 : 14,
         marginBottom: 20,
       }}>
-        <StatCard label="Fitness (CTL)" value={ctl} color={COLORS.accent} hint={ctl < 10 ? 'Log more workouts to build your score' : undefined} />
-        <StatCard label="Fatigue (ATL)" value={atl} color={COLORS.orange} hint={atl < 10 ? 'Log more workouts to build your score' : undefined} />
-        <StatCard label="Form (TSB)" value={tsb} color={COLORS.green} />
-        <RaceCountdownCard goal={profile?.race_goal} date={profile?.race_date} />
+        <StatCard
+          label="Fitness (CTL)"
+          value={ctl}
+          sub={ctl < 10 ? 'Log workouts to build' : ctlSub}
+          color={COLORS.purple}
+          dimSub={ctl < 10}
+        />
+        <StatCard
+          label="Fatigue (ATL)"
+          value={atl}
+          sub={atl < 10 ? 'No recent load' : atlSub}
+          color={COLORS.orange}
+          dimSub={atl < 10}
+        />
+        <StatCard
+          label="Form (TSB)"
+          value={tsb > 0 ? `+${tsb}` : tsb}
+          sub={tsbSub}
+          color={tsbColor}
+        />
+        {hasRace ? (
+          <StatCard
+            label="Race Goal"
+            value={raceDays!}
+            unit="days"
+            sub={profile!.race_goal!}
+            color={COLORS.purple}
+          />
+        ) : (
+          <div style={{
+            background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
+            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Race Goal</div>
+            <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 20 }}>Set in profile settings</div>
+          </div>
+        )}
       </div>
 
-      {/* Weekly progress + upcoming */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
-        <WeeklyProgressCard weekWorkouts={weekWorkouts} />
-        <UpcomingDaysCard workouts={upcoming} />
+      {/* ── Two-column layout ─────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '60% 1fr',
+        gap: 20,
+        alignItems: 'start',
+      }}>
+        {/* Left: chart + weekly load */}
+        <div>
+          <FitnessAreaChart data={fitnessHistory} />
+          <WeeklyLoadCard weekWorkouts={weekWorkouts} />
+        </div>
+
+        {/* Right: coming up + AI coach + goals */}
+        <div>
+          <ComingUpCard workouts={comingUp} />
+          <AICoachTeaser onClick={() => navigate('/ai-coach')} />
+          <SeasonGoalsPanel />
+        </div>
       </div>
     </>
   )
