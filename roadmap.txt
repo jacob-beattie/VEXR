@@ -33,8 +33,8 @@ CORE (SHIPPED)
 AI-POWERED
 -----------
 ✅ AI Coach: weekly briefing page (/ai-coach) — CTL/ATL/TSB metrics row, Claude-generated personalised briefing (24h cache + force refresh), quick stats (training phase/compliance/TSS/CTL trend), briefing history accordion; edge function calls claude-sonnet-4-6, accumulates up to 9 briefings per user
+✅ Race Predictor: finish time predictions for running (Riegel formula anchored at HM), cycling (FTP → power → speed model), swimming (CSS intensity factors), and triathlon (all three sports + transitions + brick run factor); sport tabs defaulting to user's primary sport; AI coach analysis narrative cached in localStorage, regenerates when CTL/FTP/pace/CSS drifts >5%; CTL-based adjustment capped at ±5%; low-CTL warning; missing data empty states
 - Auto-TSS estimation: describe a workout in plain English and AI calculates TSS for you
-- Race predictor: based on current fitness, predicts finish time for goal race
 - Smart plan generator: input race date and current fitness, AI builds entire training block
 
 SOCIAL

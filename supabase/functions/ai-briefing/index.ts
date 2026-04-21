@@ -68,12 +68,70 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) throw new Error('Not authenticated')
 
-    // Parse body for force flag
+    // Parse body
     let force = false
+    let mode = 'briefing'
+    let raceBody: Record<string, unknown> = {}
     try {
       const body = await req.json()
       force = body?.force === true
+      mode = body?.mode ?? 'briefing'
+      raceBody = body ?? {}
     } catch { /* no body or non-JSON — fine */ }
+
+    // ── Race predictor mode ──────────────────────────────────────────────────
+    if (mode === 'race_predictor') {
+      const { ctl, ftp, runPace, css, sport, predictions } = raceBody as {
+        ctl: number; ftp: number; runPace: string; css: string
+        sport: string
+        predictions: { running: string; cycling: string; swimming: string; triathlon: string }
+      }
+
+      const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+      if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+
+      const racePrompt = `You are an expert endurance coach. Based on an athlete's predicted race finish times and current fitness metrics, write a short personalised analysis (3–4 sentences). Be direct, specific, and encouraging. Use plain text only — no markdown, no bullets. Address the athlete as "you".
+
+Athlete primary sport: ${sport}
+Current CTL (fitness): ${ctl}
+${ftp ? `FTP: ${ftp}W` : ''}${runPace ? ` | Run threshold pace: ${runPace}/km` : ''}${css ? ` | CSS: ${css}/100m` : ''}
+
+Predicted finish times:
+Running: ${predictions?.running || 'No data'}
+Cycling: ${predictions?.cycling || 'No data'}
+Swimming: ${predictions?.swimming || 'No data'}
+Triathlon: ${predictions?.triathlon || 'No data'}
+
+Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
+
+      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: racePrompt }],
+        }),
+      })
+
+      if (!aiRes.ok) {
+        const errBody = await aiRes.text()
+        throw new Error(`Anthropic API error ${aiRes.status}: ${errBody}`)
+      }
+
+      const aiData = await aiRes.json()
+      const narrative = aiData.content?.[0]?.text?.trim()
+      if (!narrative) throw new Error('Empty response from Claude')
+
+      return new Response(
+        JSON.stringify({ narrative }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
 
     // Check for a cached briefing from the last 24 hours (unless force)
     if (!force) {

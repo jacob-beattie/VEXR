@@ -31,6 +31,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 ### AI
 
 - 🤖 **AI Coach** — weekly briefings powered by Claude, personalised to your CTL/ATL/TSB and race goal
+- 🏁 **Race Predictor** — finish time estimates for running, cycling, swimming and triathlon based on your FTP, threshold pace and CSS
 - ✦ **Smart Recommendations** — training phase detection, compliance tracking, CTL trend analysis
 
 ### Sync & Data
@@ -180,7 +181,6 @@ See `roadmap.txt` for the full feature roadmap.
 
 **Coming soon:**
 
-- Race finish time predictor
 - Drag and drop calendar
 - Garmin direct sync
 - Whoop/Oura HRV integration

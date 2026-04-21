@@ -5,6 +5,7 @@ import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { calculatePMC } from '../lib/calculateMetrics'
+import { RacePredictor } from '../components/ai/RacePredictor'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -428,6 +429,9 @@ export function AICoach() {
           </div>
         )}
       </div>
+
+      {/* ── Race Predictor ──────────────────────────────────────────────────── */}
+      {profile && <RacePredictor profile={profile} ctl={fitness.ctl} />}
 
       {/* ── Quick stats ─────────────────────────────────────────────────────── */}
       <div style={{
