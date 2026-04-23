@@ -110,12 +110,12 @@ supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 ### 5. Deploy Edge Functions
 
 ```bash
-supabase functions deploy strava-auth
-supabase functions deploy strava-sync
-supabase functions deploy ai-briefing
+supabase functions deploy strava-auth --no-verify-jwt
+supabase functions deploy strava-sync --no-verify-jwt
+supabase functions deploy ai-briefing --no-verify-jwt
 ```
 
-Each function has `verify_jwt = true` in its `config.toml`, so the Supabase runtime validates JWTs before requests reach the handler.
+`--no-verify-jwt` is required because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced inside each function handler via `supabase.auth.getUser()`.
 
 ### 6. Run locally
 

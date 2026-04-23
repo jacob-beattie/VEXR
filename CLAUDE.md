@@ -73,7 +73,7 @@ Profile is auto-created on signup via `handle_new_user` trigger.
 - `StravaContext` (`src/contexts/StravaContext.tsx`) — manages Strava OAuth connection, auto-sync once per session, toast notifications, `triggerSync` / `disconnect` / `refetchConnection`
 - `AppShell` renders Sidebar + TopBar + Routes + modals; gets `profile`/`setProfile` from `useProfile()`, not props
 - Real-time sync via Supabase channel on the workouts table
-- Edge functions use raw `fetch` with explicit `Authorization: Bearer <jwt>` + `apikey` headers (not `supabase.functions.invoke`). Each function has `verify_jwt = true` in its `config.toml` — the runtime verifies the JWT before the handler runs. Functions also call `supabase.auth.getUser()` as defence-in-depth.
+- Edge functions use raw `fetch` with explicit `Authorization: Bearer <jwt>` + `apikey` headers (not `supabase.functions.invoke`). All functions use `verify_jwt = false` in `config.toml` because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced manually: each function checks for a `Bearer` token immediately (returns 401 if missing), then calls `supabase.auth.getUser()` to validate the token against Supabase's auth server (which does support ES256). This is the correct secure pattern for ES256 projects.
 
 ## CTL/ATL/TSB Calculation
 
@@ -126,7 +126,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Always use the existing COLORS object — never hardcode colors
 - Never use hardcoded mock data — all data comes from Supabase
 - Inline styles only — no Tailwind, no CSS modules. Exception: `index.css` has `.no-spinner` (strip number input arrows) and `.spinning` (keyframe spin animation) utility classes
-- Supabase edge functions: deploy without `--no-verify-jwt` — `verify_jwt = true` is set in each function's `config.toml`; always call via raw `fetch` with explicit `Authorization` + `apikey` headers (not `supabase.functions.invoke`)
+- Supabase edge functions: always deploy with `--no-verify-jwt` (required — Supabase runtime only supports HS256 but this project uses ES256); always call via raw `fetch` with explicit `Authorization` + `apikey` headers (not `supabase.functions.invoke`); auth is enforced inside each handler via Bearer token check + `supabase.auth.getUser()`
 - Keep components focused; extract subcomponents only when reused
 - Mobile responsiveness: use `useIsMobile` hook from `src/hooks/useIsMobile.ts` (`useState(() => window.innerWidth < 768)` + resize listener). All responsive logic is JS-driven inline styles — no media queries, no Tailwind.
 - Mobile modal pattern: `position: fixed, inset: 0, height: 100dvh, borderRadius: 0` — full screen, no overlay, no click-outside close
