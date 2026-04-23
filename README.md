@@ -115,6 +115,8 @@ supabase functions deploy strava-sync
 supabase functions deploy ai-briefing
 ```
 
+Each function has `verify_jwt = true` in its `config.toml`, so the Supabase runtime validates JWTs before requests reach the handler.
+
 ### 6. Run locally
 
 ```bash
