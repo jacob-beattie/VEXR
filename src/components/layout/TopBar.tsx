@@ -38,9 +38,9 @@ export function TopBar({ title, subtitle, titleIcon, titleIconColor, onMenuClick
                 {titleIcon}
               </span>
             )}
-            <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, letterSpacing: '-0.02em', color: COLORS.text }}>{title}</div>
+            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, letterSpacing: '-0.03em', color: COLORS.text, lineHeight: 1.1 }}>{title}</div>
           </div>
-          {subtitle && !isMobile && <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 3 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: 13, color: COLORS.muted, marginTop: isMobile ? 3 : 5, fontWeight: 500 }}>{subtitle}</div>}
         </div>
       </div>
     </div>

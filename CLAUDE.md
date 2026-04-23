@@ -28,7 +28,7 @@ src/
   types/         — all TypeScript interfaces (index.ts)
   hooks/         — useAuth, useIsMobile
   contexts/      — WorkoutsContext (workouts + derived fitness metrics)
-  pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Login, Signup
+  pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Nutrition, Login, Signup
   components/
     layout/      — Sidebar, TopBar
     ui/          — Button, Badge
@@ -57,6 +57,11 @@ Tables (all with RLS enabled, users can only access their own rows):
 | `fitness_benchmarks` | user_id, metric (ftp/pace/css), value (text), recorded_at |
 | `training_zones` | user_id, sport (cycling/running/swimming), zone_number, zone_name, min_value, max_value, updated_at |
 | `ai_briefings` | user_id, briefing (text), generated_at; max 9 per user, pruned on insert |
+| `nutrition_logs` | user_id, date, meal (breakfast/lunch/dinner/snacks), food_name, calories, protein, carbs, fat |
+| `nutrition_targets` | user_id (PK), calorie_target, protein_target, carbs_target, fat_target |
+| `hydration_logs` | user_id + date (PK), liters |
+| `nutrition_custom_foods` | user_id, name, calories, protein, carbs, fat |
+| `food_database` | global shared table — name (unique), calories, protein, carbs, fat; read-only for all authenticated users |
 
 Profile is auto-created on signup via `handle_new_user` trigger.
 
@@ -106,12 +111,15 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Month/Week toggle buttons: no wrapper border — each button has its own `borderRadius: 6` and full border (`COLORS.border` inactive, `COLORS.accent` active), separated by 4px gap. No double-border or overflow clipping.
 - Bundle code splitting: all pages lazy-loaded with `React.lazy()` + `Suspense`; `vite.config.ts` `manualChunks` splits vendor-react / vendor-supabase / vendor-charts. Main bundle reduced from 962KB to 33KB.
 - Weekly summary strip redesigned: single dark panel (`COLORS.surface` background) with label+value text pairs and 1px dividers between stats (no individual card boxes). Left section: Workouts/Duration/TSS/Distance/Elevation/Calories + sport rows (emoji + coloured duration + muted distance). Right section: `COLORS.card` panel with CTL/ATL/TSB at 24px bold coloured values. Scrolls horizontally on mobile.
+- Nutrition page (`/nutrition`): date navigator; 4 stat cards (Calories/Protein/Carbohydrates/Fat vs per-user targets); SVG calorie ring (colour shifts accent→green→orange as you fill); macro progress bars + macro split segmented bar; meal log (Breakfast/Lunch/Dinner/Snacks) with collapsible sections, food item rows, remove button; Add Food modal with Browse/Create tabs — Browse searches merged `food_database` + `nutrition_custom_foods` with CUSTOM badge, Create saves to `nutrition_custom_foods`; Hydration card with 12-cup grid + ±250ml buttons; Workout Fuel Guide (Pre/During/Recovery phases); ⚙ Targets button opens `NutritionTargetsModal` to edit calorie/macro targets (upserted to `nutrition_targets`). Food database is DB-driven (no hardcoded list). All SQL in `supabase-schema.sql`.
+- Typography: Inter (400–900) + DM Mono loaded via Google Fonts in `index.html`; `TopBar` title updated to `fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em'` — matches Nutrition page title style across all non-dashboard pages.
 
 ## Page roles (important — don't overlap these)
 
 - **Dashboard** = daily driver. Today's workout, this week's load, near-term upcoming. No multi-week charts.
 - **Analytics** = deep dive. All multi-week trend charts, fitness history, zone distribution, volume trends.
 - **AI Coach** = personalised coaching. Weekly briefing from Claude, fitness metrics, training phase, briefing history.
+- **Nutrition** = daily fuel tracking. Calories, macros, hydration, meal log, food database. No training load data here.
 
 ## Rules
 
@@ -125,3 +133,4 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - React border warning: never mix `border` shorthand with `borderLeft`/`borderRight`/etc. in the same style object — always expand to all four sides (`borderTop`, `borderRight`, `borderBottom`, `borderLeft`)
 - Modal pattern: fixed overlay (rgba 0.7–0.78) + centered card, click-outside closes (desktop only)
 - Form inputs: background COLORS.surface or COLORS.bg, border COLORS.border, borderRadius 8
+- All SQL (table definitions, RLS policies, seed data, migrations) goes in `supabase-schema.sql` at the repo root — never in component files or inline comments

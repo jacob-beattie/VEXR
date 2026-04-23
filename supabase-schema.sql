@@ -131,3 +131,98 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+-- ─── Nutrition ────────────────────────────────────────────────────────────────
+
+-- Daily food logs
+create table nutrition_logs (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users not null,
+  date       date not null,
+  meal       text not null check (meal in ('breakfast','lunch','dinner','snacks')),
+  food_name  text not null,
+  calories   int not null,
+  protein    int not null default 0,
+  carbs      int not null default 0,
+  fat        int not null default 0,
+  created_at timestamptz default now()
+);
+alter table nutrition_logs enable row level security;
+create policy "Users manage own nutrition logs" on nutrition_logs
+  for all using (auth.uid() = user_id);
+
+-- Per-user macro targets
+create table nutrition_targets (
+  user_id        uuid primary key references auth.users,
+  calorie_target int default 2800,
+  protein_target int default 175,
+  carbs_target   int default 320,
+  fat_target     int default 85
+);
+alter table nutrition_targets enable row level security;
+create policy "Users manage own nutrition targets" on nutrition_targets
+  for all using (auth.uid() = user_id);
+
+-- Hydration logs (one row per user per day)
+create table hydration_logs (
+  user_id uuid references auth.users not null,
+  date    date not null,
+  liters  float not null default 0,
+  primary key (user_id, date)
+);
+alter table hydration_logs enable row level security;
+create policy "Users manage own hydration logs" on hydration_logs
+  for all using (auth.uid() = user_id);
+
+-- Per-user custom foods
+create table nutrition_custom_foods (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users not null,
+  name       text not null,
+  calories   int not null,
+  protein    int not null default 0,
+  carbs      int not null default 0,
+  fat        int not null default 0,
+  created_at timestamptz default now()
+);
+alter table nutrition_custom_foods enable row level security;
+create policy "Users manage own custom foods" on nutrition_custom_foods
+  for all using (auth.uid() = user_id);
+
+-- Global food database (shared, read-only for all authenticated users)
+create table food_database (
+  id       uuid primary key default gen_random_uuid(),
+  name     text not null unique,
+  calories int not null,
+  protein  int not null default 0,
+  carbs    int not null default 0,
+  fat      int not null default 0
+);
+alter table food_database enable row level security;
+create policy "Authenticated users can read food database" on food_database
+  for select using (auth.role() = 'authenticated');
+
+insert into food_database (name, calories, protein, carbs, fat) values
+  ('Oats (100g)', 380, 13, 64, 7),
+  ('Banana', 89, 1, 23, 0),
+  ('Whey Protein Shake', 150, 30, 5, 2),
+  ('Chicken Breast (200g)', 330, 62, 0, 7),
+  ('Brown Rice (150g)', 195, 4, 41, 2),
+  ('Sweet Potato (200g)', 172, 4, 40, 0),
+  ('Salmon (180g)', 372, 50, 0, 18),
+  ('Avocado (half)', 160, 2, 9, 15),
+  ('Greek Yogurt (200g)', 130, 20, 9, 1),
+  ('Mixed Vegetables', 80, 4, 15, 1),
+  ('Eggs (2 large)', 156, 14, 1, 10),
+  ('Whole Milk (300ml)', 186, 9, 14, 11),
+  ('Pasta (150g dry)', 564, 19, 112, 2),
+  ('Bread (2 slices)', 160, 6, 30, 2),
+  ('Peanut Butter (2 tbsp)', 190, 7, 6, 16),
+  ('Energy Gel (1x)', 100, 0, 25, 0),
+  ('Recovery Bar', 240, 20, 28, 6),
+  ('Tuna (1 can, 150g)', 165, 37, 0, 2),
+  ('Cottage Cheese (200g)', 168, 24, 8, 4),
+  ('Almonds (30g)', 174, 6, 6, 15),
+  ('Rice Cakes (3x)', 105, 2, 22, 1),
+  ('Blueberries (150g)', 86, 1, 21, 0),
+  ('Quinoa (180g cooked)', 222, 8, 40, 4);
