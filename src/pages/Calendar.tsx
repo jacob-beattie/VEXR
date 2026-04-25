@@ -106,7 +106,7 @@ export function Calendar() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <WeeklySummary workouts={workouts} weekStart={summaryWeekStart} horizontal />
+        <WeeklySummary workouts={workouts} weekStart={summaryWeekStart} />
         <CalendarGrid
           workouts={workouts}
           view={view}
