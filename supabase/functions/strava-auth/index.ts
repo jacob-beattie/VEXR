@@ -57,15 +57,27 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization')
     console.log('[strava-auth] Authorization header present:', !!authHeader)
 
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader! } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('[strava-auth] Vexr user:', user?.id ?? 'NOT FOUND', authError?.message ?? '')
-    if (authError || !user) throw new Error('Not authenticated with Vexr')
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // ── 5. Upsert connection ───────────────────────────────────────────────
     const athleteName = [tokens.athlete?.firstname, tokens.athlete?.lastname]

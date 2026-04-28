@@ -27,8 +27,9 @@ CORE (SHIPPED)
 ✅ PMC engine refactor: canonical calculatePMC in src/lib/calculateMetrics.ts — shared by dashboard, analytics, and calendar WeeklySummary so all three views always show identical numbers; excludes planned workouts from TSS; ms-based day iteration
 ✅ Analytics Training by Sport: now correctly filters to selected date range (4W/8W/12W/6M) instead of showing all-time data
 ✅ Calendar week view: full-width 7-column layout, larger workout cards showing title/duration/TSS/distance
-✅ Weekly Summary strip: appears above calendar in both month and week views; row 1 = activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport); row 2 = CTL/ATL/TSB displayed large with coloured top-border cards (cyan/orange/green or red for form)
+✅ Weekly Summary strip: appears above the week view calendar; activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport rows) on left; CTL/ATL/TSB panel on right
 ✅ Mobile responsiveness: full 390px (iPhone 15) support across all pages and modals — sidebar hamburger + overlay, bottom nav bar, stat cards 2×2, scrollable WeeklySummary, calendar month view dot layout + DayBottomSheet, calendar week view vertical stack, full-screen modals (LogWorkout/WorkoutDetail/ProfileSettings), analytics 2-col grids, Library FAB + scrollable filter strip — via useIsMobile hook
+✅ Nutrition page (/nutrition): daily calorie/macro/hydration tracking; date navigator (today/yesterday/tomorrow); 4 stat cards (calories/protein/carbs/fat vs targets); SVG calorie ring with colour-coded progress arc; macro progress bars + macro split segment; meal log (breakfast/lunch/dinner/snacks) with collapsible sections; add food from global DB or create custom; hydration with 12-cup grid + ±250ml buttons; workout fuel guide (pre/during/recovery); edit macro targets modal; food database pulled from Supabase `food_database` table; custom foods per user in `nutrition_custom_foods`
 
 AI-POWERED
 -----------
@@ -69,6 +70,7 @@ UX / QUALITY OF LIFE
 ---------------------
 ✅ Mobile-first design: fully responsive, works great on phone
   (TrainingPeaks mobile app is terrible — big opportunity here)
+✅ Typography: Inter (400–900 weights) + DM Mono loaded via Google Fonts; bold page titles (28px/900 weight) across all pages
 ✅ First-time user onboarding: 3-step flow (name+sport → benchmarks → Strava), progress bar, tooltips, fade transitions, welcome banner on dashboard
 ✅ Calendar UX: click empty day to log workout with date pre-filled; planned vs completed visual distinction (dashed/solid borders, opacity, PLANNED badge, hollow/solid dots on mobile)
 ✅ Weekly summary strip redesign: single panel with text+divider stats layout, sport rows, CTL/ATL/TSB panel on right — no individual card boxes

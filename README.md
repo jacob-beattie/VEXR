@@ -25,6 +25,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 - 📊 **Performance Dashboard** — personalised greeting, CTL/ATL/TSB stat cards with fitness area chart, weekly load, coming up, AI coach teaser, and season goals
 - 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony, power curve, pace curve, heart rate zones
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
+- 🥗 **Nutrition** — daily calorie/macro/hydration tracking, meal log, SVG calorie ring, workout fuel guide, editable targets, custom food database
 - 📚 **Workout Library** — save and reuse workout templates
 - 🗓️ **Training Plans** — create and track multi-week training blocks
 
@@ -109,10 +110,12 @@ supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 ### 5. Deploy Edge Functions
 
 ```bash
-supabase functions deploy strava-auth
-supabase functions deploy strava-sync
-supabase functions deploy ai-briefing
+supabase functions deploy strava-auth --no-verify-jwt
+supabase functions deploy strava-sync --no-verify-jwt
+supabase functions deploy ai-briefing --no-verify-jwt
 ```
+
+`--no-verify-jwt` is required because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced inside each function handler via `supabase.auth.getUser()`.
 
 ### 6. Run locally
 
@@ -137,6 +140,11 @@ App runs at `http://localhost:5173`
 | `strava_connections` | Strava OAuth tokens                                   |
 | `ai_briefings`       | Cached AI coaching briefings                          |
 | `goals`              | Season goals — text, completed flag, per user         |
+| `nutrition_logs`     | Daily food entries per user per meal                  |
+| `nutrition_targets`  | Per-user calorie/macro targets                        |
+| `hydration_logs`     | Daily hydration (litres) per user                     |
+| `nutrition_custom_foods` | User-created food items                           |
+| `food_database`      | Global shared food database (read-only)               |
 
 ---
 

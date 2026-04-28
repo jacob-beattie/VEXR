@@ -22,6 +22,7 @@ const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login }
 const Signup = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signup })))
 const StravaCallback = lazy(() => import('./pages/StravaCallback').then(m => ({ default: m.StravaCallback })))
 const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })))
+const Nutrition = lazy(() => import('./pages/Nutrition').then(m => ({ default: m.Nutrition })))
 
 function PageLoader() {
   return (
@@ -37,6 +38,7 @@ const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: 
   '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: '#00e5ff' },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
+  '/nutrition': { title: 'Nutrition', subtitle: 'Track your daily fuel and macros' },
 }
 
 
@@ -222,6 +224,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             <Route path="/ai-coach" element={<AICoach />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/nutrition" element={<Nutrition />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>

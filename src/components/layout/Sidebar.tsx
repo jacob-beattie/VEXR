@@ -19,6 +19,7 @@ const navItems = [
   { path: '/ai-coach', icon: '✦', label: 'AI Coach' },
   { path: '/plans', icon: '≡', label: 'Training Plans' },
   { path: '/library', icon: '⊙', label: 'Workout Library' },
+  { path: '/nutrition', icon: '◉', label: 'Nutrition' },
 ]
 
 export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = false, isOpen = false, onClose }: SidebarProps) {
