@@ -23,7 +23,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed
 - 📊 **Performance Dashboard** — personalised greeting, CTL/ATL/TSB stat cards with fitness area chart, weekly load, coming up, AI coach teaser, and season goals
-- 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony
+- 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony, power curve, pace curve, heart rate zones
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
 - 📚 **Workout Library** — save and reuse workout templates
 - 🗓️ **Training Plans** — create and track multi-week training blocks
@@ -38,7 +38,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 🔄 **Strava Sync** — auto-import workouts with HR, power, pace, distance and elevation
 - 📏 **Benchmark Tracking** — FTP, run pace and CSS history with trend charts
-- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim
+- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim, heart rate zones from max HR
 
 ### UX
 
@@ -128,7 +128,7 @@ App runs at `http://localhost:5173`
 
 | Table                | Description                                           |
 | -------------------- | ----------------------------------------------------- |
-| `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal |
+| `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal, max HR |
 | `workouts`           | All workouts — completed and planned                  |
 | `training_plans`     | Multi-week training blocks                            |
 | `workout_library`    | Saved workout templates                               |

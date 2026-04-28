@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import {
   AreaChart, Area, BarChart, Bar,
+  LineChart, Line, ReferenceLine,
+  PieChart, Pie, Cell, LabelList,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { COLORS } from '../../lib/colors'
-import type { Workout, WorkoutType } from '../../types'
+import type { Workout, WorkoutType, Profile } from '../../types'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -25,6 +27,43 @@ const ZONE_COLORS: Record<string, string> = {
   'Zone 5': '#ff4757',
   'Zone 6': '#ff2d55',
 }
+
+// Each band shows best avg_power from rides of AT LEAST this duration.
+// This keeps the curve physiologically correct (shorter = higher or equal power).
+const POWER_BANDS = [
+  { label: '5m',  minMin: 3  },
+  { label: '10m', minMin: 8  },
+  { label: '20m', minMin: 15 },
+  { label: '30m', minMin: 25 },
+  { label: '60m', minMin: 45 },
+]
+
+const PACE_BANDS = [
+  { label: '5K',  minKm: 4,  maxKm: 7  },
+  { label: '10K', minKm: 8,  maxKm: 12 },
+  { label: '15K', minKm: 13, maxKm: 17 },
+  { label: 'HM',  minKm: 19, maxKm: 23 },
+  { label: 'Mar', minKm: 40, maxKm: 45 },
+]
+
+const HR_ZONE_COLORS = ['#4a9eff', COLORS.green, '#ffdd00', COLORS.orange, '#ff4757']
+const HR_ZONE_LABELS = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5']
+
+// Default boundaries using 220-35 and correct zone percentages
+const DEFAULT_MAX_HR = 185
+const DEFAULT_HR_BOUNDARIES: Array<{ min: number; max: number | null }> = (() => {
+  const z1Max = Math.round(DEFAULT_MAX_HR * 0.65)
+  const z2Max = Math.round(DEFAULT_MAX_HR * 0.75)
+  const z3Max = Math.round(DEFAULT_MAX_HR * 0.82)
+  const z4Max = Math.round(DEFAULT_MAX_HR * 0.89)
+  return [
+    { min: 0,         max: z1Max },
+    { min: z1Max + 1, max: z2Max },
+    { min: z2Max + 1, max: z3Max },
+    { min: z3Max + 1, max: z4Max },
+    { min: z4Max + 1, max: null },
+  ]
+})()
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +87,17 @@ function parseZone(zone: string | null | undefined): string {
   if (lower.includes('vo2') || lower.includes('v02')) return 'Zone 5'
   return zone
 }
+
+function parsePaceToSecs(pace: string | null | undefined): number | null {
+  if (!pace) return null
+  const parts = pace.split(':')
+  if (parts.length !== 2) return null
+  const mins = parseInt(parts[0])
+  const secs = parseInt(parts[1])
+  if (isNaN(mins) || isNaN(secs)) return null
+  return mins * 60 + secs
+}
+
 
 function getVolumeHistory(workouts: Workout[], weeks: number) {
   const now = new Date()
@@ -153,7 +203,6 @@ function getBestPerformances(workouts: Workout[]) {
     .filter(w => w.tss > 0)
     .sort((a, b) => b.tss - a.tss)[0] ?? null
 
-  // Best TSS week (all time)
   const tssByWeek: Record<string, number> = {}
   completed.forEach(w => {
     const d = new Date(w.date + 'T00:00:00')
@@ -168,13 +217,92 @@ function getBestPerformances(workouts: Workout[]) {
     ? Math.max(...Object.values(tssByWeek))
     : 0
 
-  // YTD sport counts
   const sportCounts = ytd.reduce<Record<string, number>>((acc, w) => {
     acc[w.type] = (acc[w.type] || 0) + 1
     return acc
   }, {})
 
   return { longestRun, longestRide, highestTSS, bestWeekTSS, sportCounts }
+}
+
+function getPowerCurve(workouts: Workout[], rangeStart: Date, ftp: number) {
+  const rides = workouts.filter(w =>
+    !w.planned && w.type === 'ride' && w.avg_power && w.avg_power > 0 &&
+    new Date(w.date + 'T00:00:00') >= rangeStart
+  )
+  if (rides.length === 0) return []
+
+  return POWER_BANDS.map(band => {
+    const candidates = rides.filter(w => w.duration_minutes >= band.minMin)
+    if (candidates.length === 0) return null
+    const watts = Math.max(...candidates.map(w => w.avg_power!))
+    const pctFtp = ftp > 0 ? Math.round((watts / ftp) * 100) : null
+    return { label: band.label, watts, pctFtp }
+  }).filter(Boolean) as Array<{ label: string; watts: number; pctFtp: number | null }>
+}
+
+function getPaceCurve(workouts: Workout[], rangeStart: Date) {
+  // Accept any run with distance — calculate pace from distance+duration if avg_pace not stored
+  const runs = workouts.filter(w =>
+    !w.planned && w.type === 'run' &&
+    w.distance_meters && w.distance_meters > 0 &&
+    w.duration_minutes && w.duration_minutes > 0 &&
+    new Date(w.date + 'T00:00:00') >= rangeStart
+  )
+  if (runs.length === 0) return []
+
+  return PACE_BANDS.map(band => {
+    const candidates = runs.filter(w => {
+      const km = (w.distance_meters || 0) / 1000
+      return km >= band.minKm && km <= band.maxKm
+    })
+    if (candidates.length === 0) return null
+    let bestSecs = Infinity
+    for (const w of candidates) {
+      // Prefer stored avg_pace; fall back to duration/distance
+      let secs = parsePaceToSecs(w.avg_pace)
+      if (secs === null) {
+        const km = w.distance_meters! / 1000
+        secs = (w.duration_minutes * 60) / km
+      }
+      // Ignore anything slower than 10 min/km — walks/hikes mapped to run type
+      if (secs !== null && secs < 600 && secs < bestSecs) bestSecs = secs
+    }
+    if (bestSecs === Infinity) return null
+    const speedKmh = parseFloat((3600 / bestSecs).toFixed(2))
+    const paceStr = `${Math.floor(bestSecs / 60)}:${String(Math.round(bestSecs % 60)).padStart(2, '0')}/km`
+    return { label: band.label, speedKmh, paceStr }
+  }).filter(Boolean) as Array<{ label: string; speedKmh: number; paceStr: string }>
+}
+
+function getHRZones(workouts: Workout[], rangeStart: Date, boundaries: Array<{ min: number; max: number | null }>) {
+  const relevant = workouts.filter(w => {
+    if (w.planned || !w.heart_rate_avg || !w.duration_minutes) return false
+    const d = new Date(w.date + 'T00:00:00')
+    return d >= rangeStart
+  })
+
+  const zoneMinutes = [0, 0, 0, 0, 0]
+  for (const w of relevant) {
+    const hr = w.heart_rate_avg!
+    let idx = boundaries.length - 1
+    for (let i = 0; i < boundaries.length; i++) {
+      const b = boundaries[i]
+      if (hr >= b.min && (b.max === null || hr <= b.max)) { idx = i; break }
+    }
+    if (idx < zoneMinutes.length) zoneMinutes[idx] += w.duration_minutes
+  }
+
+  const total = zoneMinutes.reduce((s, v) => s + v, 0)
+  return {
+    total,
+    zones: zoneMinutes.map((mins, i) => ({
+      zone: HR_ZONE_LABELS[i],
+      minutes: mins,
+      pct: total > 0 ? Math.round((mins / total) * 100) : 0,
+      color: HR_ZONE_COLORS[i],
+    })),
+  }
 }
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -190,10 +318,10 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
   )
 }
 
-function EmptyChart({ height = 200 }: { height?: number }) {
+function EmptyChart({ height = 200, message }: { height?: number; message?: string }) {
   return (
-    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 13 }}>
-      Log workouts to see trends
+    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 13, textAlign: 'center', padding: '0 16px' }}>
+      {message ?? 'Log workouts to see trends'}
     </div>
   )
 }
@@ -210,6 +338,31 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
+function PowerTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: { pctFtp: number | null } }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  const watts = payload[0]?.value
+  const pctFtp = payload[0]?.payload?.pctFtp
+  return (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
+      <div style={{ color: COLORS.muted, marginBottom: 4 }}>{label}</div>
+      <div style={{ color: COLORS.purple, fontWeight: 600 }}>
+        {watts}w{pctFtp !== null ? ` — ${pctFtp}% FTP` : ''}
+      </div>
+    </div>
+  )
+}
+
+function PaceTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: { paceStr: string } }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  const paceStr = payload[0]?.payload?.paceStr
+  return (
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
+      <div style={{ color: COLORS.muted, marginBottom: 4 }}>{label}</div>
+      <div style={{ color: COLORS.green, fontWeight: 600 }}>{paceStr}</div>
+    </div>
+  )
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AnalyticsPageProps {
@@ -219,11 +372,12 @@ interface AnalyticsPageProps {
   weeks: number
   onWeeksChange: (w: number) => void
   onOpenProfile?: () => void
+  profile?: Profile | null
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, onWeeksChange, onOpenProfile }: AnalyticsPageProps) {
+export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, onWeeksChange, onOpenProfile, profile }: AnalyticsPageProps) {
   const isMobile = useIsMobile()
   const volumeHistory = getVolumeHistory(workouts, weeks)
   const zoneDist = getZoneDistribution(workouts)
@@ -235,7 +389,6 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
   const tickInterval = (len: number) =>
     isMobile ? Math.max(1, Math.floor(len / 3)) : (len > 12 ? Math.floor(len / 6) : 0)
 
-  // Sport breakdown (range-filtered)
   const rangeStart = new Date()
   rangeStart.setHours(0, 0, 0, 0)
   rangeStart.setDate(rangeStart.getDate() - weeks * 7)
@@ -254,7 +407,6 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
 
   const totalTss = Object.values(sportTotals).reduce((s, v) => s + v.tss, 0)
 
-  // Monotony status
   const monotonyColor = monotony === null ? COLORS.muted
     : monotony < 1.5 ? COLORS.green
     : monotony < 2.0 ? COLORS.orange
@@ -263,6 +415,35 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
     : monotony < 1.5 ? 'Good variety'
     : monotony < 2.0 ? 'Moderate risk'
     : 'High risk'
+
+  // New section data
+  const ftp = profile?.ftp ?? 0
+  const runPace = profile?.run_pace ?? ''
+  const powerCurveData = getPowerCurve(workouts, rangeStart, ftp)
+  const paceCurveData = getPaceCurve(workouts, rangeStart)
+  const hasCustomHrZones = !!(profile?.max_hr)
+  const activeBoundaries = (() => {
+    const maxHr = profile?.max_hr
+    if (!maxHr) return DEFAULT_HR_BOUNDARIES
+    const z1Max = Math.round(maxHr * 0.65)
+    const z2Max = Math.round(maxHr * 0.75)
+    const z3Max = Math.round(maxHr * 0.82)
+    const z4Max = Math.round(maxHr * 0.89)
+    return [
+      { min: 0,         max: z1Max },
+      { min: z1Max + 1, max: z2Max },
+      { min: z2Max + 1, max: z3Max },
+      { min: z3Max + 1, max: z4Max },
+      { min: z4Max + 1, max: null  },
+    ]
+  })()
+  const { total: hrTotal, zones: hrZones } = getHRZones(workouts, rangeStart, activeBoundaries)
+
+  const thresholdSpeedKmh = (() => {
+    const secs = parsePaceToSecs(runPace)
+    if (!secs || secs <= 0) return null
+    return parseFloat((3600 / secs).toFixed(2))
+  })()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -532,7 +713,6 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
           ))}
         </div>
 
-        {/* YTD sport counts */}
         {Object.keys(best.sportCounts).length > 0 && (
           <>
             <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
@@ -561,6 +741,163 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
           </>
         )}
       </div>
+
+      {/* Power Curve + Pace Curve */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20 }}>
+
+        {/* Power Curve */}
+        <ChartCard title="Power Curve">
+          {powerCurveData.length >= 2 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={powerCurveData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="label" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} unit="w" domain={['auto', 'auto']} />
+                  <Tooltip content={<PowerTooltip />} />
+                  {ftp > 0 && (
+                    <ReferenceLine
+                      y={ftp}
+                      stroke={COLORS.muted}
+                      strokeDasharray="4 3"
+                      label={{ value: `FTP ${ftp}w`, position: 'insideTopRight', fill: COLORS.muted, fontSize: 10 }}
+                    />
+                  )}
+                  <Line
+                    type="monotone"
+                    dataKey="watts"
+                    stroke={COLORS.purple}
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: COLORS.purple, stroke: COLORS.bg, strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: COLORS.purple }}
+                    name="Power"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              {ftp > 0 && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                  {powerCurveData.map(d => (
+                    <div key={d.label} style={{ fontSize: 10, color: COLORS.muted, background: COLORS.surface, borderRadius: 4, padding: '3px 8px', border: `1px solid ${COLORS.border}` }}>
+                      <span style={{ color: COLORS.text, fontWeight: 600 }}>{d.label}</span>
+                      {' '}
+                      <span style={{ color: COLORS.purple, fontFamily: 'DM Mono, monospace' }}>{d.watts}w</span>
+                      {d.pctFtp !== null && <span style={{ color: COLORS.muted }}> — {d.pctFtp}%</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <EmptyChart message="Log more rides with power data to see your power curve" />
+          )}
+        </ChartCard>
+
+        {/* Pace Curve */}
+        <ChartCard title="Pace Curve">
+          {paceCurveData.length >= 1 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={paceCurveData} margin={{ top: 24, right: 16, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="label" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={false} axisLine={false} tickLine={false} domain={[0, 'auto']} hide />
+                  <Tooltip content={<PaceTooltip />} />
+                  {thresholdSpeedKmh !== null && (
+                    <ReferenceLine
+                      y={thresholdSpeedKmh}
+                      stroke={COLORS.muted}
+                      strokeDasharray="4 3"
+                      label={{ value: `Threshold ${runPace}/km`, position: 'insideTopRight', fill: COLORS.muted, fontSize: 10 }}
+                    />
+                  )}
+                  <Bar dataKey="speedKmh" fill={COLORS.green} radius={[4, 4, 0, 0]} name="Speed">
+                    <LabelList
+                      dataKey="paceStr"
+                      position="top"
+                      style={{ fill: COLORS.green, fontSize: 10, fontWeight: 600, fontFamily: 'DM Mono, monospace' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{ fontSize: 10, color: COLORS.muted, marginTop: 6, textAlign: 'center' }}>
+                Best pace per distance band · faster = taller bar
+              </div>
+            </>
+          ) : (
+            <EmptyChart message="Log more runs to see your pace curve" />
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Heart Rate Zones — full width */}
+      <ChartCard title="Heart Rate Zones">
+        {hrTotal > 0 ? (
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 24, alignItems: isMobile ? 'stretch' : 'center' }}>
+
+            {/* Donut — Z5 first so it renders clockwise from top with highest zone prominent */}
+            <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+              <PieChart width={148} height={148}>
+                <Pie
+                  data={[...hrZones].reverse().filter(z => z.pct > 0)}
+                  cx={69}
+                  cy={69}
+                  innerRadius={46}
+                  outerRadius={68}
+                  dataKey="pct"
+                  strokeWidth={0}
+                  startAngle={90}
+                  endAngle={-270}
+                >
+                  {[...hrZones].reverse().filter(z => z.pct > 0).map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </div>
+
+            {/* Legend + stacked bar */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {[...hrZones].reverse().map(z => {
+                  const h = Math.floor(z.minutes / 60)
+                  const m = z.minutes % 60
+                  return (
+                    <div key={z.zone} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: z.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: z.color, fontWeight: 600, width: 50 }}>{z.zone}</span>
+                      <div style={{ flex: 1, background: COLORS.subtle, borderRadius: 3, height: 4, overflow: 'hidden' }}>
+                        <div style={{ width: `${z.pct}%`, height: '100%', background: z.color, borderRadius: 3, transition: 'width 0.4s ease' }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: z.pct > 0 ? COLORS.text : COLORS.muted, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right' }}>
+                        {z.pct}%
+                      </span>
+                      <span style={{ fontSize: 11, color: COLORS.muted, width: 50, textAlign: 'right' }}>
+                        {z.minutes > 0 ? (h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`) : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Stacked horizontal bar — Z1 on left (base), Z5 on right (top) */}
+              <div style={{ display: 'flex', height: 28, borderRadius: 6, overflow: 'hidden' }}>
+                {hrZones.filter(z => z.pct > 0).map(z => (
+                  <div
+                    key={z.zone}
+                    style={{ width: `${z.pct}%`, background: z.color, transition: 'width 0.4s ease' }}
+                    title={`${z.zone}: ${z.pct}%`}
+                  />
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: COLORS.muted, marginTop: 6 }}>
+                {hasCustomHrZones
+                  ? `Based on your HR zones set in Profile Settings`
+                  : `Using estimated max HR of ${DEFAULT_MAX_HR} bpm — set your actual max HR in Profile Settings`}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <EmptyChart message="Connect Strava to see heart rate zone distribution" />
+        )}
+      </ChartCard>
 
     </div>
   )
