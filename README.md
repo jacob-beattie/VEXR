@@ -26,7 +26,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 - 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
 - 📚 **Workout Library** — save and reuse workout templates
-- 🗓️ **Training Plans** — create and track multi-week training blocks
+- 🗓️ **Training Plans** — import plans from PDF/HTML/text, AI-parsed sessions, conflict detection, calendar sync
 
 ### AI
 
@@ -109,9 +109,10 @@ supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 ### 5. Deploy Edge Functions
 
 ```bash
-supabase functions deploy strava-auth
-supabase functions deploy strava-sync
-supabase functions deploy ai-briefing
+supabase functions deploy strava-auth --no-verify-jwt
+supabase functions deploy strava-sync --no-verify-jwt
+supabase functions deploy ai-briefing --no-verify-jwt
+supabase functions deploy parse-plan --no-verify-jwt
 ```
 
 ### 6. Run locally
@@ -130,7 +131,8 @@ App runs at `http://localhost:5173`
 | -------------------- | ----------------------------------------------------- |
 | `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal |
 | `workouts`           | All workouts — completed and planned                  |
-| `training_plans`     | Multi-week training blocks                            |
+| `training_plans`     | Multi-week training blocks with import metadata       |
+| `training_sessions`  | Individual sessions from imported plans               |
 | `workout_library`    | Saved workout templates                               |
 | `fitness_benchmarks` | FTP/pace/CSS history over time                        |
 | `training_zones`     | Custom training zones per sport                       |

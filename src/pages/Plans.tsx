@@ -9,9 +9,19 @@ export function Plans() {
   const fetchPlans = useCallback(async () => {
     const { data } = await supabase
       .from('training_plans')
-      .select('*')
+      .select('*, training_sessions(count)')
       .order('created_at', { ascending: false })
-    if (data) setPlans(data as TrainingPlan[])
+
+    if (data) {
+      setPlans(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data as any[]).map(p => ({
+          ...p,
+          total_sessions: (p.training_sessions?.[0]?.count as number) ?? 0,
+          training_sessions: undefined,
+        })) as TrainingPlan[]
+      )
+    }
   }, [])
 
   useEffect(() => { fetchPlans() }, [fetchPlans])

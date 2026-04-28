@@ -58,7 +58,42 @@ export interface TrainingPlan {
   sport: string
   total_weeks: number
   current_week: number
-  status: 'active' | 'complete' | 'upcoming'
+  status: 'active' | 'complete' | 'upcoming' | 'archived'
+  race_name?: string | null
+  race_date?: string | null
+  start_date?: string | null
+  source?: string | null
+  total_sessions?: number
+}
+
+export type SessionSport = 'swim' | 'bike' | 'run' | 'sc' | 'brick' | 'other'
+
+export interface ParsedSession {
+  id: number
+  week: number
+  sport: SessionSport
+  title: string
+  date: string       // display string e.g. "Mon 6 Jan"
+  dur: string        // display string e.g. "45 min"
+  metric: string
+  conflict: boolean
+  scheduledDate?: string | null  // ISO date from edge function
+}
+
+export interface TrainingSession {
+  id: string
+  user_id: string
+  plan_id: string
+  week_number: number
+  sport: SessionSport
+  title: string
+  scheduled_date?: string | null
+  duration_min?: number | null
+  target_metric?: string | null
+  notes?: string | null
+  status: 'pending' | 'completed' | 'skipped'
+  has_conflict: boolean
+  created_at: string
 }
 
 export interface FitnessBenchmark {

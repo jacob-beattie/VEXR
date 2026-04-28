@@ -51,6 +51,83 @@ input.no-spinner[type=number] {
   appearance: textfield;
 }
 
+/* Plans page — animations */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-ring {
+  0%   { opacity: 0.6; transform: scale(1); }
+  50%  { opacity: 1;   transform: scale(1.04); }
+  100% { opacity: 0.6; transform: scale(1); }
+}
+@keyframes msgAppear {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Plans page — purple glow CTA button */
+.purple-glow-btn {
+  background: #9333ea;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+  box-shadow: 0 0 18px #9333ea55, 0 2px 8px rgba(0,0,0,0.5);
+}
+.purple-glow-btn:hover {
+  background: #7e22ce;
+  box-shadow: 0 0 28px #9333ea88, 0 4px 14px rgba(0,0,0,0.56);
+  transform: translateY(-1px);
+}
+.purple-glow-btn:active { transform: translateY(0); }
+
+/* Plans — import modal upload tabs */
+.upload-tab {
+  flex: 1;
+  padding: 9px 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #5a6478;
+  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  transition: color 0.15s;
+  position: relative;
+}
+.upload-tab.active { color: #e8edf5; }
+.upload-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: #9333ea;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 8px #9333ea;
+}
+
+/* Plans — field inputs (focus state needs pseudo-class) */
+.plans-field-input {
+  width: 100%;
+  background: #0a0c0f;
+  border: 1px solid #1e2530;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e8edf5;
+  font-size: 13px;
+  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.plans-field-input:focus { border-color: #9333ea70; }
+.plans-field-input::placeholder { color: #5a6478; }
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -131,3 +131,43 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
+
+-- ── Training Plans import (feature/plans-import-page) ──────────────────────
+alter table training_plans
+  add column if not exists race_name  text,
+  add column if not exists race_date  date,
+  add column if not exists start_date date,
+  add column if not exists source     text default 'manual',
+  add column if not exists raw_text   text;
+
+create table if not exists training_sessions (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid references auth.users not null,
+  plan_id        uuid references training_plans(id) on delete cascade,
+  week_number    int not null,
+  sport          text not null check (sport in ('swim','bike','run','sc','brick','other')),
+  title          text not null,
+  scheduled_date date,
+  duration_min   int,
+  target_metric  text,
+  notes          text,
+  status         text default 'pending' check (status in ('pending','completed','skipped')),
+  has_conflict   boolean default false,
+  created_at     timestamptz default now()
+);
+alter table training_sessions enable row level security;
+create policy "Users manage own sessions" on training_sessions
+  for all using (auth.uid() = user_id);
+alter table training_sessions add column if not exists source text default 'manual';
+
+-- Link workouts back to training_plans so calendar entries are removed on plan delete
+alter table workouts
+  add column if not exists plan_id uuid references training_plans(id) on delete cascade;
+
+-- Re-add plan_id FK with ON DELETE CASCADE so deleting a plan removes its sessions
+alter table training_sessions
+  drop constraint if exists training_sessions_plan_id_fkey,
+  add constraint training_sessions_plan_id_fkey
+    foreign key (plan_id)
+    references training_plans(id)
+    on delete cascade;
