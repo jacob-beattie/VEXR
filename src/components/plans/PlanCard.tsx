@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
-    active:   { bg: '#9333ea25', color: '#a855f7', label: 'Active' },
+    active:   { bg: '#00e5ff20', color: '#00e5ff', label: 'Active' },
     complete: { bg: '#00e5ff18', color: '#00e5ff', label: 'Completed' },
     archived: { bg: '#ffffff0d', color: COLORS.muted, label: 'Archived' },
     upcoming: { bg: COLORS.subtle, color: COLORS.muted, label: 'Upcoming' },
@@ -117,13 +117,13 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
   }
 
   const accentBarStyle = plan.status === 'active'
-    ? { background: `linear-gradient(90deg, ${COLORS.purpleAction}, ${COLORS.accent})`, opacity: 0.8 }
+    ? { background: COLORS.accent, opacity: 0.8 }
     : isComplete
       ? { background: COLORS.green, opacity: 0.8 }
       : { background: COLORS.subtle, opacity: 0.8 }
 
   const progressFillStyle = plan.status === 'active'
-    ? { background: `linear-gradient(90deg, ${COLORS.purpleAction}, ${COLORS.accent}60)`, boxShadow: `0 0 8px ${COLORS.purpleAction}90` }
+    ? { background: COLORS.accent, boxShadow: `0 0 8px ${COLORS.accent}90` }
     : isComplete
       ? { background: COLORS.green }
       : { background: isArchived ? COLORS.muted : COLORS.subtle }

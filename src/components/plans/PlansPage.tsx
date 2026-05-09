@@ -21,14 +21,14 @@ function EmptyState({ onImport }: { onImport: () => void }) {
       <div style={{ position: 'relative', marginBottom: 28 }}>
         <div style={{
           width: 80, height: 80, borderRadius: '50%',
-          border: `2px solid ${COLORS.purpleAction}40`,
+          border: `2px solid ${COLORS.accent}40`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           animation: 'pulse-ring 3s ease-in-out infinite',
         }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
-            background: `${COLORS.purpleAction}15`,
-            border: `1px solid ${COLORS.purpleAction}50`,
+            background: `${COLORS.accent}15`,
+            border: `1px solid ${COLORS.accent}50`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 24,
           }}>≡</div>
@@ -106,7 +106,7 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
             right: 24,
             zIndex: 300,
             background: COLORS.card,
-            border: `1px solid ${COLORS.purpleAction}60`,
+            border: `1px solid ${COLORS.accent}60`,
             borderRadius: 10,
             padding: '12px 18px',
             display: 'flex', alignItems: 'center', gap: 10,
@@ -116,7 +116,7 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
             animation: 'fadeSlideUp 0.25s ease',
           }}
         >
-          <span style={{ fontSize: 14, color: COLORS.purpleAction }}>✓</span>
+          <span style={{ fontSize: 14, color: COLORS.accent }}>✓</span>
           <span style={{ fontSize: 13, color: COLORS.text, fontWeight: 600 }}>{toast}</span>
           <span style={{ fontSize: 16, color: COLORS.muted, marginLeft: 4 }}>×</span>
         </div>

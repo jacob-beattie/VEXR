@@ -121,11 +121,11 @@ export function ImportReviewScreen({
               style={{
                 padding: '7px 14px',
                 borderRadius: 8,
-                border: `1px solid ${isActive ? '#9333ea50' : 'transparent'}`,
+                border: `1px solid ${isActive ? '#00e5ff40' : 'transparent'}`,
                 fontSize: 12, fontWeight: 600,
                 cursor: 'pointer',
-                background: isActive ? '#9333ea20' : 'transparent',
-                color: isActive ? COLORS.purpleAction : COLORS.muted,
+                background: isActive ? '#00e5ff15' : 'transparent',
+                color: isActive ? COLORS.accent : COLORS.muted,
                 display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all 0.15s',
               }}
@@ -198,7 +198,7 @@ export function ImportReviewScreen({
               >
                 <span style={{
                   fontSize: 10,
-                  color: isOpen ? COLORS.purpleAction : COLORS.muted,
+                  color: isOpen ? COLORS.accent : COLORS.muted,
                   display: 'inline-block',
                   transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
                   transition: 'transform 0.2s',
