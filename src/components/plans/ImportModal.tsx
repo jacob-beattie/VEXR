@@ -388,6 +388,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
         borderRadius: isMobile ? '18px 18px 0 0' : 18,
         width: modalWidth,
         maxWidth: isMobile ? '100%' : undefined,
+        height: isMobile ? '95dvh' : '88vh',
         maxHeight: isMobile ? '95dvh' : '88vh',
         display: 'flex',
         flexDirection: 'column',
