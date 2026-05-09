@@ -70,16 +70,28 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Client authenticated as the Vexr user
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('[strava-sync] user:', user?.id ?? 'NOT FOUND', authError?.message ?? '')
-    if (authError || !user) throw new Error('Not authenticated')
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Fetch the user's Strava connection
     const { data: conn, error: connError } = await supabase

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VEXR · Nutrition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0c0f; color: #e8edf5; font-family: 'Inter', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #111318; }
+    ::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a4055; }
+    input[type=range] { accent-color: #00e5ff; cursor: pointer; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React
+
+    const C = {
+      bg:        "#0a0c0f",
+      surface:   "#111318",
+      card:      "#161b22",
+      border:    "#1e2530",
+      accent:    "#00e5ff",
+      accentDim: "#00e5ff22",
+      green:     "#00ff9d",
+      orange:    "#ff6b2b",
+      purple:    "#a855f7",
+      text:      "#e8edf5",
+      muted:     "#5a6478",
+      subtle:    "#2a3040",
+    }
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "calorieTarget": 2800,
+      "proteinTarget": 175,
+      "carbsTarget": 320,
+      "fatTarget": 85,
+      "showHydration": true,
+      "showFuelGuide": true
+    }/*EDITMODE-END*/
+
+    // ─── Food database ──────────────────────────────────────────────────────────
+    const FOOD_DB = [
+      { name: 'Oats (100g)',            cal: 380, protein: 13, carbs: 64, fat: 7  },
+      { name: 'Banana',                 cal: 89,  protein: 1,  carbs: 23, fat: 0  },
+      { name: 'Whey Protein Shake',     cal: 150, protein: 30, carbs: 5,  fat: 2  },
+      { name: 'Chicken Breast (200g)',  cal: 330, protein: 62, carbs: 0,  fat: 7  },
+      { name: 'Brown Rice (150g)',      cal: 195, protein: 4,  carbs: 41, fat: 2  },
+      { name: 'Sweet Potato (200g)',    cal: 172, protein: 4,  carbs: 40, fat: 0  },
+      { name: 'Salmon (180g)',          cal: 372, protein: 50, carbs: 0,  fat: 18 },
+      { name: 'Avocado (half)',         cal: 160, protein: 2,  carbs: 9,  fat: 15 },
+      { name: 'Greek Yogurt (200g)',    cal: 130, protein: 20, carbs: 9,  fat: 1  },
+      { name: 'Mixed Vegetables',       cal: 80,  protein: 4,  carbs: 15, fat: 1  },
+      { name: 'Eggs (2 large)',         cal: 156, protein: 14, carbs: 1,  fat: 10 },
+      { name: 'Whole Milk (300ml)',     cal: 186, protein: 9,  carbs: 14, fat: 11 },
+      { name: 'Pasta (150g dry)',       cal: 564, protein: 19, carbs: 112,fat: 2  },
+      { name: 'Bread (2 slices)',       cal: 160, protein: 6,  carbs: 30, fat: 2  },
+      { name: 'Peanut Butter (2 tbsp)',  cal: 190, protein: 7,  carbs: 6,  fat: 16 },
+      { name: 'Energy Gel (1x)',        cal: 100, protein: 0,  carbs: 25, fat: 0  },
+      { name: 'Recovery Bar',           cal: 240, protein: 20, carbs: 28, fat: 6  },
+      { name: 'Tuna (1 can, 150g)',     cal: 165, protein: 37, carbs: 0,  fat: 2  },
+      { name: 'Cottage Cheese (200g)',  cal: 168, protein: 24, carbs: 8,  fat: 4  },
+      { name: 'Almonds (30g)',          cal: 174, protein: 6,  carbs: 6,  fat: 15 },
+      { name: 'Rice Cakes (3x)',        cal: 105, protein: 2,  carbs: 22, fat: 1  },
+      { name: 'Blueberries (150g)',     cal: 86,  protein: 1,  carbs: 21, fat: 0  },
+      { name: 'Quinoa (180g cooked)',   cal: 222, protein: 8,  carbs: 40, fat: 4  },
+    ]
+
+    const INITIAL_MEALS = {
+      breakfast: [
+        { id: 1, name: 'Oats (100g)',        cal: 380, protein: 13, carbs: 64, fat: 7 },
+        { id: 2, name: 'Banana',              cal: 89,  protein: 1,  carbs: 23, fat: 0 },
+        { id: 3, name: 'Whey Protein Shake', cal: 150, protein: 30, carbs: 5,  fat: 2 },
+      ],
+      lunch: [
+        { id: 4, name: 'Chicken Breast (200g)', cal: 330, protein: 62, carbs: 0,  fat: 7 },
+        { id: 5, name: 'Brown Rice (150g)',      cal: 195, protein: 4,  carbs: 41, fat: 2 },
+        { id: 6, name: 'Mixed Vegetables',       cal: 80,  protein: 4,  carbs: 15, fat: 1 },
+      ],
+      dinner: [],
+      snacks: [
+        { id: 7, name: 'Greek Yogurt (200g)', cal: 130, protein: 20, carbs: 9, fat: 1 },
+      ],
+    }
+
+    // ─── Sidebar ────────────────────────────────────────────────────────────────
+    const navItems = [
+      { path: 'dashboard',  icon: '◈', label: 'Dashboard'       },
+      { path: 'calendar',   icon: '⊞', label: 'Calendar'        },
+      { path: 'analytics',  icon: '∿', label: 'Analytics'       },
+      { path: 'ai-coach',   icon: '✦', label: 'AI Coach'        },
+      { path: 'plans',      icon: '≡', label: 'Training Plans'  },
+      { path: 'library',    icon: '⊙', label: 'Workout Library' },
+      { path: 'nutrition',  icon: '◉', label: 'Nutrition'       },
+    ]
+
+    function Sidebar() {
+      const sidebarCardStyles = {
+        margin: '0 12px 24px', background: C.card, borderRadius: 10,
+        padding: '12px 14px', border: `1px solid ${C.border}`,
+      }
+      return (
+        <div style={{
+          width: 220, flexShrink: 0, background: C.surface,
+          borderRight: `1px solid ${C.border}`, display: 'flex',
+          flexDirection: 'column', padding: '24px 0',
+          height: '100vh', position: 'sticky', top: 0,
+        }}>
+          <div style={{ padding: '0 20px 28px' }}>
+            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.08em' }}>
+              <span style={{ color: C.accent }}>VEX</span><span style={{ color: C.text }}>R</span>
+            </div>
+            <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
+          </div>
+
+          <div style={sidebarCardStyles}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, fontWeight: 700, color: '#000',
+              }}>JD</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Jamie Doe</div>
+                <div style={{ fontSize: 10, color: C.muted }}>triathlon</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, padding: '8px 10px', background: C.bg, borderRadius: 6, display: 'flex', justifyContent: 'space-between' }}>
+              {[['285','FTP',C.accent],['4:28','PACE',C.green],['1:24','CSS',C.purple]].map(([v,l,col],i,arr) => (
+                <React.Fragment key={l}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: col, fontFamily: 'DM Mono, monospace' }}>{v}</div>
+                    <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.08em' }}>{l}</div>
+                  </div>
+                  {i < arr.length - 1 && <div style={{ width: 1, background: C.border }} />}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {navItems.map(item => {
+            const active = item.path === 'nutrition'
+            return (
+              <button key={item.path} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '11px 20px',
+                background: active ? C.accentDim : 'transparent', border: 'none',
+                borderLeft: `3px solid ${active ? C.accent : 'transparent'}`,
+                color: active ? C.accent : C.muted,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                transition: 'all 0.15s', textAlign: 'left', width: '100%',
+                fontFamily: 'Inter, sans-serif',
+              }}>
+                <span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}
+              </button>
+            )
+          })}
+
+          <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button style={{
+              width: '100%', padding: 12, background: C.accent, border: 'none',
+              borderRadius: 10, color: '#000', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            }}>+ Log Workout</button>
+            <button style={{
+              width: '100%', padding: '9px 14px', background: 'none',
+              border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted,
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              textAlign: 'left', fontFamily: 'Inter, sans-serif',
+            }}>Sign out</button>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Stat Card ──────────────────────────────────────────────────────────────
+    function StatCard({ label, value, unit, sub, color }) {
+      return (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.9 }} />
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 7 }}>
+            <span style={{ fontSize: 34, fontWeight: 900, color: C.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{value}</span>
+            {unit && <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>{unit}</span>}
+          </div>
+          <div style={{ fontSize: 12, color, fontWeight: 600, textWrap: 'pretty' }}>{sub}</div>
+        </div>
+      )
+    }
+
+    // ─── Calorie Ring ───────────────────────────────────────────────────────────
+    function CalorieRing({ consumed, target }) {
+      const pct = Math.min(consumed / target, 1)
+      const r = 66
+      const circ = 2 * Math.PI * r
+      const dash = circ * pct
+      const over = consumed > target
+      const ringColor = over ? C.orange : pct > 0.85 ? C.green : C.accent
+      const remaining = Math.max(0, target - consumed)
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ position: 'relative', width: 164, height: 164 }}>
+            <svg width="164" height="164" style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx="82" cy="82" r={r} fill="none" stroke={C.subtle} strokeWidth={11} />
+              <circle
+                cx="82" cy="82" r={r} fill="none" stroke={ringColor} strokeWidth={11}
+                strokeDasharray={`${dash} ${circ - dash}`}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dasharray 0.55s ease, stroke 0.3s' }}
+              />
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+                {consumed.toLocaleString()}
+              </div>
+              <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.04em' }}>kcal eaten</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: ringColor, marginTop: 2 }}>
+                {over ? `+${(consumed - target).toLocaleString()} over` : `${remaining.toLocaleString()} left`}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 6, fontSize: 11, color: C.muted, paddingInline: 4 }}>
+            <span><span style={{ color: C.text, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>{target.toLocaleString()}</span> target</span>
+            <span style={{ fontWeight: 700 }}>{Math.round(pct * 100)}%</span>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Macro Bar ──────────────────────────────────────────────────────────────
+    function MacroBar({ label, consumed, target, color }) {
+      const pct = Math.min(consumed / target, 1)
+      const over = consumed > target
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</span>
+            <span style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}>
+              <span style={{ color: over ? C.orange : C.text, fontWeight: 700 }}>{consumed}g</span>
+              <span style={{ color: C.muted }}> / {target}g</span>
+            </span>
+          </div>
+          <div style={{ height: 5, background: C.subtle, borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 4, width: `${pct * 100}%`, background: over ? C.orange : color, transition: 'width 0.5s ease' }} />
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Hydration ──────────────────────────────────────────────────────────────
+    function HydrationCard({ hydration, setHydration }) {
+      const target = 3.0
+      const pct = Math.min(hydration / target, 1)
+      const cups = Math.round(hydration / 0.25)
+
+      return (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: C.accent, opacity: 0.7 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Hydration</div>
+            <div style={{ fontSize: 12, color: C.accent, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+              {hydration.toFixed(2)}L <span style={{ color: C.muted, fontWeight: 400 }}>/ {target}L</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
+            {Array.from({ length: 12 }, (_, i) => {
+              const filled = i < cups
+              return (
+                <button
+                  key={i}
+                  onClick={() => setHydration(parseFloat(((i + 1) * 0.25).toFixed(2)))}
+                  style={{
+                    width: 30, height: 34, borderRadius: 6, border: 'none',
+                    background: filled ? C.accent + '20' : C.subtle,
+                    outline: `1px solid ${filled ? C.accent + '70' : C.border}`,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, color: filled ? C.accent : C.muted,
+                  }}
+                  onMouseEnter={e => { if (!filled) { e.currentTarget.style.background = C.accent + '10'; e.currentTarget.style.outline = `1px solid ${C.accent + '40'}` }}}
+                  onMouseLeave={e => { if (!filled) { e.currentTarget.style.background = C.subtle; e.currentTarget.style.outline = `1px solid ${C.border}` }}}
+                >◈</button>
+              )
+            })}
+          </div>
+
+          <div style={{ height: 5, background: C.subtle, borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
+            <div style={{ height: '100%', borderRadius: 4, width: `${pct * 100}%`, background: C.accent, transition: 'width 0.5s ease' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setHydration(h => parseFloat(Math.max(0, h - 0.25).toFixed(2)))}
+              style={{ flex: 1, padding: '7px 0', background: 'none', border: `1px solid ${C.border}`, borderRadius: 8, color: C.muted, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.muted; e.currentTarget.style.color = C.text }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted }}
+            >− 250ml</button>
+            <button
+              onClick={() => setHydration(h => parseFloat((h + 0.25).toFixed(2)))}
+              style={{ flex: 1, padding: '7px 0', background: C.accent + '15', border: `1px solid ${C.accent}55`, borderRadius: 8, color: C.accent, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.accent + '25' }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.accent + '15' }}
+            >+ 250ml</button>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Add Food Modal ─────────────────────────────────────────────────────────
+    function AddFoodModal({ meal, onAdd, onClose }) {
+      const [query, setQuery] = useState('')
+      const [selected, setSelected] = useState(null)
+      const inputRef = useRef(null)
+
+      useEffect(() => { inputRef.current?.focus() }, [])
+
+      const filtered = FOOD_DB.filter(f =>
+        f.name.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 9)
+
+      const mealLabel = meal.charAt(0).toUpperCase() + meal.slice(1)
+      const mealColor = { breakfast: C.orange, lunch: C.green, dinner: C.purple, snacks: C.accent }[meal]
+
+      return (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
+          onClick={e => e.target === e.currentTarget && onClose()}
+        >
+          <div style={{
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 16,
+            padding: 24, width: 440, maxWidth: '92vw', maxHeight: '85vh',
+            boxShadow: '0 12px 50px rgba(0,0,0,0.55)',
+            animation: 'scaleIn 0.18s ease',
+            display: 'flex', flexDirection: 'column', gap: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
+                Add Food <span style={{ color: mealColor }}>· {mealLabel}</span>
+              </div>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.muted, fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
+            </div>
+
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => { setQuery(e.target.value); setSelected(null) }}
+              placeholder="Search foods…"
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 9,
+                border: `1px solid ${C.border}`, background: C.bg,
+                color: C.text, fontSize: 13, fontFamily: 'Inter, sans-serif',
+                marginBottom: 10, transition: 'border-color 0.15s',
+              }}
+              onFocus={e => e.currentTarget.style.borderColor = C.accent + '60'}
+              onBlur={e => e.currentTarget.style.borderColor = C.border}
+            />
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 14 }}>
+              {filtered.map((food, i) => {
+                const isSel = selected?.name === food.name
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelected(food)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 12px', borderRadius: 9, textAlign: 'left',
+                      background: isSel ? C.accentDim : C.bg,
+                      border: `1px solid ${isSel ? C.accent + '55' : C.border}`,
+                      cursor: 'pointer', transition: 'all 0.12s',
+                      fontFamily: 'Inter, sans-serif',
+                    }}
+                    onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = C.muted }}
+                    onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = C.border }}
+                  >
+                    <span style={{ fontSize: 13, color: C.text, fontWeight: isSel ? 600 : 400 }}>{food.name}</span>
+                    <div style={{ display: 'flex', gap: 10, fontSize: 11, flexShrink: 0, marginLeft: 10 }}>
+                      <span style={{ color: C.text, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{food.cal}</span>
+                      <span style={{ color: C.green }}>P{food.protein}</span>
+                      <span style={{ color: C.orange }}>C{food.carbs}</span>
+                      <span style={{ color: C.purple }}>F{food.fat}</span>
+                    </div>
+                  </button>
+                )
+              })}
+              {filtered.length === 0 && (
+                <div style={{ color: C.muted, fontSize: 13, padding: '20px 0', textAlign: 'center' }}>No foods found</div>
+              )}
+            </div>
+
+            {selected && (
+              <div style={{ padding: '12px 14px', background: C.bg, borderRadius: 9, border: `1px solid ${C.accent}25`, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 10 }}>{selected.name}</div>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {[
+                    { v: selected.cal,     l: 'kcal',   c: C.accent  },
+                    { v: `${selected.protein}g`, l: 'protein', c: C.green  },
+                    { v: `${selected.carbs}g`,   l: 'carbs',   c: C.orange },
+                    { v: `${selected.fat}g`,     l: 'fat',     c: C.purple },
+                  ].map(({ v, l, c }) => (
+                    <div key={l} style={{ textAlign: 'center' }}>
+                      <div style={{ color: c, fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 15 }}>{v}</div>
+                      <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => { if (selected) { onAdd(meal, { ...selected, id: Date.now() }); onClose() } }}
+              disabled={!selected}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                background: selected ? mealColor : C.subtle,
+                color: selected ? (meal === 'lunch' || meal === 'snacks' ? '#000' : '#fff') : C.muted,
+                fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
+                fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                opacity: selected ? 1 : 0.5,
+              }}
+            >Add to {mealLabel}</button>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Meal Section ───────────────────────────────────────────────────────────
+    const mealMeta = {
+      breakfast: { label: 'Breakfast', icon: '☀',  color: C.orange },
+      lunch:     { label: 'Lunch',     icon: '◑',  color: C.green  },
+      dinner:    { label: 'Dinner',    icon: '☽',  color: C.purple },
+      snacks:    { label: 'Snacks',    icon: '⊙',  color: C.accent },
+    }
+
+    function MealSection({ mealKey, items, onAdd, onRemove }) {
+      const [open, setOpen] = useState(true)
+      const { label, icon, color } = mealMeta[mealKey]
+      const total = items.reduce((s, f) => ({ cal: s.cal + f.cal, p: s.p + f.protein, c: s.c + f.carbs, f: s.f + f.fat }), { cal: 0, p: 0, c: 0, f: 0 })
+
+      return (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+              padding: '11px 14px', background: C.bg, border: 'none',
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif', textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 13, color, width: 18, textAlign: 'center' }}>{icon}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, flex: 1 }}>{label}</span>
+            {items.length > 0 && (
+              <span style={{ fontSize: 11, color: C.muted, fontFamily: 'DM Mono, monospace' }}>{total.cal} kcal</span>
+            )}
+            <span style={{ fontSize: 9, color: C.muted, marginLeft: 6 }}>{open ? '▲' : '▼'}</span>
+          </button>
+
+          {open && (
+            <div style={{ background: C.card }}>
+              {items.length === 0 ? (
+                <div style={{ padding: '9px 14px', fontSize: 12, color: C.muted, fontStyle: 'italic' }}>Nothing logged yet</div>
+              ) : items.map(food => (
+                <div key={food.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 14px', borderTop: `1px solid ${C.border}`,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: C.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{food.name}</div>
+                    <div style={{ display: 'flex', gap: 8, fontSize: 10, marginTop: 2 }}>
+                      <span style={{ color: C.green }}>P {food.protein}g</span>
+                      <span style={{ color: C.orange }}>C {food.carbs}g</span>
+                      <span style={{ color: C.purple }}>F {food.fat}g</span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.text, fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>{food.cal}</span>
+                  <span style={{ fontSize: 9, color: C.muted, flexShrink: 0 }}>kcal</span>
+                  <button
+                    onClick={() => onRemove(mealKey, food.id)}
+                    style={{ background: 'none', border: 'none', color: C.muted, fontSize: 17, cursor: 'pointer', padding: '0 2px', opacity: 0.45, transition: 'opacity 0.15s', lineHeight: 1 }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '0.45'}
+                  >×</button>
+                </div>
+              ))}
+              <div style={{ padding: '10px 14px', borderTop: `1px solid ${C.border}` }}>
+                <button
+                  onClick={() => onAdd(mealKey)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    width: '100%', background: 'none', border: `1px dashed ${color}45`,
+                    borderRadius: 7, padding: '7px 12px', color, fontSize: 12,
+                    fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = color + '0e' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = color + '45'; e.currentTarget.style.background = 'none' }}
+                >+ Add Food</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // ─── Workout Fuel Guide ──────────────────────────────────────────────────────
+    function WorkoutFuelCard() {
+      const phases = [
+        {
+          label: 'Pre-Workout', time: '2–3h before', color: C.orange,
+          recs: ['Low fibre, moderate-high carbs', 'Rice + chicken or oats', 'Avoid fats and high fibre'],
+        },
+        {
+          label: 'During',  time: '> 60 min sessions', color: C.accent,
+          recs: ['30–60g carbs/hour', 'Gels, dates, or isotonic drinks', '500–750ml water per hour'],
+        },
+        {
+          label: 'Recovery', time: 'Within 30 min', color: C.green,
+          recs: ['3:1 carb-to-protein ratio', 'Whey shake + banana', 'Rehydrate: 1.5× sweat loss'],
+        },
+      ]
+      return (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden', marginTop: 12 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.orange}, ${C.accent}, ${C.green})` }} />
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Workout Fuel Guide</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {phases.map((p, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12 }}>
+                <div style={{ width: 3, borderRadius: 2, background: p.color, flexShrink: 0 }} />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: p.color }}>{p.label}</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{p.time}</span>
+                  </div>
+                  {p.recs.map((r, j) => (
+                    <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.muted, marginBottom: 3 }}>
+                      <span style={{ color: p.color, fontSize: 7 }}>◆</span>{r}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // ─── Tweaks ──────────────────────────────────────────────────────────────────
+    function TweaksPanel({ tweaks, setTweaks, visible }) {
+      if (!visible) return null
+      return (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 500,
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 14,
+          padding: 20, width: 272, boxShadow: '0 8px 40px rgba(0,0,0,0.55)',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 16, letterSpacing: '0.08em' }}>TWEAKS</div>
+
+          {[
+            { key: 'calorieTarget', label: 'Calorie target', min: 1500, max: 4500, step: 50,  unit: ' kcal' },
+            { key: 'proteinTarget', label: 'Protein target', min: 80,   max: 300,  step: 5,   unit: 'g' },
+            { key: 'carbsTarget',   label: 'Carbs target',   min: 100,  max: 600,  step: 10,  unit: 'g' },
+            { key: 'fatTarget',     label: 'Fat target',     min: 30,   max: 200,  step: 5,   unit: 'g' },
+          ].map(({ key, label, min, max, step, unit }) => (
+            <div key={key} style={{ marginBottom: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
+                <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: C.accent }}>{tweaks[key]}{unit}</span>
+              </div>
+              <input type="range" min={min} max={max} step={step} value={tweaks[key]}
+                onChange={e => setTweaks(t => ({ ...t, [key]: +e.target.value }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          ))}
+
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>
+            {[
+              { key: 'showHydration', label: 'Show Hydration' },
+              { key: 'showFuelGuide', label: 'Show Fuel Guide' },
+            ].map(({ key, label }) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8, cursor: 'pointer' }}
+                onClick={() => setTweaks(t => ({ ...t, [key]: !t[key] }))}>
+                <div style={{ width: 34, height: 18, borderRadius: 10, background: tweaks[key] ? C.accent : C.subtle, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: tweaks[key] ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: tweaks[key] ? '#000' : C.muted, transition: 'left 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // ─── App ────────────────────────────────────────────────────────────────────
+    function App() {
+      const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS)
+      const [tweaksVisible, setTweaksVisible] = useState(false)
+      const [meals, setMeals] = useState(INITIAL_MEALS)
+      const [hydration, setHydration] = useState(1.5)
+      const [addFoodModal, setAddFoodModal] = useState(null)
+      const [dateOffset, setDateOffset] = useState(0)
+
+      useEffect(() => {
+        const handler = e => {
+          if (e.data?.type === '__activate_edit_mode')   setTweaksVisible(true)
+          if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false)
+        }
+        window.addEventListener('message', handler)
+        window.parent.postMessage({ type: '__edit_mode_available' }, '*')
+        return () => window.removeEventListener('message', handler)
+      }, [])
+
+      useEffect(() => {
+        window.parent.postMessage({ type: '__edit_mode_set_keys', edits: tweaks }, '*')
+      }, [tweaks])
+
+      const totals = Object.values(meals).flat().reduce(
+        (s, f) => ({ cal: s.cal + f.cal, protein: s.protein + f.protein, carbs: s.carbs + f.carbs, fat: s.fat + f.fat }),
+        { cal: 0, protein: 0, carbs: 0, fat: 0 }
+      )
+
+      const addFood   = (mealKey, food)   => setMeals(m => ({ ...m, [mealKey]: [...m[mealKey], food] }))
+      const removeFood = (mealKey, foodId) => setMeals(m => ({ ...m, [mealKey]: m[mealKey].filter(f => f.id !== foodId) }))
+
+      const dateLabel = dateOffset === 0 ? 'Today' : dateOffset === -1 ? 'Yesterday' : dateOffset === 1 ? 'Tomorrow' : null
+      const dateStr = (() => {
+        const d = new Date(); d.setDate(d.getDate() + dateOffset)
+        return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+      })()
+
+      const proteinPct = totals.cal > 0 ? Math.round(totals.protein * 4 / totals.cal * 100) : 0
+      const carbsPct   = totals.cal > 0 ? Math.round(totals.carbs   * 4 / totals.cal * 100) : 0
+      const fatPct     = totals.cal > 0 ? Math.round(totals.fat     * 9 / totals.cal * 100) : 0
+
+      return (
+        <div style={{ display: 'flex', minHeight: '100vh' }}>
+          <Sidebar />
+
+          <div style={{ flex: 1, overflow: 'auto', padding: '28px 32px', minWidth: 0 }}>
+
+            {/* Page title */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>Nutrition</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 5, fontWeight: 500 }}>Track your daily fuel and macros</div>
+            </div>
+
+            {/* Date nav */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
+              <button
+                onClick={() => setDateOffset(o => o - 1)}
+                style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 13px', color: C.muted, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.color = C.text}
+                onMouseLeave={e => e.currentTarget.style.color = C.muted}
+              >←</button>
+              <div style={{ textAlign: 'center', minWidth: 160 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{dateLabel || dateStr}</div>
+                {dateLabel && <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{dateStr}</div>}
+              </div>
+              <button
+                onClick={() => setDateOffset(o => o + 1)}
+                style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 13px', color: C.muted, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.color = C.text}
+                onMouseLeave={e => e.currentTarget.style.color = C.muted}
+              >→</button>
+              {dateOffset !== 0 && (
+                <button
+                  onClick={() => setDateOffset(0)}
+                  style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 13px', color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '0.06em', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = C.accent + '60'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+                >TODAY</button>
+              )}
+            </div>
+
+            {/* Stat cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+              <StatCard
+                label="Calories"
+                value={totals.cal.toLocaleString()}
+                unit="kcal"
+                sub={totals.cal >= tweaks.calorieTarget ? `+${(totals.cal - tweaks.calorieTarget).toLocaleString()} over goal` : `${(tweaks.calorieTarget - totals.cal).toLocaleString()} remaining`}
+                color={C.accent}
+              />
+              <StatCard
+                label="Protein"
+                value={totals.protein}
+                unit="g"
+                sub={totals.protein >= tweaks.proteinTarget ? 'Target reached' : `${tweaks.proteinTarget - totals.protein}g to go`}
+                color={C.green}
+              />
+              <StatCard
+                label="Carbohydrates"
+                value={totals.carbs}
+                unit="g"
+                sub={totals.carbs >= tweaks.carbsTarget ? 'Target reached' : `${tweaks.carbsTarget - totals.carbs}g to go`}
+                color={C.orange}
+              />
+              <StatCard
+                label="Fat"
+                value={totals.fat}
+                unit="g"
+                sub={totals.fat >= tweaks.fatTarget ? 'Target reached' : `${tweaks.fatTarget - totals.fat}g to go`}
+                color={C.purple}
+              />
+            </div>
+
+            {/* Main two-column */}
+            <div style={{ display: 'grid', gridTemplateColumns: '56% 1fr', gap: 20, alignItems: 'start' }}>
+
+              {/* Left col */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* Daily summary card */}
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: C.accent, opacity: 0.65 }} />
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 18 }}>Daily Summary</div>
+
+                  <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
+                    <CalorieRing consumed={totals.cal} target={tweaks.calorieTarget} />
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+                      <MacroBar label="Protein" consumed={totals.protein} target={tweaks.proteinTarget} color={C.green}  />
+                      <MacroBar label="Carbs"   consumed={totals.carbs}   target={tweaks.carbsTarget}   color={C.orange} />
+                      <MacroBar label="Fat"     consumed={totals.fat}     target={tweaks.fatTarget}     color={C.purple} />
+
+                      {totals.cal > 0 && (
+                        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 13 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>Macro Split</div>
+                          <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
+                            <div style={{ width: `${proteinPct}%`, background: C.green,  transition: 'width 0.5s ease' }} />
+                            <div style={{ width: `${carbsPct}%`,   background: C.orange, transition: 'width 0.5s ease' }} />
+                            <div style={{ width: `${fatPct}%`,     background: C.purple, transition: 'width 0.5s ease' }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 14, marginTop: 7 }}>
+                            {[
+                              { l: 'Protein', pct: proteinPct, c: C.green  },
+                              { l: 'Carbs',   pct: carbsPct,   c: C.orange },
+                              { l: 'Fat',     pct: fatPct,     c: C.purple },
+                            ].map(({ l, pct, c }) => (
+                              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.muted }}>
+                                <div style={{ width: 8, height: 8, borderRadius: 2, background: c, flexShrink: 0 }} />
+                                {l} <span style={{ color: C.text, fontWeight: 700 }}>{pct}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {tweaks.showHydration && (
+                  <HydrationCard hydration={hydration} setHydration={setHydration} />
+                )}
+              </div>
+
+              {/* Right col */}
+              <div>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.orange}, ${C.green}, ${C.purple}, ${C.accent})` }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Meal Log</div>
+                    <div style={{ fontSize: 11, color: C.muted, fontFamily: 'DM Mono, monospace' }}>
+                      {Object.values(meals).flat().length} items
+                    </div>
+                  </div>
+                  {['breakfast','lunch','dinner','snacks'].map(key => (
+                    <MealSection
+                      key={key}
+                      mealKey={key}
+                      items={meals[key]}
+                      onAdd={setAddFoodModal}
+                      onRemove={removeFood}
+                    />
+                  ))}
+                </div>
+
+                {tweaks.showFuelGuide && <WorkoutFuelCard />}
+              </div>
+            </div>
+          </div>
+
+          {addFoodModal && (
+            <AddFoodModal
+              meal={addFoodModal}
+              onAdd={addFood}
+              onClose={() => setAddFoodModal(null)}
+            />
+          )}
+
+          <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} visible={tweaksVisible} />
+        </div>
+      )
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+  </script>
+</body>
+</html>

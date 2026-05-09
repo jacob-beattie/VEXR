@@ -54,6 +54,20 @@ function calcCyclingZones(ftp: number) {
   }))
 }
 
+function calcHRZones(maxHrVal: number) {
+  const z1Max = Math.round(maxHrVal * 0.65)
+  const z2Max = Math.round(maxHrVal * 0.75)
+  const z3Max = Math.round(maxHrVal * 0.82)
+  const z4Max = Math.round(maxHrVal * 0.89)
+  return [
+    { zone_number: 1, zone_name: 'Recovery',  min_value: '0',              max_value: String(z1Max) },
+    { zone_number: 2, zone_name: 'Aerobic',    min_value: String(z1Max + 1), max_value: String(z2Max) },
+    { zone_number: 3, zone_name: 'Tempo',      min_value: String(z2Max + 1), max_value: String(z3Max) },
+    { zone_number: 4, zone_name: 'Threshold',  min_value: String(z3Max + 1), max_value: String(z4Max) },
+    { zone_number: 5, zone_name: 'Max',        min_value: String(z4Max + 1), max_value: '' },
+  ]
+}
+
 function paceToSeconds(pace: string): number | null {
   if (!pace || !pace.includes(':')) return null
   const [min, sec] = pace.split(':').map(Number)
@@ -268,12 +282,13 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     css: profile.css || '',
     race_goal: profile.race_goal || '',
     race_date: profile.race_date || '',
+    max_hr: profile.max_hr ? String(profile.max_hr) : '',
   })
 
   const [benchmarks, setBenchmarks] = useState<FitnessBenchmark[]>([])
   const [runningZones, setRunningZones] = useState<ZoneRow[]>(DEFAULT_RUNNING_ZONES)
   const [swimmingZones, setSwimmingZones] = useState<ZoneRow[]>(DEFAULT_SWIMMING_ZONES)
-  const [activeZoneTab, setActiveZoneTab] = useState<'cycling' | 'running' | 'swimming'>('cycling')
+  const [activeZoneTab, setActiveZoneTab] = useState<'cycling' | 'running' | 'swimming' | 'heart_rate'>('cycling')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [loadingData, setLoadingData] = useState(true)
@@ -306,7 +321,6 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
       const swimming = zData
         .filter(z => z.sport === 'swimming')
         .sort((a, b) => a.zone_number - b.zone_number)
-
       if (running.length > 0) {
         setRunningZones(running.map(z => ({
           zone_number: z.zone_number,
@@ -365,6 +379,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           css: form.css,
           race_goal: form.race_goal || null,
           race_date: form.race_date || null,
+          max_hr: parseInt(form.max_hr) || null,
         })
         .eq('id', user.id)
 
@@ -416,6 +431,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         css: form.css,
         race_goal: form.race_goal || undefined,
         race_date: form.race_date || undefined,
+        max_hr: parseInt(form.max_hr) || null,
       })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save profile')
@@ -644,23 +660,28 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           <div style={sectionLabelStyle}>Training Zones</div>
 
           {/* Tab bar */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
-            {(['cycling', 'running', 'swimming'] as const).map(sport => (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
+            {([
+              { key: 'cycling',    label: 'Cycling' },
+              { key: 'running',    label: 'Running' },
+              { key: 'swimming',   label: 'Swimming' },
+              { key: 'heart_rate', label: 'Heart Rate' },
+            ] as const).map(tab => (
               <button
-                key={sport}
-                onClick={() => setActiveZoneTab(sport)}
+                key={tab.key}
+                onClick={() => setActiveZoneTab(tab.key)}
                 style={{
                   padding: '7px 18px',
                   borderRadius: 8,
-                  border: `1px solid ${activeZoneTab === sport ? COLORS.accent : COLORS.border}`,
-                  background: activeZoneTab === sport ? COLORS.accentDim : 'transparent',
-                  color: activeZoneTab === sport ? COLORS.accent : COLORS.muted,
+                  border: `1px solid ${activeZoneTab === tab.key ? COLORS.accent : COLORS.border}`,
+                  background: activeZoneTab === tab.key ? COLORS.accentDim : 'transparent',
+                  color: activeZoneTab === tab.key ? COLORS.accent : COLORS.muted,
                   fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  textTransform: 'capitalize', transition: 'all 0.12s',
+                  transition: 'all 0.12s',
                   fontFamily: 'inherit',
                 }}
               >
-                {sport}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -751,6 +772,75 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               />
             </div>
           )}
+
+          {/* Heart Rate — auto from max HR */}
+          {activeZoneTab === 'heart_rate' && (() => {
+            const maxHrNum = parseInt(form.max_hr) || 0
+            const hrZones = maxHrNum > 0 ? calcHRZones(maxHrNum) : []
+            const zoneColors = ['#4a9eff', COLORS.green, '#ffdd00', COLORS.orange, '#ff4757']
+            return (
+              <div>
+                <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 16 }}>
+                  Auto-calculated from your max heart rate. Common estimate: 220 − age.
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={labelStyle}>Max Heart Rate (bpm)</label>
+                  <input
+                    type="number"
+                    className="no-spinner"
+                    style={{ ...inputStyle, width: isMobile ? '100%' : 160 }}
+                    value={form.max_hr}
+                    onChange={e => setForm(f => ({ ...f, max_hr: e.target.value }))}
+                    placeholder="e.g. 185"
+                    min={100}
+                    max={230}
+                  />
+                </div>
+                {maxHrNum > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {hrZones.map((zone, i) => {
+                      const color = zoneColors[i]
+                      return (
+                        <div key={zone.zone_number} style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '10px 14px',
+                          background: COLORS.bg,
+                          borderRadius: 8,
+                          border: `1px solid ${COLORS.border}`,
+                        }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                            background: color + '18',
+                            border: `1px solid ${color}35`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, color,
+                          }}>
+                            Z{zone.zone_number}
+                          </div>
+                          <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: COLORS.text }}>
+                            {zone.zone_name}
+                          </div>
+                          <div style={{ fontSize: 13, fontFamily: "'DM Mono', monospace", color: COLORS.muted }}>
+                            {zone.max_value
+                              ? `${zone.min_value} – ${zone.max_value} bpm`
+                              : `${zone.min_value}+ bpm`}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: 24, background: COLORS.bg, borderRadius: 8,
+                    border: `1px solid ${COLORS.border}`, textAlign: 'center',
+                    color: COLORS.muted, fontSize: 13,
+                  }}>
+                    Enter your max heart rate above
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── Section 4: Strava Integration ── */}

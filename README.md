@@ -23,8 +23,9 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed
 - 📊 **Performance Dashboard** — personalised greeting, CTL/ATL/TSB stat cards with fitness area chart, weekly load, coming up, AI coach teaser, and season goals
-- 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony
+- 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony, power curve, pace curve, heart rate zones
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
+- 🥗 **Nutrition** — daily calorie/macro/hydration tracking, meal log, SVG calorie ring, workout fuel guide, editable targets, custom food database
 - 📚 **Workout Library** — save and reuse workout templates
 - 🗓️ **Training Plans** — import plans from PDF/HTML/text, AI-parsed sessions, conflict detection, calendar sync
 
@@ -38,7 +39,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 🔄 **Strava Sync** — auto-import workouts with HR, power, pace, distance and elevation
 - 📏 **Benchmark Tracking** — FTP, run pace and CSS history with trend charts
-- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim
+- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim, heart rate zones from max HR
 
 ### UX
 
@@ -115,6 +116,8 @@ supabase functions deploy ai-briefing --no-verify-jwt
 supabase functions deploy parse-plan --no-verify-jwt
 ```
 
+`--no-verify-jwt` is required because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced inside each function handler via `supabase.auth.getUser()`.
+
 ### 6. Run locally
 
 ```bash
@@ -129,7 +132,7 @@ App runs at `http://localhost:5173`
 
 | Table                | Description                                           |
 | -------------------- | ----------------------------------------------------- |
-| `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal |
+| `profiles`           | User profile — name, sport, FTP, pace, CSS, race goal, max HR |
 | `workouts`           | All workouts — completed and planned                  |
 | `training_plans`     | Multi-week training blocks with import metadata       |
 | `training_sessions`  | Individual sessions from imported plans               |
@@ -139,6 +142,11 @@ App runs at `http://localhost:5173`
 | `strava_connections` | Strava OAuth tokens                                   |
 | `ai_briefings`       | Cached AI coaching briefings                          |
 | `goals`              | Season goals — text, completed flag, per user         |
+| `nutrition_logs`     | Daily food entries per user per meal                  |
+| `nutrition_targets`  | Per-user calorie/macro targets                        |
+| `hydration_logs`     | Daily hydration (litres) per user                     |
+| `nutrition_custom_foods` | User-created food items                           |
+| `food_database`      | Global shared food database (read-only)               |
 
 ---
 
