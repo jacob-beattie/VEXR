@@ -11,7 +11,5 @@ export const COLORS = {
   text: "#111827",
   muted: "#6b7280",
   subtle: "#f0f2f5",
-  purpleAction: "#6d28d9",
   amber: "#d97706",
-  shadow: "0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)",
 }

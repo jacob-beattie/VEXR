@@ -1,4 +1,3 @@
-import { COLORS } from '../../lib/colors'
 import type { WorkoutType } from '../../types'
 
 export const workoutTypes: Record<WorkoutType, { color: string; bg: string; border: string; label: string; icon: string }> = {

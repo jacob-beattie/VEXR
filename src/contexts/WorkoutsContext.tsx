@@ -21,7 +21,6 @@ interface WorkoutsContextValue {
   getWorkoutsForWeek: () => Workout[]
   getTodaysWorkouts: () => Workout[]
   calculateFitnessMetrics: () => FitnessMetrics
-  getWeeklyTSS: () => number
   getWeeklyLoadHistory: (weeks?: number) => Array<{ week: string; tss: number; planned: number }>
   getDailyWeekLoad: () => Array<{ day: string; tss: number; planned: number }>
   getFitnessHistory: (weeks?: number) => Array<{ week: string; fitness: number; fatigue: number; form: number }>
@@ -41,12 +40,10 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       .order('date', { ascending: false })
 
     if (error) {
-      console.error('[WorkoutsContext] fetch error:', error.message, error)
       setLoading(false)
       return
     }
 
-    console.log('[WorkoutsContext] fetched', data?.length ?? 0, 'workouts', data)
     setWorkouts((data ?? []) as Workout[])
     setLoading(false)
   }, [])
@@ -57,21 +54,17 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
 
     // Also re-fetch on any auth state change — handles the case where the
     // Supabase client session wasn't ready on the very first render
-    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[WorkoutsContext] auth event:', event, 'session:', !!session)
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) fetchWorkouts()
     })
 
     // Real-time subscription so any insert/update/delete reflects immediately
     const channel = supabase
       .channel('workouts-global')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, (payload) => {
-        console.log('[WorkoutsContext] realtime change:', payload.eventType)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, () => {
         fetchWorkouts()
       })
-      .subscribe((status) => {
-        console.log('[WorkoutsContext] realtime status:', status)
-      })
+      .subscribe()
 
     return () => {
       authSub.unsubscribe()
@@ -144,9 +137,6 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     const { current } = calculatePMC(workouts, today, today)
     return current
   }
-
-  const getWeeklyTSS = (): number =>
-    getWorkoutsForWeek().reduce((sum, w) => sum + (w.tss || 0), 0)
 
   const getDailyWeekLoad = () => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -230,7 +220,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       refetchWorkouts: fetchWorkouts,
       addWorkout, updateWorkout, deleteWorkout,
       getWorkoutsForMonth, getWorkoutsForWeek, getTodaysWorkouts,
-      calculateFitnessMetrics, getWeeklyTSS,
+      calculateFitnessMetrics,
       getWeeklyLoadHistory, getDailyWeekLoad,
       getFitnessHistory, getUpcomingWorkouts,
     }}>
