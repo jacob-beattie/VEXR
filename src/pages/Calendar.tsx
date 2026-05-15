@@ -24,7 +24,7 @@ export function Calendar() {
   const now = new Date()
 
   // ── Navigation state ────────────────────────────────────────────────────────
-  const [view, setView] = useState<'month' | 'week'>('month')
+  const [view, setView] = useState<'month' | 'week'>('week')
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
   const [weekStart, setWeekStart] = useState<Date>(getMondayOfWeek(now))
