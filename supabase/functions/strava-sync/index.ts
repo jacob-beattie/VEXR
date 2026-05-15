@@ -27,6 +27,7 @@ function estimateTSS(
   type: string,
   ftp: number,
   threshPaceSec: number, // threshold run pace in sec/km
+  cssSec: number,        // CSS in sec/100m
 ): number {
   const movingTime = typeof activity.moving_time === 'number' ? (activity.moving_time as number) : 0
   const durationHrs = movingTime / 3600
@@ -54,7 +55,16 @@ function estimateTSS(
     }
   }
 
-  // Swim with distance → CSS-based TSS (duration-based fallback)
+  // Swim with distance and CSS → CSS-based TSS
+  if (type === 'swim' && cssSec > 0) {
+    const distanceM = typeof activity.distance === 'number' ? (activity.distance as number) : 0
+    if (distanceM > 0 && movingTime > 0) {
+      const avgPaceSec = movingTime / (distanceM / 100) // sec/100m
+      const ifVal = cssSec / avgPaceSec // faster than CSS = IF > 1
+      return Math.round(durationHrs * ifVal * ifVal * 100)
+    }
+  }
+
   // Suffer score fallback (Strava Relative Effort — scales similarly to TSS for HR-based effort)
   if (typeof activity.suffer_score === 'number' && activity.suffer_score > 0) {
     return Math.round(activity.suffer_score as number)
@@ -141,7 +151,7 @@ Deno.serve(async (req: Request) => {
     // Fetch user's profile for TSS calculation
     const { data: profile } = await supabase
       .from('profiles')
-      .select('ftp, run_pace')
+      .select('ftp, run_pace, css')
       .eq('id', user.id)
       .single()
 
@@ -150,6 +160,11 @@ Deno.serve(async (req: Request) => {
     const runPaceParts = typeof profile?.run_pace === 'string' ? profile.run_pace.split(':') : []
     const threshPaceSec = runPaceParts.length === 2
       ? parseInt(runPaceParts[0]) * 60 + parseInt(runPaceParts[1])
+      : 0
+    // css is stored as "m:ss" per 100m string e.g. "1:30"
+    const cssPaceParts = typeof profile?.css === 'string' ? profile.css.split(':') : []
+    const cssSec = cssPaceParts.length === 2
+      ? parseInt(cssPaceParts[0]) * 60 + parseInt(cssPaceParts[1])
       : 0
 
     // Fetch activities from the last 30 days
@@ -206,22 +221,27 @@ Deno.serve(async (req: Request) => {
           ? Math.round((a.kilojoules as number) / 4.184 / 0.25)   // mechanical work → kcal via ~25% efficiency
           : type === 'run' && distanceKm > 0
             ? Math.round(distanceKm * 78)                          // 1 kcal/kg/km × 78kg
-          : type === 'swim' && distanceKm > 0
-            ? Math.round(distanceKm * 312)                         // ~0.4 kcal/kg/100m × 78kg
           : durationHrsForCal > 0
-            ? Math.round(durationHrsForCal * 546)                  // MET 7 × 78kg
+            ? Math.round(durationHrsForCal * 546)                  // MET 7 × 78kg (swims + strength fallback)
           : null
 
         // Avg power (rides)
         const avgPower = typeof a.average_watts === 'number' ? Math.round(a.average_watts as number) : null
 
-        // Avg pace (runs/swims): convert avg speed m/s → min/km string
+        // Avg pace: runs → min/km, swims → min/100m
         let avgPace: string | null = null
-        if ((type === 'run' || type === 'swim') && typeof a.average_speed === 'number' && (a.average_speed as number) > 0) {
-          const secPerKm = 1000 / (a.average_speed as number)
-          const paceMin = Math.floor(secPerKm / 60)
-          const paceSec = Math.round(secPerKm % 60)
-          avgPace = `${paceMin}:${String(paceSec).padStart(2, '0')}`
+        if (typeof a.average_speed === 'number' && (a.average_speed as number) > 0) {
+          if (type === 'run') {
+            const secPerKm = 1000 / (a.average_speed as number)
+            const paceMin = Math.floor(secPerKm / 60)
+            const paceSec = Math.round(secPerKm % 60)
+            avgPace = `${paceMin}:${String(paceSec).padStart(2, '0')}`
+          } else if (type === 'swim') {
+            const secPer100m = 100 / (a.average_speed as number)
+            const paceMin = Math.floor(secPer100m / 60)
+            const paceSec = Math.round(secPer100m % 60)
+            avgPace = `${paceMin}:${String(paceSec).padStart(2, '0')}`
+          }
         }
 
         return {
@@ -230,7 +250,7 @@ Deno.serve(async (req: Request) => {
           type,
           date: dateOnly,
           duration_minutes: Math.round(movingTime / 60),
-          tss: estimateTSS(a, type, ftp, threshPaceSec),
+          tss: estimateTSS(a, type, ftp, threshPaceSec, cssSec),
           planned: false,
           strava_activity_id: a.id as number,
           heart_rate_avg: hrAvg,
