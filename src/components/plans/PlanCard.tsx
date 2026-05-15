@@ -31,6 +31,14 @@ interface PlanCardProps {
   onToast: (message: string) => void
 }
 
+function deriveCurrentWeek(plan: TrainingPlan): number {
+  if (plan.status === 'complete') return plan.total_weeks
+  if (!plan.start_date) return plan.current_week
+  const daysSinceStart = (Date.now() - new Date(plan.start_date + 'T00:00:00Z').getTime()) / 86400000
+  if (daysSinceStart < 0) return 0
+  return Math.min(Math.floor(daysSinceStart / 7) + 1, plan.total_weeks)
+}
+
 export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
@@ -39,7 +47,8 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const pct = plan.total_weeks > 0 ? Math.round((plan.current_week / plan.total_weeks) * 100) : 0
+  const currentWeek = deriveCurrentWeek(plan)
+  const pct = plan.total_weeks > 0 ? Math.round((currentWeek / plan.total_weeks) * 100) : 0
   const isComplete = plan.status === 'complete'
   const isArchived = plan.status === 'archived'
 
@@ -183,7 +192,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
               </div>
             </div>
             <div style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-              Week {plan.current_week} of {plan.total_weeks} · {pct}% complete
+              Week {currentWeek} of {plan.total_weeks} · {pct}% complete
             </div>
           </div>
 
