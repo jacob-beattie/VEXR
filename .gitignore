@@ -12,6 +12,25 @@ dist
 dist-ssr
 *.local
 
+# Env files
+.env
+.env.*
+!.env.example
+
+# Supabase
+supabase/.temp/
+
+# Build / cache
+coverage
+*.tsbuildinfo
+.eslintcache
+
+# Claude Code
+.claude/
+
+# Design handoff files
+design_handoff_*/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
