@@ -13,6 +13,7 @@ export const COLORS = {
   subtle: "#f0f2f5",
   amber: "#d97706",
   strava: "#FC4C02",
+  danger: "#ef4444",
 }
 
 export const SPORT_COLORS: Record<string, string> = {

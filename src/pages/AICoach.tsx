@@ -453,7 +453,7 @@ export function AICoach() {
             compliance === null ? COLORS.muted
             : compliance >= 80 ? COLORS.green
             : compliance >= 50 ? COLORS.orange
-            : '#ef4444'
+            : COLORS.danger
           }
           sub={
             totalWeekSessions > 0

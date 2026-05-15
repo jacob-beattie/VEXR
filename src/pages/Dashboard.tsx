@@ -198,8 +198,19 @@ function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (
         Coming Up
       </div>
       {workouts.length === 0 ? (
-        <div style={{ color: COLORS.muted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-          No planned workouts ahead
+        <div style={{
+          background: COLORS.subtle,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 10,
+          padding: '20px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <span style={{ fontSize: 20, lineHeight: 1 }}>📅</span>
+          <span style={{ color: COLORS.muted, fontSize: 13, fontWeight: 500 }}>No planned workouts ahead</span>
+          <span style={{ color: COLORS.muted, fontSize: 11, opacity: 0.7 }}>Add a training plan to populate your calendar</span>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

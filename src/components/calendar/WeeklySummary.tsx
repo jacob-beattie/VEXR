@@ -64,7 +64,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
   fitnessDate.setHours(0, 0, 0, 0)
   const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
-  const tsbValueColor = fitness.tsb >= 0 ? COLORS.green : '#ef4444'
+  const tsbValueColor = fitness.tsb >= 0 ? COLORS.green : COLORS.danger
 
   // Fixed 3-row structure: label / value / subtitle — minHeight on subtitle reserves space even when empty
   const stat = (label: string, value: string, valueColor = COLORS.text, sub?: string) => (
