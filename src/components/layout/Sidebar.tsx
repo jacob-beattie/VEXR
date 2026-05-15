@@ -125,17 +125,17 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
         </div>
         <div style={{ marginTop: 12, padding: '8px 10px', background: COLORS.bg, borderRadius: 6, display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.accent, fontFamily: 'monospace' }}>{profile?.ftp || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.ftp || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>FTP</div>
           </div>
           <div style={{ width: 1, background: COLORS.border }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.green, fontFamily: 'monospace' }}>{profile?.run_pace || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.run_pace || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>PACE</div>
           </div>
           <div style={{ width: 1, background: COLORS.border }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.purple, fontFamily: 'monospace' }}>{profile?.css || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.css || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>CSS</div>
           </div>
         </div>

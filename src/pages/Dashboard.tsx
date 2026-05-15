@@ -671,7 +671,7 @@ function StatCard({ label, value, unit, sub, color, dimSub }: {
         </span>
         {unit && <span style={{ fontSize: 14, color: COLORS.muted, fontWeight: 500 }}>{unit}</span>}
       </div>
-      <div style={{ fontSize: 12, color: dimSub ? COLORS.muted : color, fontWeight: 600 }}>
+      <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600 }}>
         {sub}
       </div>
     </div>
@@ -819,21 +819,21 @@ export function Dashboard() {
           label="Fitness (CTL)"
           value={ctl}
           sub={ctl < 10 ? 'Log workouts to build' : ctlSub}
-          color={COLORS.purple}
+          color={COLORS.accent}
           dimSub={ctl < 10}
         />
         <StatCard
           label="Fatigue (ATL)"
           value={atl}
           sub={atl < 10 ? 'No recent load' : atlSub}
-          color={COLORS.orange}
+          color={COLORS.accent}
           dimSub={atl < 10}
         />
         <StatCard
           label="Form (TSB)"
           value={tsb > 0 ? `+${tsb}` : tsb}
           sub={tsbSub}
-          color={tsbColor}
+          color={COLORS.accent}
         />
         {hasRace ? (
           <StatCard
@@ -841,7 +841,7 @@ export function Dashboard() {
             value={raceDays!}
             unit="days"
             sub={profile!.race_goal!}
-            color={COLORS.purple}
+            color={COLORS.accent}
           />
         ) : (
           <div style={{
