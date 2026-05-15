@@ -193,7 +193,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '0 2px',
-            fontSize: 11, color: syncing ? '#FC4C02' : COLORS.muted,
+            fontSize: 11, color: syncing ? COLORS.strava : COLORS.muted,
             fontWeight: syncing ? 600 : 400,
           }}>
             <span className={syncing ? 'spinning' : ''} style={{ fontSize: 11, display: 'inline-block', lineHeight: 1 }}>

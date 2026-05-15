@@ -94,7 +94,7 @@ function SyncToast({ isMobile }: { isMobile: boolean }) {
       style={{
         position: 'fixed', bottom: isMobile ? 76 : 24, right: 24, zIndex: 100,
         background: COLORS.card,
-        border: `1px solid #FC4C02`,
+        border: `1px solid ${COLORS.strava}`,
         borderRadius: 10,
         padding: '12px 18px',
         display: 'flex', alignItems: 'center', gap: 10,

@@ -373,16 +373,16 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                     rel="noopener noreferrer"
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
-                      fontSize: 12, fontWeight: 600, color: '#FC4C02',
-                      background: '#FC4C0210', border: '1px solid #FC4C0230',
+                      fontSize: 12, fontWeight: 600, color: COLORS.strava,
+                      background: `${COLORS.strava}10`, border: `1px solid ${COLORS.strava}30`,
                       borderRadius: 6, padding: '6px 12px',
                       textDecoration: 'none',
                       transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#FC4C0220')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#FC4C0210')}
+                    onMouseEnter={e => (e.currentTarget.style.background = `${COLORS.strava}20`)}
+                    onMouseLeave={e => (e.currentTarget.style.background = `${COLORS.strava}10`)}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#FC4C02">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill={COLORS.strava}>
                       <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
                     </svg>
                     View on Strava

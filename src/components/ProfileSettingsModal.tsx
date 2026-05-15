@@ -8,7 +8,6 @@ import { useStrava } from '../contexts/StravaContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { User } from '@supabase/supabase-js'
 
-const STRAVA_ORANGE = '#FC4C02'
 
 // ─── Zone constants ───────────────────────────────────────────────────────────
 
@@ -871,10 +870,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   onClick={triggerSync}
                   disabled={syncing}
                   style={{
-                    background: STRAVA_ORANGE + '18',
-                    border: `1px solid ${STRAVA_ORANGE}60`,
+                    background: COLORS.strava + '18',
+                    border: `1px solid ${COLORS.strava}60`,
                     borderRadius: 8,
-                    color: syncing ? COLORS.muted : STRAVA_ORANGE,
+                    color: syncing ? COLORS.muted : COLORS.strava,
                     fontSize: 12, fontWeight: 700,
                     padding: '8px 16px', cursor: syncing ? 'default' : 'pointer',
                     fontFamily: 'inherit', transition: 'all 0.12s',
@@ -915,7 +914,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 href={`https://www.strava.com/oauth/authorize?client_id=${import.meta.env.VITE_STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(import.meta.env.VITE_STRAVA_REDIRECT_URI)}&response_type=code&scope=activity:read_all`}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: STRAVA_ORANGE,
+                  background: COLORS.strava,
                   border: 'none',
                   borderRadius: 8,
                   color: '#fff',

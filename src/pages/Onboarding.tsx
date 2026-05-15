@@ -565,7 +565,7 @@ export function Onboarding() {
                 width: '100%',
                 padding: '16px 24px',
                 borderRadius: 10,
-                background: '#FC4C02',
+                background: COLORS.strava,
                 border: 'none',
                 color: '#fff',
                 fontSize: 15,

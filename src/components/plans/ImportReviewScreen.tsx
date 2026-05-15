@@ -1,15 +1,6 @@
 import { useState } from 'react'
-import { COLORS } from '../../lib/colors'
+import { COLORS, SPORT_COLORS } from '../../lib/colors'
 import type { ParsedSession } from '../../types'
-
-const SPORT_COLORS: Record<string, string> = {
-  swim:  '#0369a1',
-  bike:  '#6d28d9',
-  run:   '#15803d',
-  sc:    '#b45309',
-  brick: '#d97706',
-  other: COLORS.muted,
-}
 
 const SPORT_LABELS: Record<string, string> = {
   swim: 'Swim', bike: 'Bike', run: 'Run',

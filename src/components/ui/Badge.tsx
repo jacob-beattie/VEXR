@@ -1,11 +1,12 @@
 import type { WorkoutType } from '../../types'
+import { SPORT_COLORS } from '../../lib/colors'
 
 export const workoutTypes: Record<WorkoutType, { color: string; bg: string; border: string; label: string; icon: string }> = {
-  run:      { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', label: 'Run',      icon: '🏃' },
-  ride:     { color: '#6d28d9', bg: '#faf5ff', border: '#ddd6fe', label: 'Ride',     icon: '🚴' },
-  swim:     { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', label: 'Swim',     icon: '🏊' },
-  strength: { color: '#b45309', bg: '#fffbeb', border: '#fde68a', label: 'Strength', icon: '💪' },
-  rest:     { color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb', label: 'Rest',     icon: '😴' },
+  run:      { color: SPORT_COLORS.run,      bg: '#f0fdf4', border: '#bbf7d0', label: 'Run',      icon: '🏃' },
+  ride:     { color: SPORT_COLORS.ride,     bg: '#faf5ff', border: '#ddd6fe', label: 'Ride',     icon: '🚴' },
+  swim:     { color: SPORT_COLORS.swim,     bg: '#f0f9ff', border: '#bae6fd', label: 'Swim',     icon: '🏊' },
+  strength: { color: SPORT_COLORS.strength, bg: '#fffbeb', border: '#fde68a', label: 'Strength', icon: '💪' },
+  rest:     { color: SPORT_COLORS.rest,     bg: '#f9fafb', border: '#e5e7eb', label: 'Rest',     icon: '😴' },
 }
 
 interface BadgeProps {
