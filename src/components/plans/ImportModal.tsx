@@ -296,7 +296,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
           user_id: user.id,
           plan_id: plan.id,
           week_number: s.week,
-          sport: s.sport,
+          sport: s.sport === 'rest' ? 'other' : s.sport,
           title: s.title,
           scheduled_date: s.scheduledDate ?? null,
           duration_min: parseInt(s.dur) || null,
