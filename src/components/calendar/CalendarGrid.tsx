@@ -271,23 +271,24 @@ export function CalendarGrid({
                         key={workout.id}
                         onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
                         style={{
-                          background: wt.bg,
-                          borderTop: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                          borderRight: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                          borderBottom: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                          borderLeft: isPlanned ? `3px dashed ${wt.color}` : `4px solid ${wt.color}`,
+                          background: COLORS.surface,
+                          borderTop: `1px solid ${COLORS.border}`,
+                          borderRight: `1px solid ${COLORS.border}`,
+                          borderBottom: `1px solid ${COLORS.border}`,
+                          borderLeft: `4px solid ${isPlanned ? wt.color + '80' : wt.color}`,
                           borderRadius: 10,
                           padding: '12px 14px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 12,
-                          opacity: isPlanned ? 0.75 : 1,
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                         }}
                       >
                         <div style={{
                           width: 40, height: 40, borderRadius: 9, flexShrink: 0,
-                          background: wt.border,
+                          background: wt.bg,
+                          border: `1.5px solid ${wt.darkBorder}`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 20,
                         }}>
@@ -299,7 +300,7 @@ export function CalendarGrid({
                               {wt.label}
                             </span>
                             {isPlanned && (
-                              <span style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, background: COLORS.subtle, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
+                              <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
                             )}
                           </div>
                           <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2, marginBottom: 4 }}>
@@ -310,7 +311,7 @@ export function CalendarGrid({
                               <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
                             )}
                             {workout.tss > 0 && (
-                              <span style={{ fontSize: 13, color: isPlanned ? COLORS.muted : COLORS.accent, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
+                              <span style={{ fontSize: 13, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
                             )}
                             {workout.distance_meters && workout.distance_meters > 0 && (
                               <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)} km</span>
@@ -326,27 +327,40 @@ export function CalendarGrid({
                       key={workout.id}
                       onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
                       style={{
-                        background: wt.bg,
-                        borderTop: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                        borderRight: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                        borderBottom: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
-                        borderLeft: isPlanned ? `3px dashed ${wt.color}` : `4px solid ${wt.color}`,
+                        background: COLORS.surface,
+                        borderTop: `1px solid ${COLORS.border}`,
+                        borderRight: `1px solid ${COLORS.border}`,
+                        borderBottom: `1px solid ${COLORS.border}`,
+                        borderLeft: `3px solid ${isPlanned ? wt.color + '80' : wt.color}`,
                         borderRadius: 7,
                         padding: '10px 10px',
                         cursor: 'pointer',
-                        opacity: isPlanned ? 0.78 : 1,
-                        transition: 'background 0.12s, opacity 0.12s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'box-shadow 0.12s, border-color 0.12s',
                         position: 'relative',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = wt.border; if (isPlanned) e.currentTarget.style.opacity = '1' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = wt.bg; if (isPlanned) e.currentTarget.style.opacity = '0.78' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.boxShadow = `0 3px 10px ${wt.shadowColor}, 0 1px 3px rgba(0,0,0,0.06)`
+                        e.currentTarget.style.borderTopColor = wt.darkBorder
+                        e.currentTarget.style.borderRightColor = wt.darkBorder
+                        e.currentTarget.style.borderBottomColor = wt.darkBorder
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'
+                        e.currentTarget.style.borderTopColor = COLORS.border
+                        e.currentTarget.style.borderRightColor = COLORS.border
+                        e.currentTarget.style.borderBottomColor = COLORS.border
+                      }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {wt.icon} {wt.label}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: wt.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {wt.label}
+                          </span>
+                        </div>
                         {isPlanned && (
-                          <span style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, background: COLORS.subtle, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
+                          <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
                         )}
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6, lineHeight: 1.3 }}>
@@ -358,7 +372,7 @@ export function CalendarGrid({
                         )}
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {workout.tss > 0 && (
-                            <span style={{ fontSize: 12, color: isPlanned ? COLORS.muted : COLORS.accent, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
+                            <span style={{ fontSize: 12, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
                           )}
                           {workout.distance_meters && workout.distance_meters > 0 && (
                             <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)}km</span>

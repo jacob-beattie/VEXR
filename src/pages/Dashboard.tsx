@@ -212,29 +212,41 @@ function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '10px 12px',
-                  background: COLORS.bg, borderRadius: 9,
-                  border: `1px solid ${COLORS.border}`,
+                  background: COLORS.surface, borderRadius: 9,
+                  borderTop: `1px solid ${COLORS.border}`,
+                  borderRight: `1px solid ${COLORS.border}`,
+                  borderBottom: `1px solid ${COLORS.border}`,
+                  borderLeft: `3px solid ${wt.color}`,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                   cursor: 'pointer',
-                  transition: 'background 0.15s, border-color 0.15s',
+                  transition: 'box-shadow 0.15s, border-color 0.15s',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = COLORS.surface
-                  e.currentTarget.style.borderColor = COLORS.muted + '60'
+                  e.currentTarget.style.boxShadow = `0 4px 12px ${wt.shadowColor}, 0 1px 4px rgba(0,0,0,0.06)`
+                  e.currentTarget.style.borderTopColor = wt.darkBorder
+                  e.currentTarget.style.borderRightColor = wt.darkBorder
+                  e.currentTarget.style.borderBottomColor = wt.darkBorder
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = COLORS.bg
-                  e.currentTarget.style.borderColor = COLORS.border
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'
+                  e.currentTarget.style.borderTopColor = COLORS.border
+                  e.currentTarget.style.borderRightColor = COLORS.border
+                  e.currentTarget.style.borderBottomColor = COLORS.border
                 }}
               >
                 <div style={{
                   width: 32, height: 32, borderRadius: 7, flexShrink: 0,
-                  background: wt.color + '20',
+                  background: wt.bg,
+                  border: `1.5px solid ${wt.darkBorder}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 15,
                 }}>
                   {wt.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>
+                    {wt.label}
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.title}
                   </div>
