@@ -10,6 +10,7 @@ Built as a solo project. Goal is to eventually monetise with free/pro/coach tier
 - React + Vite + TypeScript
 - Supabase (auth + database + realtime)
 - Recharts (all charts)
+- pdfjs-dist (PDF text extraction in Training Plans import)
 - No Tailwind — all styles are inline using the COLORS object from `src/lib/colors.ts`
 
 ## Design System
@@ -35,7 +36,7 @@ src/
     dashboard/   — StatCard, WeeklyLoadChart, FitnessChart, UpcomingWorkouts
     calendar/    — CalendarGrid, CalendarDay, WeeklySummary
     analytics/   — AnalyticsPage
-    plans/       — PlansPage
+    plans/       — PlansPage, PlanCard, ImportModal, ImportReviewScreen
     library/     — LibraryPage
     LogWorkoutModal.tsx
     WorkoutDetailModal.tsx
@@ -50,9 +51,10 @@ Tables (all with RLS enabled, users can only access their own rows):
 | Table | Key columns |
 |---|---|
 | `profiles` | id (= auth user id), name, sport, ftp, run_pace, css, race_goal, race_date, max_hr |
-| `workouts` | user_id, title, type, date, duration_minutes, tss, zone, notes, planned, structure (jsonb), strava_activity_id, heart_rate_avg, heart_rate_max, distance_meters, calories, elevation_gain, avg_power, avg_pace |
+| `workouts` | user_id, title, type, date, duration_minutes, tss, zone, notes, planned, plan_id (FK→training_plans ON DELETE CASCADE), structure (jsonb), strava_activity_id, heart_rate_avg, heart_rate_max, distance_meters, calories, elevation_gain, avg_power, avg_pace |
 | `strava_connections` | user_id, access_token, refresh_token, expires_at, athlete_id, athlete_name |
-| `training_plans` | user_id, name, sport, total_weeks, current_week, status |
+| `training_plans` | user_id, name, sport, total_weeks, current_week, status, race_name, race_date, start_date, source ('manual'/'import'), raw_text |
+| `training_sessions` | user_id, plan_id (FK→training_plans ON DELETE CASCADE), week_number, sport, title, scheduled_date, duration_min, target_metric, notes, status, has_conflict, created_at. sport check constraint: `('swim','bike','run','sc','brick','other')` — no 'rest'; normalise 'rest' → 'other' before insert |
 | `workout_library` | user_id, name, type, duration_minutes, tss, description |
 | `fitness_benchmarks` | user_id, metric (ftp/pace/css), value (text), recorded_at |
 | `training_zones` | user_id, sport (cycling/running/swimming), zone_number, zone_name, min_value, max_value, updated_at |
@@ -89,9 +91,9 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Workout logging modal with all fields
 - Calendar: month and week view toggle; month view shows all workouts in day cells; week view shows full-width 7-column layout with larger workout cards (title, duration, TSS, distance); WeeklySummary strip appears above calendar in both views — row 1: activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport breakdowns), row 2: CTL/ATL/TSB displayed large with coloured top-border cards (cyan/orange/green-or-red)
 - Workout detail: view, inline edit, delete
-- Dashboard (daily driver): full-width greeting (time-based + week/race subtitle + high-fatigue badge if TSB < -20); 4 stat cards (CTL/ATL/TSB/Race Goal with coloured top borders + contextual sub-text); two-column layout — left 60%: fitness area chart (CTL/ATL/TSB, 8 weeks, recharts AreaChart with gradient fills) + weekly load (TSS progress bar + day dot row); right 40%: coming up (next 4 planned), AI coach teaser (briefing preview + link), season goals (CRUD backed by `goals` table). No TopBar on /dashboard — greeting section replaces it (hamburger injected inline on mobile via `vexr:openMenu` custom event)
+- Dashboard (daily driver): full-width greeting (time-based + week/race subtitle + high-fatigue badge if TSB < -20); 4 stat cards (CTL=purple, ATL=orange, TSB=always green, Race Goal=purple top borders + contextual sub-text); two-column layout — left 60%: fitness area chart (CTL/ATL/TSB, 8 weeks, recharts AreaChart with gradient fills) + weekly load (TSS progress bar + day dot row); right 40%: coming up (next 4 planned), AI coach teaser (briefing preview + link), season goals (CRUD backed by `goals` table). No TopBar on /dashboard — greeting section replaces it (hamburger injected inline on mobile via `vexr:openMenu` custom event)
 - Analytics (deep dive): fitness/fatigue/form area chart, weekly TSS actual vs planned bar chart, training by sport breakdown, volume by sport stacked bar chart, zone distribution — all with 4W/8W/12W/6M range toggle. Plus three new sections: Power Curve (line chart, best avg power from rides ≥ each duration band — 5m/10m/20m/30m/60m — always non-increasing; purple; FTP reference line; requires avg_power on ride workouts), Pace Curve (bar chart, best pace per distance band — 5K/10K/15K/HM/Mar — faster=taller, calculated from distance+duration with 10 min/km walk filter; green; threshold pace reference line), Heart Rate Zones (donut + stacked bar + legend; zones Z1–Z5 from profile.max_hr; falls back to 220–35 estimate; shown Z5→Z1 top-to-bottom)
-- Training Plans: create, start, complete, delete
+- Training Plans: full import pipeline — PDF/HTML/text upload, AI parsing via `parse-plan` edge function (claude-sonnet-4-6), conflict detection against existing workouts, 3-step modal (upload → animated parse → review screen with collapsible week rows + sport filter tabs). On confirm: writes to `training_plans`, `training_sessions`, and `workouts` (planned: true, plan_id set for cascade). Plan cards show status badge, race info in amber, cyan (accent) progress bar, three-dot menu (set active/complete/archive/delete), and a collapsible sessions list (sport filter tabs + week rows, same pattern as review screen, fetched on first expand from `training_sessions`). Delete shows confirmation dialog with session count; deletes matching planned workouts from calendar before removing plan. `workouts.plan_id` FK with ON DELETE CASCADE ensures calendar cleanup on future deletes. All Plans UI uses COLORS.accent (cyan) — no purple; `.purple-glow-btn` CSS class kept for compatibility but now renders cyan.
 - Workout Library: save templates, filter, delete
 - Real-time sync
 - Profile Settings: edit name/sport/FTP/pace/CSS/race goal/max HR, benchmark history charts, training zones (cycling auto-calc from FTP, running/swimming manual pace zones, heart rate auto-calc from max HR — Z1 <65%, Z2 65–75%, Z3 75–82%, Z4 82–89%, Z5 89–100%); max_hr saved to profiles table
@@ -109,7 +111,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Calendar improvements: clicking any empty day (month or week view) opens Log Workout modal with date pre-filled; empty cells show a `+` that brightens on hover. Planned workouts render with dashed border + 0.75 opacity + PLANNED badge; completed workouts keep solid sport-colour left border at full opacity. Month view mobile dots: hollow ring = planned, solid = completed. Weekly summary strip totals count completed only; planned count shown as `+N planned` sub-label on Workouts and TSS.
 - Season Goals: `goals` table (id, user_id, text, completed, created_at) with RLS. CRUD panel on dashboard right column — add via text input + Enter/+, toggle complete with checkbox, delete with ×, incomplete first then completed greyed/strikethrough, completion ratio shown in header.
 - Month/Week toggle buttons: no wrapper border — each button has its own `borderRadius: 6` and full border (`COLORS.border` inactive, `COLORS.accent` active), separated by 4px gap. No double-border or overflow clipping.
-- Bundle code splitting: all pages lazy-loaded with `React.lazy()` + `Suspense`; `vite.config.ts` `manualChunks` splits vendor-react / vendor-supabase / vendor-charts. Main bundle reduced from 962KB to 33KB.
+- Bundle code splitting: all pages lazy-loaded with `React.lazy()` + `Suspense`; `vite.config.ts` `manualChunks` splits vendor-react / vendor-supabase / vendor-charts. Main bundle reduced from 962KB to 33KB. `pdfjs-dist` excluded from `optimizeDeps` (too large for Vite pre-bundler); worker loaded via `?url` import.
 - Weekly summary strip (`src/components/calendar/WeeklySummary.tsx`): rendered above the week view calendar only (no `horizontal` prop — always the strip layout). Single dark panel (`COLORS.surface`) with label+value text pairs and 1px dividers. Left section: Workouts/Duration/TSS/Distance/Elevation/Calories + sport rows. Right section: `COLORS.card` panel with CTL/ATL/TSB at 24px. Each stat cell uses a fixed 3-row layout (label / value / subtitle with `minHeight: 1rem`) so all cells are the same height; dividers use `alignSelf: stretch` at the left-section level (not inside a padded wrapper) so they run full height.
 - Nutrition page (`/nutrition`): date navigator; 4 stat cards (Calories/Protein/Carbohydrates/Fat vs per-user targets); SVG calorie ring (colour shifts accent→green→orange as you fill); macro progress bars + macro split segmented bar; meal log (Breakfast/Lunch/Dinner/Snacks) with collapsible sections, food item rows, remove button; Add Food modal with Browse/Create tabs — Browse searches merged `food_database` + `nutrition_custom_foods` with CUSTOM badge, Create saves to `nutrition_custom_foods`; Hydration card with 12-cup grid + ±250ml buttons; Workout Fuel Guide (Pre/During/Recovery phases); ⚙ Targets button opens `NutritionTargetsModal` to edit calorie/macro targets (upserted to `nutrition_targets`). Food database is DB-driven (no hardcoded list). All SQL in `supabase-schema.sql`.
 - Typography: Inter (400–900) + DM Mono loaded via Google Fonts in `index.html`; `TopBar` title updated to `fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em'` — matches Nutrition page title style across all non-dashboard pages.
@@ -120,12 +122,13 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - **Analytics** = deep dive. All multi-week trend charts, fitness history, zone distribution, volume trends.
 - **AI Coach** = personalised coaching. Weekly briefing from Claude, fitness metrics, training phase, briefing history.
 - **Nutrition** = daily fuel tracking. Calories, macros, hydration, meal log, food database. No training load data here.
+- **Training Plans** = import and manage structured training blocks. Sessions write to `training_sessions` (plan metadata) and `workouts` (planned: true, for calendar display).
 
 ## Rules
 
 - Always use the existing COLORS object — never hardcode colors
 - Never use hardcoded mock data — all data comes from Supabase
-- Inline styles only — no Tailwind, no CSS modules. Exception: `index.css` has `.no-spinner` (strip number input arrows) and `.spinning` (keyframe spin animation) utility classes
+- Inline styles only — no Tailwind, no CSS modules. Exception: `index.css` has `.no-spinner` (strip number input arrows), `.spinning` (keyframe spin animation), `.purple-glow-btn` (plans CTA with hover/active states), `.upload-tab` (plans import tab with `::after` underline), `.plans-field-input` (plans inputs with `:focus` state), and keyframes `fadeSlideUp` / `pulse-ring` / `msgAppear`
 - Supabase edge functions: always deploy with `--no-verify-jwt` (required — Supabase runtime only supports HS256 but this project uses ES256); always call via raw `fetch` with explicit `Authorization` + `apikey` headers (not `supabase.functions.invoke`); auth is enforced inside each handler via Bearer token check + `supabase.auth.getUser()`
 - Keep components focused; extract subcomponents only when reused
 - Mobile responsiveness: use `useIsMobile` hook from `src/hooks/useIsMobile.ts` (`useState(() => window.innerWidth < 768)` + resize listener). All responsive logic is JS-driven inline styles — no media queries, no Tailwind.
@@ -134,3 +137,4 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Modal pattern: fixed overlay (rgba 0.7–0.78) + centered card, click-outside closes (desktop only)
 - Form inputs: background COLORS.surface or COLORS.bg, border COLORS.border, borderRadius 8
 - All SQL (table definitions, RLS policies, seed data, migrations) goes in `supabase-schema.sql` at the repo root — never in component files or inline comments
+- Dropdown menus that escape `overflow: hidden` containers must use `position: fixed` positioned via `getBoundingClientRect()`. Outside-click handlers must exclude both the trigger element AND the dropdown div (use two refs) to avoid race conditions between `mousedown` and `click`.

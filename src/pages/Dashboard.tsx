@@ -31,13 +31,6 @@ function getGreeting(): string {
   return 'Good evening'
 }
 
-function getISOWeek(): number {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-  const w1 = new Date(d.getFullYear(), 0, 4)
-  return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7)
-}
 
 function daysUntil(dateStr: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -680,15 +673,10 @@ export function Dashboard() {
   const comingUp = getUpcomingWorkouts(14).slice(0, 4)
 
   // Dynamic subtitle
-  const weekNum = getISOWeek()
-  let subtitle = `Week ${weekNum}`
-  if (profile?.race_goal && profile?.race_date) {
-    const days = daysUntil(profile.race_date)
-    if (days > 0) subtitle += ` · ${days} day${days === 1 ? '' : 's'} until ${profile.race_goal}`
-  }
+  const subtitle = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Stat card helpers
-  const tsbColor = tsb > 10 ? COLORS.green : tsb < -10 ? COLORS.orange : COLORS.accent
+  const tsbColor = COLORS.green
   const ctlSub = ctlDelta !== 0 ? `${ctlDelta > 0 ? '↑' : '↓'} ${Math.abs(ctlDelta)} this week` : 'Stable this week'
   const atlSub = atl > 70 ? 'Heavy training load' : atl > 45 ? 'Moderate load' : atl > 20 ? 'Light load' : 'Very fresh'
   const tsbSub = tsb > 10 ? '🟢 Fresh — ready to race' : tsb < -20 ? '⚠️ High fatigue' : tsb < -10 ? 'Some fatigue' : 'Balanced form'

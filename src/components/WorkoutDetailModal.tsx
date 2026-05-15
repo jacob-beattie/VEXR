@@ -225,7 +225,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
     statCards.push({ label: 'Distance', value: (workout.distance_meters / 1000).toFixed(1), unit: 'km' })
   }
   if (workout.avg_pace) {
-    statCards.push({ label: 'Avg Pace', value: workout.avg_pace, unit: '/km', color: COLORS.green })
+    statCards.push({ label: 'Avg Pace', value: workout.avg_pace, unit: workout.type === 'swim' ? '/100m' : '/km', color: COLORS.green })
   }
   if (workout.avg_power && workout.avg_power > 0) {
     statCards.push({ label: 'Avg Power', value: String(workout.avg_power), unit: 'w', color: COLORS.accent })

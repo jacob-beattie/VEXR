@@ -1,12 +1,18 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  test: {
+    environment: 'node',
+  },
   plugins: [
     tailwindcss(),
     react(),
   ],
+  optimizeDeps: {
+    exclude: ['pdfjs-dist'],
+  },
   build: {
     rollupOptions: {
       output: {

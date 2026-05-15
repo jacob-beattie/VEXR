@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VEXR · Training Plans</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body {
+      background: #0a0c0f;
+      color: #e8edf5;
+      font-family: 'DM Sans', 'Helvetica Neue', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #111318; }
+    ::-webkit-scrollbar-thumb { background: #1e2530; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3040; }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+    @keyframes pulse-ring {
+      0%   { opacity: 0.6; transform: scale(1); }
+      50%  { opacity: 1;   transform: scale(1.04); }
+      100% { opacity: 0.6; transform: scale(1); }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    @keyframes msgAppear {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .purple-glow-btn {
+      background: #9333ea;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+      box-shadow: 0 0 18px #9333ea55, 0 2px 8px #0008;
+    }
+    .purple-glow-btn:hover {
+      background: #7e22ce;
+      box-shadow: 0 0 28px #9333ea88, 0 4px 14px #0009;
+      transform: translateY(-1px);
+    }
+    .purple-glow-btn:active { transform: translateY(0); }
+
+    .nav-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 20px;
+      border-top: none; border-right: none; border-bottom: none;
+      color: #5a6478;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s; text-align: left; width: 100%;
+      background: transparent;
+      border-left: 3px solid transparent;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .nav-btn:hover { color: #e8edf5; background: #ffffff08; }
+    .nav-btn.active {
+      background: #9333ea15;
+      border-left-color: #9333ea;
+      color: #9333ea;
+    }
+
+    .sport-tab {
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+      background: transparent;
+      color: #5a6478;
+    }
+    .sport-tab:hover { color: #e8edf5; background: #ffffff08; }
+    .sport-tab.active {
+      background: #9333ea20;
+      border-color: #9333ea50;
+      color: #9333ea;
+    }
+
+    .upload-tab {
+      flex: 1; padding: 9px 0; text-align: center;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none;
+      background: transparent; color: #5a6478;
+      font-family: 'DM Sans', sans-serif;
+      transition: color 0.15s;
+      position: relative;
+    }
+    .upload-tab.active { color: #e8edf5; }
+    .upload-tab.active::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: #9333ea;
+      border-radius: 2px 2px 0 0;
+      box-shadow: 0 0 8px #9333ea;
+    }
+
+    .week-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      background: #0d1017;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid #1e2530;
+      transition: border-color 0.15s;
+    }
+    .week-header:hover { border-color: #2a3040; }
+
+    .session-row {
+      display: grid;
+      grid-template-columns: 24px 90px 1fr 90px 70px 110px 80px;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: background 0.12s, border-color 0.12s;
+      cursor: default;
+    }
+    .session-row:hover {
+      background: #ffffff05;
+      border-color: #1e2530;
+    }
+
+    .dot-menu-btn {
+      background: none; border: none; cursor: pointer;
+      color: #5a6478; padding: 4px 8px; border-radius: 6px;
+      font-size: 18px; line-height: 1;
+      transition: color 0.15s, background 0.15s;
+    }
+    .dot-menu-btn:hover { color: #e8edf5; background: #ffffff10; }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: #00000099;
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-box {
+      background: #0f1319;
+      border: 1px solid #1e2530;
+      border-radius: 18px;
+      width: 680px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 32px 80px #00000088, 0 0 0 1px #9333ea18;
+      animation: fadeSlideUp 0.25s ease;
+    }
+
+    .modal-box.wide {
+      width: 820px;
+    }
+
+    .drag-zone {
+      border: 2px dashed #2a3040;
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drag-zone:hover {
+      border-color: #9333ea70;
+      background: #9333ea08;
+    }
+
+    .field-input {
+      width: 100%;
+      background: #0a0c0f;
+      border: 1px solid #1e2530;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e8edf5;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-input:focus { border-color: #9333ea70; }
+    .field-input::placeholder { color: #5a6478; }
+
+    .status-badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .card-surface {
+      background: #111318;
+      border: 1px solid #1e2530;
+      border-radius: 14px;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Design tokens ──────────────────────────────────────────────────────────
+const C = {
+  bg:        '#0a0c0f',
+  surface:   '#111318',
+  card:      '#161b22',
+  border:    '#1e2530',
+  accent:    '#00e5ff',
+  accentDim: '#00e5ff22',
+  green:     '#00ff9d',
+  orange:    '#ff6b2b',
+  purple:    '#9333ea',
+  purpleDim: '#9333ea20',
+  amber:     '#f59e0b',
+  text:      '#e8edf5',
+  muted:     '#5a6478',
+  subtle:    '#2a3040',
+};
+
+// ── Mock data ──────────────────────────────────────────────────────────────
+const MOCK_PLANS = [
+  {
+    id: 1, name: 'Ironman 70.3 Mallorca',
+    race: 'IM 70.3 Mallorca', raceDate: 'May 18, 2025',
+    weeksCompleted: 8, totalWeeks: 16,
+    status: 'active', sport: 'triathlon',
+  },
+  {
+    id: 2, name: 'Winter Base Build',
+    race: 'Internal Base Phase', raceDate: 'Mar 1, 2025',
+    weeksCompleted: 12, totalWeeks: 12,
+    status: 'completed', sport: 'cycling',
+  },
+  {
+    id: 3, name: '5k Speed Block',
+    race: 'Parkrun Sub-19', raceDate: 'Feb 8, 2025',
+    weeksCompleted: 4, totalWeeks: 6,
+    status: 'archived', sport: 'running',
+  },
+];
+
+const SPORT_COLORS = {
+  swim:   '#38bdf8',
+  bike:   '#4ade80',
+  run:    '#fb923c',
+  sc:     '#a855f7',
+  brick:  '#f59e0b',
+};
+
+const MOCK_SESSIONS = [
+  // Week 1
+  { id:1, week:1, sport:'swim', title:'Easy Aerobic Swim',       date:'Mon 6 Jan',  dur:'45 min',  metric:'1:32–1:38/100m', conflict:false },
+  { id:2, week:1, sport:'bike', title:'Zone 2 Endurance Ride',   date:'Tue 7 Jan',  dur:'90 min',  metric:'185–215w',       conflict:false },
+  { id:3, week:1, sport:'run',  title:'Easy Recovery Run',        date:'Wed 8 Jan',  dur:'30 min',  metric:'5:20–5:45/km',   conflict:false },
+  { id:4, week:1, sport:'sc',   title:'Strength Foundation',      date:'Wed 8 Jan',  dur:'45 min',  metric:'RPE 6–7',        conflict:true  },
+  { id:5, week:1, sport:'bike', title:'Sweet Spot Intervals',     date:'Thu 9 Jan',  dur:'75 min',  metric:'262–305w',       conflict:false },
+  { id:6, week:1, sport:'swim', title:'Threshold Set',            date:'Fri 10 Jan', dur:'60 min',  metric:'1:22–1:28/100m', conflict:false },
+  { id:7, week:1, sport:'run',  title:'Long Run',                 date:'Sat 11 Jan', dur:'75 min',  metric:'5:00–5:20/km',   conflict:false },
+  { id:8, week:1, sport:'brick',title:'Bike / Run Brick',         date:'Sun 12 Jan', dur:'120 min', metric:'240–270w → 4:45/km', conflict:false },
+  // Week 2
+  { id:9,  week:2, sport:'swim', title:'Technique Focus',         date:'Mon 13 Jan', dur:'50 min',  metric:'1:35–1:42/100m', conflict:false },
+  { id:10, week:2, sport:'bike', title:'VO₂ Max Intervals',       date:'Tue 14 Jan', dur:'60 min',  metric:'330–360w',       conflict:false },
+  { id:11, week:2, sport:'run',  title:'Tempo Run',               date:'Wed 15 Jan', dur:'45 min',  metric:'4:05–4:22/km',   conflict:false },
+  { id:12, week:2, sport:'sc',   title:'Power Development',       date:'Thu 16 Jan', dur:'45 min',  metric:'RPE 7–8',        conflict:true  },
+  { id:13, week:2, sport:'bike', title:'Long Ride',               date:'Sat 18 Jan', dur:'180 min', metric:'210–240w',       conflict:false },
+  { id:14, week:2, sport:'run',  title:'Race Pace Run',           date:'Sun 19 Jan', dur:'60 min',  metric:'4:15–4:30/km',   conflict:false },
+  // Week 3
+  { id:15, week:3, sport:'swim', title:'Open Water Sim',          date:'Mon 20 Jan', dur:'60 min',  metric:'1:28–1:35/100m', conflict:false },
+  { id:16, week:3, sport:'bike', title:'Climb Repeats',           date:'Tue 21 Jan', dur:'90 min',  metric:'280–310w',       conflict:false },
+  { id:17, week:3, sport:'run',  title:'Easy Aerobic Run',        date:'Wed 22 Jan', dur:'40 min',  metric:'5:10–5:30/km',   conflict:false },
+  { id:18, week:3, sport:'brick',title:'Olympic Distance Sim',    date:'Sat 25 Jan', dur:'150 min', metric:'250–280w → 4:30/km', conflict:false },
+];
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+const navItems = [
+  { path:'dashboard',  icon:'◈', label:'Dashboard' },
+  { path:'calendar',   icon:'⊞', label:'Calendar' },
+  { path:'analytics',  icon:'∿', label:'Analytics' },
+  { path:'ai-coach',   icon:'✦', label:'AI Coach' },
+  { path:'plans',      icon:'≡', label:'Training Plans' },
+  { path:'library',    icon:'⊙', label:'Workout Library' },
+  { path:'nutrition',  icon:'◉', label:'Nutrition' },
+];
+
+function Sidebar() {
+  return (
+    <div style={{
+      width: 220, flexShrink: 0,
+      background: C.surface,
+      borderRight: `1px solid ${C.border}`,
+      display: 'flex', flexDirection: 'column',
+      padding: '24px 0',
+      height: '100vh', position: 'sticky', top: 0,
+    }}>
+      {/* Logo */}
+      <div style={{ padding: '0 20px 28px' }}>
+        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.08em' }}>
+          <span style={{ color: C.accent }}>VEX</span><span style={{ color: C.text }}>R</span>
+        </div>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
+      </div>
+
+      {/* User card */}
+      <div style={{
+        margin: '0 12px 24px', background: C.card, borderRadius: 10,
+        padding: '12px 14px', border: `1px solid ${C.border}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 700, color: '#000',
+          }}>JD</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Jamie Doe</div>
+            <div style={{ fontSize: 10, color: C.muted }}>triathlon</div>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 12, padding: '8px 10px', background: C.bg,
+          borderRadius: 6, display: 'flex', justifyContent: 'space-between',
+        }}>
+          {[['285', 'FTP', C.accent], ['4:28', 'PACE', C.green], ['1:24', 'CSS', C.purple]].map(([v, l, col]) => (
+            <div key={l} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: col, fontFamily: 'DM Mono, monospace' }}>{v}</div>
+              <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.08em' }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Nav */}
+      {navItems.map(item => (
+        <button key={item.path} className={`nav-btn${item.path === 'plans' ? ' active' : ''}`}>
+          <span style={{ fontSize: 15 }}>{item.icon}</span>
+          {item.label}
+        </button>
+      ))}
+
+      {/* Bottom */}
+      <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button style={{
+          width: '100%', padding: 12,
+          background: C.accent, border: 'none', borderRadius: 10,
+          color: '#000', fontSize: 13, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+        }}>+ Log Workout</button>
+        <button style={{
+          width: '100%', padding: '9px 14px',
+          background: 'none', border: `1px solid ${C.border}`,
+          borderRadius: 8, color: C.muted,
+          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          textAlign: 'left', fontFamily: 'DM Sans, sans-serif',
+        }}>Sign out</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Status badge ───────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const map = {
+    active:    { bg: '#9333ea25', color: '#a855f7', label: 'Active' },
+    completed: { bg: '#00e5ff18', color: '#00e5ff', label: 'Completed' },
+    archived:  { bg: '#ffffff0d', color: '#5a6478', label: 'Archived' },
+  };
+  const s = map[status] || map.archived;
+  return (
+    <span className="status-badge" style={{ background: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  );
+}
+
+// ── Plan card ──────────────────────────────────────────────────────────────
+function PlanCard({ plan }) {
+  const pct = Math.round((plan.weeksCompleted / plan.totalWeeks) * 100);
+  return (
+    <div className="card-surface" style={{
+      padding: '22px 24px', position: 'relative', overflow: 'hidden',
+      animation: 'fadeSlideUp 0.3s ease',
+    }}>
+      {/* Top accent bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: plan.status === 'active'
+          ? `linear-gradient(90deg, ${C.purple}, ${C.accent})`
+          : plan.status === 'completed'
+            ? C.green
+            : C.subtle,
+        opacity: 0.8,
+      }} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ flex: 1 }}>
+          {/* Plan name + badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{plan.name}</span>
+            <StatusBadge status={plan.status} />
+          </div>
+
+          {/* Race info */}
+          <div style={{ fontSize: 12, color: C.amber, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ opacity: 0.7 }}>⬡</span>
+            {plan.race} · {plan.raceDate}
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ marginBottom: 6 }}>
+            <div style={{
+              background: C.subtle, borderRadius: 4, height: 5, overflow: 'hidden',
+              maxWidth: 320,
+            }}>
+              <div style={{
+                width: `${pct}%`, height: '100%',
+                background: plan.status === 'active'
+                  ? `linear-gradient(90deg, ${C.purple}, ${C.accent}60)`
+                  : plan.status === 'completed'
+                    ? C.green
+                    : C.muted,
+                borderRadius: 4,
+                boxShadow: plan.status === 'active' ? `0 0 8px ${C.purple}90` : 'none',
+                transition: 'width 0.4s ease',
+              }} />
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, fontFamily: 'DM Mono, monospace' }}>
+            Week {plan.weeksCompleted} of {plan.totalWeeks} · {pct}% complete
+          </div>
+        </div>
+
+        {/* Three-dot menu */}
+        <button className="dot-menu-btn">⋯</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────
+function EmptyState({ onImport }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', minHeight: 400, textAlign: 'center',
+      animation: 'fadeSlideUp 0.4s ease',
+    }}>
+      {/* Glow ring */}
+      <div style={{ position: 'relative', marginBottom: 28 }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          border: `2px solid ${C.purple}40`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'pulse-ring 3s ease-in-out infinite',
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: `${C.purple}15`,
+            border: `1px solid ${C.purple}50`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 24,
+          }}>≡</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 8 }}>
+        Your Training Plans
+      </div>
+      <div style={{ fontSize: 14, color: C.muted, marginBottom: 28, maxWidth: 280, lineHeight: 1.6 }}>
+        Import a plan from your coach or build your own structured training block.
+      </div>
+      <button className="purple-glow-btn" onClick={onImport}
+        style={{ padding: '13px 28px', fontSize: 14 }}>
+        Import Plan
+      </button>
+    </div>
+  );
+}
+
+// ── Plans page ─────────────────────────────────────────────────────────────
+function PlansPage({ onImport }) {
+  const [showEmpty, setShowEmpty] = useState(false);
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '32px 36px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 3 }}>Training Plans</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Manage and review your structured training blocks</div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* Toggle for demo */}
+          <button onClick={() => setShowEmpty(v => !v)} style={{
+            background: 'none', border: `1px solid ${C.border}`, borderRadius: 8,
+            color: C.muted, fontSize: 12, fontWeight: 600, padding: '7px 12px',
+            cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          }}>
+            {showEmpty ? 'Show Plans' : 'Show Empty'}
+          </button>
+          <button className="purple-glow-btn" onClick={onImport} style={{ padding: '10px 20px', fontSize: 13 }}>
+            + Import Plan
+          </button>
+        </div>
+      </div>
+
+      {showEmpty
+        ? <EmptyState onImport={onImport} />
+        : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {MOCK_PLANS.map(p => <PlanCard key={p.id} plan={p} />)}
+          </div>
+        )
+      }
+    </div>
+  );
+}
+
+// ── Import Modal ───────────────────────────────────────────────────────────
+function ImportModal({ onClose }) {
+  const [step, setStep] = useState(1); // 1 | 2 | 3
+  const [uploadTab, setUploadTab] = useState('pdf');
+  const [isDragging, setIsDragging] = useState(false);
+  const [formData, setFormData] = useState({ startDate: '', raceDate: '', planName: '' });
+  const [parseMessages, setParseMessages] = useState([]);
+  const [sportFilter, setSportFilter] = useState('all');
+  const [openWeeks, setOpenWeeks] = useState({ 1: true, 2: true, 3: true });
+
+  // Step 2: sequential parse messages
+  useEffect(() => {
+    if (step !== 2) return;
+    const msgs = ['Reading your plan...', 'Extracting sessions...', 'Mapping training zones...'];
+    setParseMessages([]);
+    let i = 0;
+    const show = () => {
+      if (i < msgs.length) {
+        setParseMessages(prev => [...prev, msgs[i]]);
+        i++;
+        setTimeout(show, 900);
+      }
+    };
+    setTimeout(show, 300);
+    const advance = setTimeout(() => setStep(3), 3200);
+    return () => clearTimeout(advance);
+  }, [step]);
+
+  const handleParse = () => setStep(2);
+  const toggleWeek = (w) => setOpenWeeks(prev => ({ ...prev, [w]: !prev[w] }));
+
+  const sportTabs = [
+    { key: 'all',   label: 'All' },
+    { key: 'swim',  label: 'Swim' },
+    { key: 'bike',  label: 'Bike' },
+    { key: 'run',   label: 'Run' },
+    { key: 'sc',    label: 'S&C' },
+    { key: 'brick', label: 'Brick' },
+  ];
+
+  const filteredSessions = sportFilter === 'all'
+    ? MOCK_SESSIONS
+    : MOCK_SESSIONS.filter(s => s.sport === sportFilter);
+
+  const weeks = [1, 2, 3];
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className={`modal-box${step === 3 ? ' wide' : ''}`}>
+
+        {/* Step 1 — Upload */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Modal header */}
+            <div style={{
+              padding: '22px 28px 20px',
+              borderBottom: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Import Training Plan</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+                  Step 1 of 3 — Upload your plan
+                </div>
+              </div>
+              <button onClick={onClose} style={{
+                background: 'none', border: 'none', color: C.muted,
+                fontSize: 22, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 6,
+              }}>×</button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Upload type tabs */}
+              <div style={{
+                display: 'flex', borderBottom: `1px solid ${C.border}`,
+                marginBottom: 4,
+              }}>
+                {['pdf', 'html', 'text'].map(t => (
+                  <button key={t} className={`upload-tab${uploadTab === t ? ' active' : ''}`}
+                    onClick={() => setUploadTab(t)}>
+                    {t === 'pdf' ? 'PDF' : t === 'html' ? 'HTML' : 'Text'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Upload area */}
+              {uploadTab !== 'text' ? (
+                <div
+                  className="drag-zone"
+                  onDragEnter={() => setIsDragging(true)}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={e => { e.preventDefault(); setIsDragging(false); }}
+                  onDragOver={e => e.preventDefault()}
+                  style={isDragging ? { borderColor: C.purple, background: `${C.purple}10` } : {}}
+                >
+                  <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.5 }}>⬆</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 6 }}>
+                    Drop your {uploadTab.toUpperCase()} here
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+                    or click to browse your files
+                  </div>
+                  <button style={{
+                    background: `${C.purple}20`, border: `1px solid ${C.purple}50`,
+                    color: C.purple, borderRadius: 8, padding: '8px 18px',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'DM Sans, sans-serif',
+                  }}>Browse files</button>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 16, opacity: 0.7 }}>
+                    {uploadTab === 'pdf' ? 'PDF up to 20MB' : 'HTML file up to 10MB'}
+                  </div>
+                </div>
+              ) : (
+                <textarea
+                  className="field-input"
+                  placeholder="Paste your training plan here... Coach emails, spreadsheet data, or any structured text works great."
+                  rows={10}
+                  style={{ resize: 'vertical', lineHeight: 1.6 }}
+                />
+              )}
+
+              {/* Date inputs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: 11, fontWeight: 700, color: C.muted,
+                    letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7,
+                    fontFamily: 'DM Mono, monospace',
+                  }}>Plan Start Date</label>
+                  <input type="date" className="field-input"
+                    value={formData.startDate}
+                    onChange={e => setFormData(f => ({ ...f, startDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: 11, fontWeight: 700, color: C.muted,
+                    letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7,
+                    fontFamily: 'DM Mono, monospace',
+                  }}>Race Date</label>
+                  <input type="date" className="field-input"
+                    value={formData.raceDate}
+                    onChange={e => setFormData(f => ({ ...f, raceDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Plan name (optional) */}
+              <div>
+                <label style={{
+                  display: 'block', fontSize: 11, fontWeight: 700, color: C.muted,
+                  letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 7,
+                  fontFamily: 'DM Mono, monospace',
+                }}>Plan Name <span style={{ color: C.subtle, fontWeight: 400 }}>(optional)</span></label>
+                <input type="text" className="field-input"
+                  placeholder="e.g. Ironman 70.3 Build Phase"
+                  value={formData.planName}
+                  onChange={e => setFormData(f => ({ ...f, planName: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Footer CTA */}
+            <div style={{ padding: '18px 28px', borderTop: `1px solid ${C.border}` }}>
+              <button className="purple-glow-btn" onClick={handleParse} style={{
+                width: '100%', padding: '14px', fontSize: 14,
+              }}>
+                Parse Plan →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 — Parsing */}
+        {step === 2 && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '60px 40px', gap: 0, minHeight: 340,
+          }}>
+            {/* Spinner */}
+            <div style={{ position: 'relative', marginBottom: 36 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                border: `3px solid ${C.purple}20`,
+                borderTop: `3px solid ${C.purple}`,
+                animation: 'spin 0.9s linear infinite',
+              }} />
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22,
+              }}>≡</div>
+            </div>
+
+            {/* Messages */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 120, width: '100%', maxWidth: 320 }}>
+              {parseMessages.map((msg, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  animation: 'msgAppear 0.35s ease',
+                }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: `${C.purple}25`,
+                    border: `1px solid ${C.purple}60`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, color: C.purple, flexShrink: 0,
+                  }}>✓</div>
+                  <span style={{ fontSize: 14, color: i === parseMessages.length - 1 ? C.text : C.muted, fontWeight: i === parseMessages.length - 1 ? 600 : 400 }}>
+                    {msg}
+                  </span>
+                </div>
+              ))}
+              {/* Animated dots for next item */}
+              {parseMessages.length < 3 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: `${C.purple}10`,
+                    border: `1px solid ${C.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, color: C.muted, flexShrink: 0,
+                    animation: 'pulse-ring 1.4s ease-in-out infinite',
+                  }}>·</div>
+                  <span style={{ fontSize: 14, color: C.muted }}>
+                    {['Reading your plan...', 'Extracting sessions...', 'Mapping training zones...'][parseMessages.length]}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ width: 280, marginTop: 32, background: C.subtle, borderRadius: 4, height: 3, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${(parseMessages.length / 3) * 100}%`,
+                background: `linear-gradient(90deg, ${C.purple}, ${C.accent}80)`,
+                borderRadius: 4,
+                transition: 'width 0.5s ease',
+                boxShadow: `0 0 8px ${C.purple}`,
+              }} />
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 — Review */}
+        {step === 3 && (
+          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}>
+            {/* Header */}
+            <div style={{
+              padding: '22px 28px 18px',
+              borderBottom: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 4 }}>
+                  {formData.planName || 'Ironman 70.3 Build — Coach Marcus'}
+                </div>
+                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                  {[
+                    ['18', 'sessions'],
+                    ['3', 'weeks'],
+                    ['6 Jan → 25 Jan', 'date range'],
+                    ['IM 70.3 Mallorca', 'race detected'],
+                  ].map(([val, lbl]) => (
+                    <div key={lbl} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: C.text, fontFamily: 'DM Mono, monospace' }}>{val}</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>{lbl}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={onClose} style={{
+                background: 'none', border: 'none', color: C.muted,
+                fontSize: 22, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 6,
+              }}>×</button>
+            </div>
+
+            {/* Sport filter tabs */}
+            <div style={{
+              padding: '14px 28px', borderBottom: `1px solid ${C.border}`,
+              display: 'flex', gap: 6, flexWrap: 'wrap',
+            }}>
+              {sportTabs.map(t => (
+                <button key={t.key} className={`sport-tab${sportFilter === t.key ? ' active' : ''}`}
+                  onClick={() => setSportFilter(t.key)}>
+                  {t.key !== 'all' && (
+                    <span style={{
+                      display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                      background: SPORT_COLORS[t.key] || C.muted,
+                      marginRight: 6, verticalAlign: 'middle',
+                    }} />
+                  )}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Session list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
+              {/* Column headers */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '24px 90px 1fr 90px 70px 110px 80px',
+                gap: 12, padding: '0 16px 10px',
+                fontSize: 10, fontWeight: 700, color: C.muted,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                fontFamily: 'DM Mono, monospace',
+              }}>
+                <span></span>
+                <span>Sport</span>
+                <span>Session</span>
+                <span>Date</span>
+                <span>Duration</span>
+                <span>Target</span>
+                <span></span>
+              </div>
+
+              {weeks.map(w => {
+                const wSessions = filteredSessions.filter(s => s.week === w);
+                if (wSessions.length === 0) return null;
+                return (
+                  <div key={w} style={{ marginBottom: 10 }}>
+                    {/* Week header */}
+                    <div className="week-header" onClick={() => toggleWeek(w)}
+                      style={{ marginBottom: openWeeks[w] ? 6 : 0 }}>
+                      <span style={{
+                        fontSize: 10, color: openWeeks[w] ? C.purple : C.muted,
+                        transition: 'transform 0.2s', display: 'inline-block',
+                        transform: openWeeks[w] ? 'rotate(90deg)' : 'rotate(0deg)',
+                      }}>▶</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
+                        Week {w}
+                      </span>
+                      <span style={{
+                        fontSize: 10, color: C.muted, marginLeft: 4,
+                        fontFamily: 'DM Mono, monospace',
+                      }}>
+                        {wSessions.length} session{wSessions.length !== 1 ? 's' : ''}
+                      </span>
+                      {wSessions.some(s => s.conflict) && (
+                        <span style={{
+                          marginLeft: 'auto', fontSize: 11,
+                          background: '#f59e0b18', color: '#f59e0b',
+                          border: '1px solid #f59e0b40', borderRadius: 6,
+                          padding: '2px 8px', fontWeight: 700,
+                        }}>
+                          ⚠ {wSessions.filter(s => s.conflict).length} conflict
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Sessions */}
+                    {openWeeks[w] && wSessions.map(s => (
+                      <div key={s.id} className="session-row">
+                        {/* Conflict indicator */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {s.conflict && (
+                            <span title="Schedule conflict" style={{ fontSize: 13, color: '#f59e0b', cursor: 'help' }}>⚠</span>
+                          )}
+                        </div>
+
+                        {/* Sport tag */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{
+                            width: 8, height: 8, borderRadius: '50%',
+                            background: SPORT_COLORS[s.sport] || C.muted,
+                            flexShrink: 0,
+                            boxShadow: `0 0 5px ${SPORT_COLORS[s.sport] || C.muted}80`,
+                          }} />
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: SPORT_COLORS[s.sport] || C.muted,
+                            fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                          }}>
+                            {s.sport === 'sc' ? 'S&C' : s.sport === 'brick' ? 'Brick' : s.sport.charAt(0).toUpperCase() + s.sport.slice(1)}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <span style={{ fontSize: 13, color: C.text, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {s.title}
+                        </span>
+
+                        {/* Date */}
+                        <span style={{ fontSize: 11, color: C.muted, fontFamily: 'DM Mono, monospace' }}>
+                          {s.date}
+                        </span>
+
+                        {/* Duration */}
+                        <span style={{ fontSize: 11, color: C.muted, fontFamily: 'DM Mono, monospace' }}>
+                          {s.dur}
+                        </span>
+
+                        {/* Metric */}
+                        <span style={{
+                          fontSize: 11, color: C.accent, fontFamily: 'DM Mono, monospace',
+                          background: `${C.accent}10`, borderRadius: 4,
+                          padding: '2px 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.metric}
+                        </span>
+
+                        {/* Conflict badge */}
+                        <div>
+                          {s.conflict && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              background: '#f59e0b15', color: '#f59e0b',
+                              border: '1px solid #f59e0b35',
+                              borderRadius: 5, padding: '2px 7px',
+                              fontFamily: 'DM Mono, monospace',
+                            }}>conflict</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 28px',
+              borderTop: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            }}>
+              <div style={{ fontSize: 12, color: C.muted }}>
+                <span style={{ color: '#f59e0b', fontWeight: 700 }}>⚠ 2 conflicts detected</span>
+                {' '}— sessions overlap with existing calendar entries
+              </div>
+              <button className="purple-glow-btn" onClick={onClose} style={{
+                padding: '12px 24px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                Import 18 Sessions →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── App root ───────────────────────────────────────────────────────────────
+function App() {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <Sidebar />
+      <PlansPage onImport={() => setShowModal(true)} />
+      {showModal && <ImportModal onClose={() => setShowModal(false)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
