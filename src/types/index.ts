@@ -67,7 +67,7 @@ export interface TrainingPlan {
   total_sessions?: number
 }
 
-export type SessionSport = 'swim' | 'bike' | 'run' | 'sc' | 'brick' | 'other'
+export type SessionSport = 'swim' | 'bike' | 'run' | 'sc' | 'brick' | 'other' | 'rest'
 
 export interface ParsedSession {
   id: number

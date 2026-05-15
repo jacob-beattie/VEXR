@@ -39,7 +39,7 @@ function formatDisplayDate(iso: string): string {
   return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`
 }
 
-const VALID_SPORTS: SessionSport[] = ['swim', 'bike', 'run', 'sc', 'brick', 'other']
+const VALID_SPORTS: SessionSport[] = ['swim', 'bike', 'run', 'sc', 'brick', 'other', 'rest']
 
 function toSessionSport(s: string): SessionSport {
   return VALID_SPORTS.includes(s as SessionSport) ? (s as SessionSport) : 'other'
@@ -104,6 +104,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
   const [parseMessages, setParseMessages] = useState<string[]>([])
   const [parsedSessions, setParsedSessions] = useState<ParsedSession[]>([])
   const [parsedPlanName, setParsedPlanName] = useState('')
+  const [parsedRaceName, setParsedRaceName] = useState('')
   const [sportFilter, setSportFilter] = useState('all')
   const [openWeeks, setOpenWeeks] = useState<Record<number, boolean>>({})
   const [importing, setImporting] = useState(false)
@@ -249,6 +250,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
     }
 
     if (data.plan_name) setParsedPlanName(data.plan_name)
+    if (data.race_name) setParsedRaceName(data.race_name)
 
     const sessions: ParsedSession[] = mapEdgeSessions(data.sessions ?? [])
 
@@ -279,6 +281,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
           total_weeks: maxWeek,
           current_week: 0,
           status: 'upcoming',
+          race_name: parsedRaceName || null,
           race_date: formData.raceDate || null,
           start_date: formData.startDate || null,
           source: 'import',
@@ -312,7 +315,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
         sc: 'strength', brick: 'ride', other: 'strength',
       }
       const calendarRows = parsedSessions
-        .filter(s => s.scheduledDate)
+        .filter(s => s.scheduledDate && s.sport !== 'rest')
         .map(s => ({
           user_id: user.id,
           plan_id: plan.id,
