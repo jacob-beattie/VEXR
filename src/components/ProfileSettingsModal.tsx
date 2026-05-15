@@ -629,7 +629,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <BenchmarkSparkline
                 label="FTP"
                 unit="w"
-                color={COLORS.accent}
+                color={COLORS.purple}
                 data={ftpChartData}
                 currentValue={form.ftp ? `${form.ftp}w` : ''}
                 higherIsBetter
@@ -645,7 +645,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <BenchmarkSparkline
                 label="CSS"
                 unit="min/100m"
-                color={COLORS.purple}
+                color={COLORS.accent}
                 data={cssChartData}
                 currentValue={form.css}
                 higherIsBetter={false}
@@ -705,10 +705,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                     }}>
                       <div style={{
                         width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                        background: COLORS.accent + '18',
-                        border: `1px solid ${COLORS.accent}35`,
+                        background: COLORS.purple + '18',
+                        border: `1px solid ${COLORS.purple}35`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 700, color: COLORS.accent,
+                        fontSize: 11, fontWeight: 700, color: COLORS.purple,
                       }}>
                         Z{zone.zone_number}
                       </div>
@@ -766,7 +766,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <ZonesEditorTable
                 zones={swimmingZones}
                 onChange={setSwimmingZones}
-                color={COLORS.purple}
+                color={COLORS.accent}
                 unit="min/100m"
               />
             </div>
