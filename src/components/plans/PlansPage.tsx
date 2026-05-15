@@ -69,15 +69,17 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
 
   return (
     <div style={{ padding: isMobile ? '20px 16px' : '32px 36px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-        <button
-          className="purple-glow-btn"
-          onClick={() => setShowImport(true)}
-          style={{ padding: '10px 20px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
-          + Import Plan
-        </button>
-      </div>
+      {plans.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
+          <button
+            className="purple-glow-btn"
+            onClick={() => setShowImport(true)}
+            style={{ padding: '10px 20px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            + Import Plan
+          </button>
+        </div>
+      )}
 
       {plans.length === 0 ? (
         <EmptyState onImport={() => setShowImport(true)} />
