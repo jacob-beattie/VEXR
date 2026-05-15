@@ -101,7 +101,7 @@ export function CalendarGrid({
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
           {DAYS.map(d => (
-            <div key={d} style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, textAlign: 'center', letterSpacing: '0.1em', padding: '4px 0' }}>{d}</div>
+            <div key={d} style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, textAlign: 'center', letterSpacing: '0.08em', padding: '4px 0' }}>{d}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>

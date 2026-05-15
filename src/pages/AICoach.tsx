@@ -69,7 +69,7 @@ function MetricCard({
       textAlign: 'center',
       minWidth: 80,
     }}>
-      <div style={{ fontSize: 9, color, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+      <div style={{ fontSize: 9, color, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
         {label}
       </div>
       <div style={{ fontSize: 26, fontWeight: 900, color, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
@@ -105,7 +105,7 @@ function QuickStatCard({
       padding: '14px 16px',
       minWidth: 120,
     }}>
-      <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
         {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -280,7 +280,7 @@ export function AICoach() {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
               Race Countdown
             </div>
             <div style={{ fontSize: 12, color: COLORS.muted }}>No race set</div>
@@ -312,7 +312,7 @@ export function AICoach() {
         {/* Card header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>
               Weekly Briefing
             </div>
             {current && (
@@ -497,7 +497,7 @@ export function AICoach() {
           overflow: 'hidden',
         }}>
           <div style={{ padding: '16px 24px', borderBottom: `1px solid ${COLORS.border}` }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Previous Briefings
             </div>
           </div>

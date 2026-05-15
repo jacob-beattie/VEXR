@@ -570,7 +570,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
       {/* AI narrative */}
       <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${COLORS.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Coach Analysis
           </div>
           {(narrative || narrativeStale) && (

@@ -409,7 +409,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
         background: COLORS.card,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 14,
-        padding: '22px 24px',
+        padding: '20px 24px',
         position: 'relative',
         overflow: 'hidden',
         animation: 'fadeSlideUp 0.3s ease',

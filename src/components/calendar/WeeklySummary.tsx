@@ -69,7 +69,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
   // Fixed 3-row structure: label / value / subtitle — minHeight on subtitle reserves space even when empty
   const stat = (label: string, value: string, valueColor = COLORS.text, sub?: string) => (
     <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 14 }}>
-      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
       <div style={{ fontSize: 15, fontWeight: 800, color: valueColor, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>{value}</div>
       <div style={{ fontSize: 10, color: COLORS.muted, whiteSpace: 'nowrap', marginTop: 1, minHeight: '1rem' }}>{sub}</div>
     </div>
@@ -116,7 +116,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
                 <React.Fragment key={s.type}>
                   {i > 0 && divider}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0, paddingTop: 14 }}>
-                    <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                       {wt.icon} {wt.label}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: wt.color, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>
@@ -157,7 +157,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
             <React.Fragment key={m.label}>
               {i > 0 && <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch' }} />}
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4, whiteSpace: 'nowrap' }}>{m.label}</div>
+                <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, whiteSpace: 'nowrap' }}>{m.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: m.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{m.value}</div>
               </div>
             </React.Fragment>

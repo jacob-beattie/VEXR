@@ -135,7 +135,7 @@ function NutritionStatCard({ label, value, unit, sub, color }: {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.9 }} />
-      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 10 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 7 }}>
         <span style={{ fontSize: 34, fontWeight: 900, color: COLORS.text, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>{value}</span>
         {unit && <span style={{ fontSize: 13, color: COLORS.muted, fontWeight: 500 }}>{unit}</span>}
@@ -156,7 +156,7 @@ function HydrationCard({ hydration, onSetHydration }: { hydration: number; onSet
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.7 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Hydration</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Hydration</div>
         <div style={{ fontSize: 12, color: COLORS.accent, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
           {hydration.toFixed(2)}L <span style={{ color: COLORS.muted, fontWeight: 400 }}>/ {target}L</span>
         </div>
@@ -634,7 +634,7 @@ function WorkoutFuelCard() {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden', marginTop: 12 }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.accent}, ${COLORS.green})` }} />
-      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 16 }}>Workout Fuel Guide</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 16 }}>Workout Fuel Guide</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {phases.map((p, i) => (
           <div key={i} style={{ display: 'flex', gap: 12 }}>
@@ -856,7 +856,7 @@ export function Nutrition() {
           {/* Daily Summary */}
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.65 }} />
-            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 18 }}>Daily Summary</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 18 }}>Daily Summary</div>
             <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' as const }}>
               <CalorieRing consumed={totals.cal} target={targets.calorie_target} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8, minWidth: isMobile ? '100%' : 0 }}>
@@ -865,7 +865,7 @@ export function Nutrition() {
                 <MacroBar label="Fat"     consumed={totals.fat}     target={targets.fat_target}     color={COLORS.purple} />
                 {totals.cal > 0 && (
                   <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 13 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 8 }}>Macro Split</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 8 }}>Macro Split</div>
                     <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
                       <div style={{ width: `${proteinPct}%`, background: COLORS.green,  transition: 'width 0.5s ease' }} />
                       <div style={{ width: `${carbsPct}%`,   background: COLORS.orange, transition: 'width 0.5s ease' }} />
@@ -899,7 +899,7 @@ export function Nutrition() {
           <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.green}, ${COLORS.purple}, ${COLORS.accent})` }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Meal Log</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Meal Log</div>
               <div style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Mono', monospace" }}>
                 {allItems.length} items
               </div>

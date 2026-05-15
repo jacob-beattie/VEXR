@@ -69,7 +69,7 @@ function FitnessAreaChart({ data }: { data: Array<{ week: string; fitness: numbe
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Fitness · Fatigue · Form
         </div>
         <div style={{ display: 'flex', gap: 14, marginLeft: 'auto' }}>
@@ -141,7 +141,7 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
 
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Weekly Load
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -194,7 +194,7 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
 function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (w: Workout) => void }) {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Coming Up
       </div>
       {workouts.length === 0 ? (
@@ -255,7 +255,7 @@ function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (
                   {wt.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>
                     {wt.label}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -321,7 +321,7 @@ function AICoachTeaser({ onClick }: { onClick: () => void }) {
       }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ fontSize: 14, color: COLORS.accent }}>✦</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           AI Coach
         </span>
       </div>
@@ -398,7 +398,7 @@ function SeasonGoalsPanel() {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Season Goals
         </div>
         {goals.length > 0 && (
@@ -531,7 +531,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.green}, ${COLORS.orange}, ${COLORS.purple})` }} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Nutrition Today</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Nutrition Today</div>
         <button
           onClick={onNavigate}
           style={{ background: 'none', border: 'none', color: COLORS.accent, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'flex', alignItems: 'center', gap: 4, transition: 'gap 0.15s' }}
@@ -617,7 +617,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
 
           {/* Macro split */}
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 7 }}>Macro Split</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 7 }}>Macro Split</div>
             <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
               <div style={{ width: `${proteinPct}%`, background: COLORS.green,  transition: 'width 0.5s ease' }} />
               <div style={{ width: `${carbsPct}%`,   background: COLORS.orange, transition: 'width 0.5s ease' }} />
@@ -662,7 +662,7 @@ function StatCard({ label, value, unit, sub, color, dimSub }: {
       overflow: 'hidden',
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
-      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
         {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
@@ -849,7 +849,7 @@ export function Dashboard() {
             position: 'relative', overflow: 'hidden',
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
-            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Race Goal</div>
+            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Race Goal</div>
             <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 20 }}>Set in profile settings</div>
           </div>
         )}

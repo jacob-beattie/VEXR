@@ -101,7 +101,7 @@ function BenchmarkSparkline({
       border: `1px solid ${COLORS.border}`,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           {label}
         </div>
         <div style={{ fontSize: 16, fontWeight: 800, color, fontFamily: "'DM Mono', monospace" }}>
@@ -497,7 +497,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
 
   const sectionLabelStyle: React.CSSProperties = {
     fontSize: 11, fontWeight: 700, color: COLORS.muted,
-    letterSpacing: '0.1em', textTransform: 'uppercase',
+    letterSpacing: '0.08em', textTransform: 'uppercase',
     marginBottom: 18,
   }
 
