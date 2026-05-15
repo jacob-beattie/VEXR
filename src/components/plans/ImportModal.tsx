@@ -573,8 +573,9 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
         {/* ── Step 2 — Parsing ── */}
         {step === 2 && (
           <div style={{
+            flex: 1,
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', padding: '60px 40px', gap: 0, minHeight: 340,
+            justifyContent: 'center', padding: '40px', gap: 0,
           }}>
             {/* Spinner */}
             <div style={{ position: 'relative', marginBottom: 36 }}>
