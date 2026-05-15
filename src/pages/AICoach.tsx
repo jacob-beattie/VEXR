@@ -242,7 +242,7 @@ export function AICoach() {
         <MetricCard
           label="CTL · Fitness"
           value={fitness.ctl}
-          color={COLORS.accent}
+          color={COLORS.purple}
           sub={ctlChange !== 0 ? `${ctlChange > 0 ? '+' : ''}${ctlChange} this week` : 'stable'}
         />
         <MetricCard
@@ -253,7 +253,7 @@ export function AICoach() {
         <MetricCard
           label="TSB · Form"
           value={fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb)}
-          color={tsbPositive ? COLORS.green : '#ef4444'}
+          color={COLORS.green}
           sub={tsbPositive ? 'Fresh' : 'Carrying fatigue'}
         />
         {daysUntilRace !== null && daysUntilRace >= 0 ? (
@@ -529,7 +529,7 @@ export function AICoach() {
                     fontFamily: 'inherit',
                   }}
                   onMouseEnter={e => {
-                    if (!expanded) (e.currentTarget as HTMLButtonElement).style.background = COLORS.surface + '80'
+                    if (!expanded) (e.currentTarget as HTMLButtonElement).style.background = COLORS.card
                   }}
                   onMouseLeave={e => {
                     if (!expanded) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'

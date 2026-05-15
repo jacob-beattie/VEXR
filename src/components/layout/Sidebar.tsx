@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from '../../lib/colors'
 import { useProfile } from '../../contexts/ProfileContext'
@@ -27,6 +28,8 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
   const location = useLocation()
+
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null)
 
   const initials = profile?.name
     ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -139,19 +142,23 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       {/* Nav items */}
       {navItems.map(item => {
         const active = location.pathname === item.path
+        const hovered = hoveredNav === item.path && !active
         return (
           <button
             key={item.path}
             onClick={() => handleNav(item.path)}
+            onMouseEnter={() => setHoveredNav(item.path)}
+            onMouseLeave={() => setHoveredNav(null)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '11px 20px',
-              background: active ? COLORS.accentDim : 'transparent',
+              background: active ? COLORS.accentDim : hovered ? COLORS.border + '40' : 'transparent',
               borderTop: 'none', borderRight: 'none', borderBottom: 'none',
-              borderLeft: `3px solid ${active ? COLORS.accent : 'transparent'}`,
-              color: active ? COLORS.accent : COLORS.muted,
+              borderLeft: `3px solid ${active ? COLORS.accent : hovered ? COLORS.accent + '60' : 'transparent'}`,
+              color: active ? COLORS.accent : hovered ? COLORS.text : COLORS.muted,
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s', textAlign: 'left', width: '100%',
+              transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+              textAlign: 'left', width: '100%',
             }}
           >
             <span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}
@@ -166,10 +173,10 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
           style={{
             width: '100%',
             padding: '12px',
-            background: '#00e5ff',
+            background: COLORS.accent,
             border: 'none',
             borderRadius: 10,
-            color: '#000000',
+            color: '#ffffff',
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
@@ -177,8 +184,8 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             textAlign: 'center',
             transition: 'background 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#00e5ff')}
+          onMouseEnter={e => (e.currentTarget.style.background = '#0284c7')}
+          onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
         >
           + Log Workout
         </button>

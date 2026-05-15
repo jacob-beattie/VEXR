@@ -5,11 +5,11 @@ import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 const SPORT_COLORS: Record<string, string> = {
-  swim:  '#38bdf8',
-  bike:  '#4ade80',
-  run:   '#fb923c',
-  sc:    '#a855f7',
-  brick: '#f59e0b',
+  swim:  '#0369a1',
+  bike:  '#6d28d9',
+  run:   '#15803d',
+  sc:    '#b45309',
+  brick: '#d97706',
   other: COLORS.muted,
 }
 
@@ -55,9 +55,9 @@ function formatDate(dateStr: string | null): string {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
-    active:   { bg: '#00e5ff20', color: '#00e5ff', label: 'Active' },
-    complete: { bg: '#00e5ff18', color: '#00e5ff', label: 'Completed' },
-    archived: { bg: '#ffffff0d', color: COLORS.muted, label: 'Archived' },
+    active:   { bg: COLORS.accentDim, color: COLORS.accent, label: 'Active' },
+    complete: { bg: COLORS.accentDim, color: COLORS.accent, label: 'Completed' },
+    archived: { bg: COLORS.subtle, color: COLORS.muted, label: 'Archived' },
     upcoming: { bg: COLORS.subtle, color: COLORS.muted, label: 'Upcoming' },
   }
   const s = map[status] || map.archived
@@ -224,7 +224,10 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
                       gap: 10,
                       padding: isMobile ? '7px 10px' : '8px 10px',
                       borderRadius: 6,
+                      transition: 'background 0.15s',
                     }}
+                    onMouseEnter={e => { e.currentTarget.style.background = COLORS.border + '40' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                   >
                     {/* Sport */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -393,7 +396,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
       : { background: COLORS.subtle, opacity: 0.8 }
 
   const progressFillStyle = plan.status === 'active'
-    ? { background: COLORS.accent, boxShadow: `0 0 8px ${COLORS.accent}90` }
+    ? { background: COLORS.accent }
     : isComplete
       ? { background: COLORS.green }
       : { background: isArchived ? COLORS.muted : COLORS.subtle }

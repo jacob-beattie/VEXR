@@ -396,7 +396,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '0 32px 80px #00000088, 0 0 0 1px #00e5ff18',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(14,165,233,0.12)',
         animation: 'fadeSlideUp 0.25s ease',
       }}>
 
@@ -464,12 +464,12 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
                   }}
                   onDragOver={e => e.preventDefault()}
                   style={{
-                    border: `2px dashed ${isDragging ? '#00e5ff70' : COLORS.subtle}`,
+                    border: `2px dashed ${isDragging ? COLORS.accent : COLORS.border}`,
                     borderRadius: 12,
                     padding: '40px 24px',
                     textAlign: 'center',
                     cursor: 'pointer',
-                    background: isDragging ? '#00e5ff08' : 'transparent',
+                    background: isDragging ? COLORS.accentDim : 'transparent',
                     transition: 'border-color 0.2s, background 0.2s',
                   }}
                 >
@@ -495,7 +495,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
                       <button
                         onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
                         style={{
-                          background: '#00e5ff15', border: '1px solid #00e5ff40',
+                          background: COLORS.accentDim, border: `1px solid ${COLORS.accent}40`,
                           color: COLORS.accent, borderRadius: 8, padding: '8px 18px',
                           fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           fontFamily: 'Inter, Helvetica Neue, sans-serif',

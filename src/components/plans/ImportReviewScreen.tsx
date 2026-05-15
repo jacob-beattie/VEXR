@@ -3,11 +3,11 @@ import { COLORS } from '../../lib/colors'
 import type { ParsedSession } from '../../types'
 
 const SPORT_COLORS: Record<string, string> = {
-  swim:  '#38bdf8',
-  bike:  '#4ade80',
-  run:   '#fb923c',
-  sc:    '#a855f7',
-  brick: '#f59e0b',
+  swim:  '#0369a1',
+  bike:  '#6d28d9',
+  run:   '#15803d',
+  sc:    '#b45309',
+  brick: '#d97706',
   other: COLORS.muted,
 }
 
@@ -121,10 +121,10 @@ export function ImportReviewScreen({
               style={{
                 padding: '7px 14px',
                 borderRadius: 8,
-                border: `1px solid ${isActive ? '#00e5ff40' : 'transparent'}`,
+                border: `1px solid ${isActive ? COLORS.accent + '40' : 'transparent'}`,
                 fontSize: 12, fontWeight: 600,
                 cursor: 'pointer',
-                background: isActive ? '#00e5ff15' : 'transparent',
+                background: isActive ? COLORS.accentDim : 'transparent',
                 color: isActive ? COLORS.accent : COLORS.muted,
                 display: 'flex', alignItems: 'center', gap: 6,
                 transition: 'all 0.15s',

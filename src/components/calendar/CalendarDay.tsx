@@ -139,7 +139,7 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
         background: !hasWorkouts && hovered
           ? COLORS.subtle
           : hasWorkouts && hovered
-            ? firstWt!.color + '0d'
+            ? firstWt!.border
             : isToday ? COLORS.accentDim : COLORS.surface,
         cursor: 'pointer',
         display: 'flex',

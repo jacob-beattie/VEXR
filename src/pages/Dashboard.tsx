@@ -7,6 +7,7 @@ import { COLORS } from '../lib/colors'
 import { workoutTypes } from '../components/ui/Badge'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
+import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import type { Workout } from '../types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
 
 // ─── Coming Up ────────────────────────────────────────────────────────────────
 
-function ComingUpCard({ workouts }: { workouts: Workout[] }) {
+function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (w: Workout) => void }) {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
@@ -205,12 +206,26 @@ function ComingUpCard({ workouts }: { workouts: Workout[] }) {
           {workouts.map(w => {
             const wt = workoutTypes[w.type]
             return (
-              <div key={w.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px',
-                background: COLORS.bg, borderRadius: 9,
-                border: `1px solid ${COLORS.border}`,
-              }}>
+              <div
+                key={w.id}
+                onClick={() => onSelect(w)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 12px',
+                  background: COLORS.bg, borderRadius: 9,
+                  border: `1px solid ${COLORS.border}`,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = COLORS.surface
+                  e.currentTarget.style.borderColor = COLORS.muted + '60'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = COLORS.bg
+                  e.currentTarget.style.borderColor = COLORS.border
+                }}
+              >
                 <div style={{
                   width: 32, height: 32, borderRadius: 7, flexShrink: 0,
                   background: wt.color + '20',
@@ -649,9 +664,12 @@ export function Dashboard() {
     calculateFitnessMetrics,
     getUpcomingWorkouts,
     getFitnessHistory,
+    deleteWorkout,
+    updateWorkout,
   } = useWorkouts()
   const { profile } = useProfile()
   const [showWelcome, setShowWelcome] = useState(() => sessionStorage.getItem('onboardingWelcome') === 'true')
+  const [detailWorkout, setDetailWorkout] = useState<Workout | null>(null)
   const isMobile = useIsMobile()
   const navigate = useNavigate()
 
@@ -829,12 +847,21 @@ export function Dashboard() {
 
         {/* Right: coming up + AI coach + goals */}
         <div>
-          <ComingUpCard workouts={comingUp} />
+          <ComingUpCard workouts={comingUp} onSelect={setDetailWorkout} />
           <AICoachTeaser onClick={() => navigate('/ai-coach')} />
           <NutritionSummaryCard onNavigate={() => navigate('/nutrition')} />
           <SeasonGoalsPanel />
         </div>
       </div>
+
+      {detailWorkout && (
+        <WorkoutDetailModal
+          workout={detailWorkout}
+          onClose={() => setDetailWorkout(null)}
+          onDelete={async (id) => { await deleteWorkout(id); setDetailWorkout(null) }}
+          onUpdate={async (id, updates) => { await updateWorkout(id, updates); setDetailWorkout(null) }}
+        />
+      )}
     </>
   )
 }

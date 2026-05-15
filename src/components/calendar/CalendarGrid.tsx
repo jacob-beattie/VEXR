@@ -271,10 +271,10 @@ export function CalendarGrid({
                         key={workout.id}
                         onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
                         style={{
-                          background: wt.color + (isPlanned ? '08' : '10'),
-                          borderTop: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
-                          borderRight: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
-                          borderBottom: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
+                          background: wt.bg,
+                          borderTop: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
+                          borderRight: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
+                          borderBottom: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
                           borderLeft: isPlanned ? `3px dashed ${wt.color}` : `4px solid ${wt.color}`,
                           borderRadius: 10,
                           padding: '12px 14px',
@@ -287,7 +287,7 @@ export function CalendarGrid({
                       >
                         <div style={{
                           width: 40, height: 40, borderRadius: 9, flexShrink: 0,
-                          background: wt.color + '20',
+                          background: wt.border,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 20,
                         }}>
@@ -313,7 +313,7 @@ export function CalendarGrid({
                               <span style={{ fontSize: 13, color: isPlanned ? COLORS.muted : COLORS.accent, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
                             )}
                             {workout.distance_meters && workout.distance_meters > 0 && (
-                              <span style={{ fontSize: 13, color: COLORS.green, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)} km</span>
+                              <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)} km</span>
                             )}
                           </div>
                         </div>
@@ -321,17 +321,15 @@ export function CalendarGrid({
                     )
                   }
                   // Desktop: compact column card
-                  const bgBase = wt.color + (isPlanned ? '08' : '12')
-                  const bgHover = wt.color + (isPlanned ? '14' : '22')
                   return (
                     <div
                       key={workout.id}
                       onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
                       style={{
-                        background: bgBase,
-                        borderTop: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
-                        borderRight: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
-                        borderBottom: isPlanned ? `1px dashed ${wt.color}70` : `1px solid ${wt.color}30`,
+                        background: wt.bg,
+                        borderTop: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
+                        borderRight: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
+                        borderBottom: isPlanned ? `1px dashed ${wt.border}` : `1px solid ${wt.border}`,
                         borderLeft: isPlanned ? `3px dashed ${wt.color}` : `4px solid ${wt.color}`,
                         borderRadius: 7,
                         padding: '10px 10px',
@@ -340,8 +338,8 @@ export function CalendarGrid({
                         transition: 'background 0.12s, opacity 0.12s',
                         position: 'relative',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = bgHover; if (isPlanned) e.currentTarget.style.opacity = '1' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = bgBase; if (isPlanned) e.currentTarget.style.opacity = '0.78' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = wt.border; if (isPlanned) e.currentTarget.style.opacity = '1' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = wt.bg; if (isPlanned) e.currentTarget.style.opacity = '0.78' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -363,7 +361,7 @@ export function CalendarGrid({
                             <span style={{ fontSize: 12, color: isPlanned ? COLORS.muted : COLORS.accent, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
                           )}
                           {workout.distance_meters && workout.distance_meters > 0 && (
-                            <span style={{ fontSize: 11, color: COLORS.green, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)}km</span>
+                            <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)}km</span>
                           )}
                         </div>
                       </div>
