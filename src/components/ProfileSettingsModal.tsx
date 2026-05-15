@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
@@ -291,6 +291,12 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [loadingData, setLoadingData] = useState(true)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url ?? null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarHovered, setAvatarHovered] = useState(false)
+  const [viewingAvatar, setViewingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadData()
@@ -341,6 +347,30 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     setLoadingData(false)
   }
 
+  async function handleAvatarUpload(file: File) {
+    setUploadingAvatar(true)
+    setError('')
+    const preview = URL.createObjectURL(file)
+    setAvatarPreview(preview)
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user.id}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (uploadErr) throw uploadErr
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      const urlWithBust = `${publicUrl}?t=${Date.now()}`
+      await supabase.from('profiles').update({ avatar_url: urlWithBust }).eq('id', user.id)
+      setAvatarUrl(urlWithBust)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Avatar upload failed')
+      setAvatarPreview(null)
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     setError('')
@@ -379,6 +409,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           race_goal: form.race_goal || null,
           race_date: form.race_date || null,
           max_hr: parseInt(form.max_hr) || null,
+          avatar_url: avatarUrl,
         })
         .eq('id', user.id)
 
@@ -431,6 +462,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         race_goal: form.race_goal || undefined,
         race_date: form.race_date || undefined,
         max_hr: parseInt(form.max_hr) || null,
+        avatar_url: avatarUrl,
       })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save profile')
@@ -502,6 +534,39 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   }
 
   return (
+    <>
+    {viewingAvatar && (avatarPreview || avatarUrl) && (
+      <div
+        onClick={() => setViewingAvatar(false)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.92)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'zoom-out',
+        }}
+      >
+        <img
+          src={avatarPreview ?? avatarUrl!}
+          alt="Profile photo"
+          style={{
+            maxWidth: '90vw', maxHeight: '90vh',
+            borderRadius: 12, objectFit: 'contain',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+          }}
+          onClick={e => e.stopPropagation()}
+        />
+        <button
+          onClick={() => setViewingAvatar(false)}
+          style={{
+            position: 'absolute', top: 20, right: 24,
+            background: 'none', border: 'none', color: '#fff',
+            fontSize: 28, cursor: 'pointer', lineHeight: 1, padding: 4,
+          }}
+        >
+          ×
+        </button>
+      </div>
+    )}
     <div
       onClick={isMobile ? undefined : onClose}
       style={{
@@ -549,6 +614,108 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         {/* ── Section 1: Athlete Profile ── */}
         <div style={sectionStyle}>
           <div style={sectionLabelStyle}>Athlete Profile</div>
+
+          {/* Avatar upload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
+            <div
+              onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+              onMouseEnter={() => setAvatarHovered(true)}
+              onMouseLeave={() => setAvatarHovered(false)}
+              style={{
+                position: 'relative', width: 72, height: 72, borderRadius: '50%',
+                flexShrink: 0, cursor: uploadingAvatar ? 'default' : 'pointer',
+                overflow: 'hidden',
+              }}
+            >
+              {(avatarPreview || avatarUrl) ? (
+                <img
+                  src={avatarPreview ?? avatarUrl!}
+                  alt="Profile"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '100%',
+                  background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, fontWeight: 700, color: '#000',
+                }}>
+                  {form.name ? form.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                </div>
+              )}
+              {/* Hover / uploading overlay */}
+              {(avatarHovered || uploadingAvatar) && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.55)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: uploadingAvatar ? 11 : 18, color: '#fff',
+                }}>
+                  {uploadingAvatar ? '...' : '✎'}
+                </div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>Profile Photo</div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 8 }}>JPG, PNG or WebP · max 5 MB</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                style={{
+                  background: 'none', border: `1px solid ${COLORS.border}`,
+                  borderRadius: 6, padding: '5px 12px', color: COLORS.muted,
+                  fontSize: 11, cursor: uploadingAvatar ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {uploadingAvatar ? 'Uploading…' : 'Upload photo'}
+              </button>
+              {(avatarUrl || avatarPreview) && !uploadingAvatar && (
+                <button
+                  onClick={() => setViewingAvatar(true)}
+                  style={{
+                    background: 'none', border: `1px solid ${COLORS.border}`,
+                    borderRadius: 6, padding: '5px 12px', color: COLORS.muted,
+                    fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  View
+                </button>
+              )}
+              </div>
+              {avatarUrl && !uploadingAvatar && (
+                <button
+                  onClick={async () => {
+                    await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id)
+                    setAvatarUrl(null)
+                    setAvatarPreview(null)
+                  }}
+                  style={{
+                    background: 'none', border: 'none', color: COLORS.muted,
+                    fontSize: 11, cursor: 'pointer', marginLeft: 8, padding: '5px 0',
+                    fontFamily: 'inherit', textDecoration: 'underline',
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (file.size > 5 * 1024 * 1024) { setError('Image must be under 5 MB'); return }
+                handleAvatarUpload(file)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>Name</label>
@@ -957,5 +1124,6 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         </div>
       </div>
     </div>
+    </>
   )
 }

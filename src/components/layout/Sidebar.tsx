@@ -107,12 +107,14 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: '50%',
+            width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 14, fontWeight: 700, color: '#000',
           }}>
-            {initials}
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials}
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{profile?.name || 'Athlete'}</div>

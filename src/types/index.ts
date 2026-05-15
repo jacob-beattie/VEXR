@@ -50,6 +50,7 @@ export interface Profile {
   race_date?: string
   onboarding_completed?: boolean
   max_hr?: number | null
+  avatar_url?: string | null
 }
 
 export interface TrainingPlan {
