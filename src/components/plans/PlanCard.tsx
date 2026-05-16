@@ -82,7 +82,9 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
       .eq('plan_id', planId)
       .order('week_number', { ascending: true })
       .then(({ data }) => {
-        const rows = (data || []) as TrainingSession[]
+        const rows = (data || []).filter(
+          s => !(s.sport === 'other' && !s.title && !s.duration_min)
+        ) as TrainingSession[]
         setSessions(rows)
         const weeks = [...new Set(rows.map(s => s.week_number))].sort((a, b) => a - b)
         // Open first week by default
