@@ -28,6 +28,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 - 🥗 **Nutrition** — daily calorie/macro/hydration tracking, meal log, SVG calorie ring, workout fuel guide, editable targets, custom food database
 - 📚 **Workout Library** — save and reuse workout templates
 - 🗓️ **Training Plans** — import plans from PDF/HTML/text, AI-parsed sessions, conflict detection, calendar sync
+- 🤖 **AI Plan Generator** — describe your race and fitness, Claude builds a full periodised training plan from scratch
 
 ### AI
 
@@ -114,6 +115,7 @@ supabase functions deploy strava-auth --no-verify-jwt
 supabase functions deploy strava-sync --no-verify-jwt
 supabase functions deploy ai-briefing --no-verify-jwt
 supabase functions deploy parse-plan --no-verify-jwt
+supabase functions deploy generate-plan --no-verify-jwt
 ```
 
 `--no-verify-jwt` is required because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced inside each function handler via `supabase.auth.getUser()`.
@@ -196,6 +198,7 @@ See `roadmap.txt` for the full feature roadmap.
 - Garmin direct sync
 - Whoop/Oura HRV integration
 - Auto-TSS from plain English description
+- Injury risk score
 - Coach tier — manage multiple athletes
 - Monetisation — free vs pro tiers
 
