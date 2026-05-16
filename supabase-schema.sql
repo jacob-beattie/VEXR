@@ -278,6 +278,20 @@ alter table api_rate_limits enable row level security;
 create policy "Users can manage own rate limits" on api_rate_limits
   for all using (auth.uid() = user_id);
 
+-- ── Performance indexes ───────────────────────────────────────────────────────
+-- Composite (user_id, date) covers both user-only and date-range queries
+create index if not exists idx_workouts_user_date        on workouts(user_id, date);
+create index if not exists idx_workouts_plan_id          on workouts(plan_id);
+create index if not exists idx_training_plans_user_id    on training_plans(user_id);
+create index if not exists idx_training_sessions_user_id on training_sessions(user_id);
+create index if not exists idx_training_sessions_plan_id on training_sessions(plan_id);
+create index if not exists idx_workout_library_user_id   on workout_library(user_id);
+create index if not exists idx_fitness_benchmarks_user_id on fitness_benchmarks(user_id);
+create index if not exists idx_training_zones_user_id    on training_zones(user_id);
+-- Composite (user_id, date) for nutrition_logs: date-scoped meal lookups
+create index if not exists idx_nutrition_logs_user_date  on nutrition_logs(user_id, date);
+create index if not exists idx_nutrition_custom_foods_user_id on nutrition_custom_foods(user_id);
+
 -- ── Profile avatar ────────────────────────────────────────────────────────────
 alter table profiles add column if not exists avatar_url text;
 
