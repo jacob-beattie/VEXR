@@ -27,6 +27,7 @@ interface TrainingSession {
   scheduled_date: string | null
   duration_min: number | null
   target_metric: string | null
+  notes: string | null
   status: string
 }
 
@@ -72,11 +73,12 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
   const [loading, setLoading] = useState(true)
   const [sportFilter, setSportFilter] = useState('all')
   const [openWeeks, setOpenWeeks] = useState<Record<number, boolean>>({})
+  const [expandedSession, setExpandedSession] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
       .from('training_sessions')
-      .select('id, week_number, sport, title, scheduled_date, duration_min, target_metric, status')
+      .select('id, week_number, sport, title, scheduled_date, duration_min, target_metric, notes, status')
       .eq('plan_id', planId)
       .order('week_number', { ascending: true })
       .then(({ data }) => {
@@ -206,67 +208,100 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
 
               {isOpen && wSessions.map(s => {
                 const sportColor = SPORT_COLORS[s.sport] || COLORS.muted
+                const isExpanded = expandedSession === s.id
+                const hasDetail = Boolean(s.notes)
                 return (
-                  <div
-                    key={s.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isMobile ? '82px 1fr 55px' : '82px 1fr 95px 55px 110px',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: isMobile ? '7px 10px' : '8px 10px',
-                      borderRadius: 6,
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = COLORS.border + '40' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {/* Sport */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{
-                        width: 7, height: 7, borderRadius: '50%',
-                        background: sportColor, flexShrink: 0,
-                        boxShadow: `0 0 5px ${sportColor}80`,
-                      }} />
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: sportColor,
-                        fontFamily: 'DM Mono, monospace',
-                        letterSpacing: '0.05em', textTransform: 'uppercase',
-                      }}>
-                        {SPORT_LABELS[s.sport] || s.sport}
+                  <div key={s.id} style={{ marginBottom: 2 }}>
+                    <div
+                      onClick={() => hasDetail && setExpandedSession(prev => prev === s.id ? null : s.id)}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? '82px 1fr 55px' : '82px 1fr 95px 55px 110px',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: isMobile ? '7px 10px' : '8px 10px',
+                        borderRadius: isExpanded ? '6px 6px 0 0' : 6,
+                        background: isExpanded ? COLORS.border + '40' : 'transparent',
+                        cursor: hasDetail ? 'pointer' : 'default',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = COLORS.border + '40' }}
+                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      {/* Sport */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{
+                          width: 7, height: 7, borderRadius: '50%',
+                          background: sportColor, flexShrink: 0,
+                          boxShadow: `0 0 5px ${sportColor}80`,
+                        }} />
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, color: sportColor,
+                          fontFamily: 'DM Mono, monospace',
+                          letterSpacing: '0.05em', textTransform: 'uppercase',
+                        }}>
+                          {SPORT_LABELS[s.sport] || s.sport}
+                        </span>
+                      </div>
+
+                      {/* Title + expand caret */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
+                        <span style={{
+                          fontSize: 12, color: COLORS.text, fontWeight: 500,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.title}
+                        </span>
+                        {hasDetail && (
+                          <span style={{
+                            fontSize: 8, color: isExpanded ? COLORS.accent : COLORS.muted,
+                            flexShrink: 0,
+                            display: 'inline-block',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s, color 0.15s',
+                          }}>▶</span>
+                        )}
+                      </div>
+
+                      {/* Date — desktop only */}
+                      {!isMobile && (
+                        <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
+                          {formatDate(s.scheduled_date)}
+                        </span>
+                      )}
+
+                      {/* Duration */}
+                      <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
+                        {formatDuration(s.duration_min)}
                       </span>
+
+                      {/* Target metric — desktop only */}
+                      {!isMobile && s.target_metric && (
+                        <span style={{
+                          fontSize: 10, color: COLORS.accent, fontFamily: 'DM Mono, monospace',
+                          background: `${COLORS.accent}10`, borderRadius: 4,
+                          padding: '2px 6px',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.target_metric}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Title */}
-                    <span style={{
-                      fontSize: 12, color: COLORS.text, fontWeight: 500,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {s.title}
-                    </span>
-
-                    {/* Date — desktop only */}
-                    {!isMobile && (
-                      <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                        {formatDate(s.scheduled_date)}
-                      </span>
-                    )}
-
-                    {/* Duration */}
-                    <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                      {formatDuration(s.duration_min)}
-                    </span>
-
-                    {/* Target metric — desktop only */}
-                    {!isMobile && s.target_metric && (
-                      <span style={{
-                        fontSize: 10, color: COLORS.accent, fontFamily: 'DM Mono, monospace',
-                        background: `${COLORS.accent}10`, borderRadius: 4,
-                        padding: '2px 6px',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    {/* Expanded description */}
+                    {isExpanded && hasDetail && (
+                      <div style={{
+                        padding: '10px 12px 12px',
+                        background: COLORS.bg,
+                        borderTop: `1px solid ${COLORS.border}40`,
+                        borderRight: `1px solid ${COLORS.border}40`,
+                        borderBottom: `1px solid ${COLORS.border}40`,
+                        borderLeft: `1px solid ${COLORS.border}40`,
+                        borderRadius: '0 0 6px 6px',
+                        fontSize: 12, color: COLORS.muted, lineHeight: 1.65,
                       }}>
-                        {s.target_metric}
-                      </span>
+                        {s.notes}
+                      </div>
                     )}
                   </div>
                 )

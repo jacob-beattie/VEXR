@@ -595,7 +595,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
             {/* Messages */}
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 14,
-              minHeight: 120, width: '100%', maxWidth: 320,
+              minHeight: 120, alignSelf: 'center',
             }}>
               {parseMessages.map((msg, i) => (
                 <div key={i} style={{

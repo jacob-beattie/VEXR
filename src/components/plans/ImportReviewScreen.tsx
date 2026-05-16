@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { COLORS, SPORT_COLORS } from '../../lib/colors'
 import type { ParsedSession } from '../../types'
 
@@ -45,6 +45,11 @@ export function ImportReviewScreen({
 }: ImportReviewScreenProps) {
   const [hoveredSession, setHoveredSession] = useState<number | null>(null)
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null)
+  const [expandedSession, setExpandedSession] = useState<number | null>(null)
+
+  const toggleSession = useCallback((id: number) => {
+    setExpandedSession(prev => prev === id ? null : id)
+  }, [])
 
   const filteredSessions = sportFilter === 'all'
     ? parsedSessions
@@ -214,93 +219,127 @@ export function ImportReviewScreen({
               {isOpen && wSessions.map(s => {
                 const sportColor = SPORT_COLORS[s.sport] || COLORS.muted
                 const isHovered = hoveredSession === s.id
+                const isExpanded = expandedSession === s.id
+                const hasDetail = Boolean(s.description)
                 return (
-                  <div
-                    key={s.id}
-                    onMouseEnter={() => setHoveredSession(s.id)}
-                    onMouseLeave={() => setHoveredSession(null)}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isMobile ? mobileGrid : desktopGrid,
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: isMobile ? '10px 12px' : '11px 16px',
-                      borderRadius: 8,
-                      border: `1px solid ${isHovered ? COLORS.border : 'transparent'}`,
-                      background: isHovered ? COLORS.bg : 'transparent',
-                      cursor: 'default',
-                      transition: 'background 0.12s, border-color 0.12s',
-                    }}
-                  >
-                    {/* Conflict icon — desktop only */}
-                    {!isMobile && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {s.conflict && (
-                          <span title="Schedule conflict" style={{ fontSize: 13, color: COLORS.amber }}>⚠</span>
+                  <div key={s.id} style={{ marginBottom: 2 }}>
+                    <div
+                      onMouseEnter={() => setHoveredSession(s.id)}
+                      onMouseLeave={() => setHoveredSession(null)}
+                      onClick={() => hasDetail && toggleSession(s.id)}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? mobileGrid : desktopGrid,
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: isMobile ? '10px 12px' : '11px 16px',
+                        borderRadius: isExpanded ? '8px 8px 0 0' : 8,
+                        borderTop: `1px solid ${isHovered || isExpanded ? COLORS.border : 'transparent'}`,
+                        borderRight: `1px solid ${isHovered || isExpanded ? COLORS.border : 'transparent'}`,
+                        borderBottom: `1px solid ${isExpanded ? 'transparent' : isHovered ? COLORS.border : 'transparent'}`,
+                        borderLeft: `1px solid ${isHovered || isExpanded ? COLORS.border : 'transparent'}`,
+                        background: isHovered || isExpanded ? COLORS.bg : 'transparent',
+                        cursor: hasDetail ? 'pointer' : 'default',
+                        transition: 'background 0.12s, border-color 0.12s',
+                      }}
+                    >
+                      {/* Conflict icon — desktop only */}
+                      {!isMobile && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {s.conflict && (
+                            <span title="Schedule conflict" style={{ fontSize: 13, color: COLORS.amber }}>⚠</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Sport tag */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: sportColor, flexShrink: 0,
+                          boxShadow: `0 0 5px ${sportColor}80`,
+                        }} />
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, color: sportColor,
+                          fontFamily: 'DM Mono, monospace',
+                          letterSpacing: '0.05em', textTransform: 'uppercase',
+                        }}>
+                          {SPORT_LABELS[s.sport] || s.sport}
+                        </span>
+                      </div>
+
+                      {/* Title + expand caret */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                        <span style={{
+                          fontSize: 13, color: COLORS.text, fontWeight: 500,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.title}
+                        </span>
+                        {hasDetail && (
+                          <span style={{
+                            fontSize: 9, color: isExpanded ? COLORS.accent : COLORS.muted,
+                            flexShrink: 0,
+                            display: 'inline-block',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s, color 0.15s',
+                          }}>▶</span>
                         )}
                       </div>
-                    )}
 
-                    {/* Sport tag */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: sportColor, flexShrink: 0,
-                        boxShadow: `0 0 5px ${sportColor}80`,
-                      }} />
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: sportColor,
-                        fontFamily: 'DM Mono, monospace',
-                        letterSpacing: '0.05em', textTransform: 'uppercase',
-                      }}>
-                        {SPORT_LABELS[s.sport] || s.sport}
+                      {/* Date — desktop only */}
+                      {!isMobile && (
+                        <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
+                          {s.date}
+                        </span>
+                      )}
+
+                      {/* Duration */}
+                      <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
+                        {s.dur}
                       </span>
+
+                      {/* Target metric — desktop only */}
+                      {!isMobile && (
+                        <span style={{
+                          fontSize: 11, color: COLORS.accent, fontFamily: 'DM Mono, monospace',
+                          background: `${COLORS.accent}10`, borderRadius: 4,
+                          padding: '2px 7px',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {s.metric}
+                        </span>
+                      )}
+
+                      {/* Conflict badge — desktop only */}
+                      {!isMobile && (
+                        <div>
+                          {s.conflict && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              background: '#f59e0b15', color: COLORS.amber,
+                              border: '1px solid #f59e0b35',
+                              borderRadius: 5, padding: '2px 7px',
+                              fontFamily: 'DM Mono, monospace',
+                            }}>conflict</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Title */}
-                    <span style={{
-                      fontSize: 13, color: COLORS.text, fontWeight: 500,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {s.title}
-                    </span>
-
-                    {/* Date — desktop only */}
-                    {!isMobile && (
-                      <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                        {s.date}
-                      </span>
-                    )}
-
-                    {/* Duration */}
-                    <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                      {s.dur}
-                    </span>
-
-                    {/* Target metric — desktop only */}
-                    {!isMobile && (
-                      <span style={{
-                        fontSize: 11, color: COLORS.accent, fontFamily: 'DM Mono, monospace',
-                        background: `${COLORS.accent}10`, borderRadius: 4,
-                        padding: '2px 7px',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    {/* Expanded description */}
+                    {isExpanded && hasDetail && (
+                      <div style={{
+                        padding: '12px 16px 14px',
+                        background: COLORS.bg,
+                        borderTop: `1px solid ${COLORS.border}40`,
+                        borderRight: `1px solid ${COLORS.border}`,
+                        borderBottom: `1px solid ${COLORS.border}`,
+                        borderLeft: `1px solid ${COLORS.border}`,
+                        borderRadius: '0 0 8px 8px',
+                        fontSize: 13, color: COLORS.muted, lineHeight: 1.65,
                       }}>
-                        {s.metric}
-                      </span>
-                    )}
-
-                    {/* Conflict badge — desktop only */}
-                    {!isMobile && (
-                      <div>
-                        {s.conflict && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700,
-                            background: '#f59e0b15', color: COLORS.amber,
-                            border: '1px solid #f59e0b35',
-                            borderRadius: 5, padding: '2px 7px',
-                            fontFamily: 'DM Mono, monospace',
-                          }}>conflict</span>
-                        )}
+                        {s.description}
                       </div>
                     )}
                   </div>

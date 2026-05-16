@@ -78,6 +78,7 @@ export interface ParsedSession {
   date: string       // display string e.g. "Mon 6 Jan"
   dur: string        // display string e.g. "45 min"
   metric: string
+  description?: string
   conflict: boolean
   scheduledDate?: string | null  // ISO date from edge function
 }

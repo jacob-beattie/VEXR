@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-    const prompt = `You are an expert endurance coach. Generate a personalised training plan and return ONLY valid JSON — no explanation, no markdown, no code blocks.
+    const prompt = `You are an expert endurance coach writing a personalised training plan. Return ONLY valid JSON — no explanation, no markdown, no code blocks.
 
 Athlete:
 ${fitnessLines.join('\n')}
@@ -122,6 +122,13 @@ Periodisation:
 
 Sport codes: swim, bike, run, sc (strength/core), brick (bike+run), rest
 
+For every non-rest session, write a coach-quality "description" using this compact format (keep each description under 60 words):
+"WU: [duration + effort]. Main: [specific reps/duration/pace/power]. CD: [duration + effort]. Tip: [one beginner tip]."
+
+Use real numbers. Don't say "threshold pace" — say "threshold pace (${athleteProfile.thresholdPace ? athleteProfile.thresholdPace + ' min/km' : 'your goal race pace'})". Don't say "easy effort" — say "conversational pace, HR under 75% max".
+
+Example: "WU: 10min easy jog (conversational). Main: 4×8min at threshold pace (4:15/km) w/ 3min jog recovery. CD: 10min easy. Tip: drop to 3 reps if pace slips — quality over volume."
+
 Return exactly this JSON structure:
 {
   "plan_name": "string",
@@ -133,18 +140,18 @@ Return exactly this JSON structure:
       "day_of_week": "Monday",
       "time_of_day": "AM",
       "sport": "run",
-      "title": "Easy Run",
-      "description": "Aerobic base run",
-      "duration_minutes": 45,
-      "target_metric": "Z2, <135 bpm",
-      "zone_label": "Zone 2",
+      "title": "Threshold Run",
+      "description": "WU: 10min easy jog. Main: 4×8min at threshold pace (4:15/km) w/ 3min jog recovery. CD: 10min easy. Tip: drop to 3 reps if pace falls apart.",
+      "duration_minutes": 60,
+      "target_metric": "Z4, threshold pace",
+      "zone_label": "Zone 4",
       "phase": "Base",
       "notes": ""
     }
   ]
 }
 
-Generate all ${totalWeeks} weeks, 7 sessions per week (one per day). Every day must appear including rest days. Keep title and notes concise.`
+Generate all ${totalWeeks} weeks, 7 sessions per week (one per day). Every day must appear including rest days. Rest day description = "".`
 
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

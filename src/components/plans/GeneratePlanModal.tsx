@@ -41,6 +41,7 @@ interface EdgeSession {
   day_of_week: string
   sport: string
   title: string
+  description: string
   duration_minutes: number | null
   target_metric: string
   scheduled_date: string | null
@@ -56,6 +57,7 @@ function mapEdgeSessions(raw: EdgeSession[]): ParsedSession[] {
     date: s.scheduled_date ? formatDisplayDate(s.scheduled_date) : `Wk ${s.week} ${s.day_of_week ?? ''}`,
     dur: s.duration_minutes != null ? `${s.duration_minutes} min` : '',
     metric: s.target_metric ?? '',
+    description: s.description ?? '',
     conflict: s.has_conflict,
     scheduledDate: s.scheduled_date ?? null,
   }))
@@ -274,6 +276,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
           scheduled_date: s.scheduledDate ?? null,
           duration_min: parseInt(s.dur) || null,
           target_metric: s.metric || null,
+          notes: s.description || null,
           has_conflict: s.conflict,
           status: 'pending',
         }))
@@ -347,7 +350,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
         borderRadius: isMobile ? '18px 18px 0 0' : 18,
         width: modalWidth,
         maxWidth: isMobile ? '100%' : undefined,
-        height: isMobile ? '95dvh' : '88vh',
+        height: isMobile ? '95dvh' : step === 2 ? 'auto' : '88vh',
         maxHeight: isMobile ? '95dvh' : '88vh',
         display: 'flex',
         flexDirection: 'column',
@@ -546,7 +549,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
 
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 14,
-              minHeight: 120, width: '100%', maxWidth: 320,
+              minHeight: 120, alignSelf: 'center',
             }}>
               {generateMessages.map((msg, i) => (
                 <div key={i} style={{
