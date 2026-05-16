@@ -30,8 +30,10 @@ export function ProGate({ feature, description, children }: ProGateProps) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
+        pointerEvents: 'none',
       }}>
         <div style={{
+          pointerEvents: 'auto',
           background: COLORS.surface,
           border: `1px solid ${COLORS.border}`,
           borderRadius: 16,
