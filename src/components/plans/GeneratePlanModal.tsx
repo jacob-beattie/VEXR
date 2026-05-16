@@ -165,7 +165,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
     Promise.all([animDone, apiCall])
       .then(([, sessions]) => {
         if (!cancelled) {
-          setParsedSessions(sessions as ParsedSession[])
+          setParsedSessions((sessions as ParsedSession[]).filter(s => s.sport !== 'rest'))
           setStep(3)
         }
       })
