@@ -61,12 +61,11 @@ Deno.serve(async (req: Request) => {
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const body = await req.json()
-    const { sport, raceDistance, raceDate, startDate, trainingDaysPerWeek, preferredDays, level, goalTime, athleteProfile } = body as {
+    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = body as {
       sport: 'triathlon' | 'run' | 'bike' | 'swim'
       raceDistance: string
       raceDate: string
       startDate: string
-      trainingDaysPerWeek: number
       preferredDays?: string[]
       level?: 'beginner' | 'intermediate' | 'advanced'
       goalTime?: string
@@ -129,14 +128,14 @@ Plan:
 - Race date: ${raceDate}
 - Start date: ${startDate}
 - Total weeks: ${totalWeeks}
-- Sessions per week: ${trainingDaysPerWeek}
 - Athlete is available to train on: ${availableDaysLine}${goalTime ? `\n- Goal time: ${goalTime}` : ''}
+- Sessions per week: choose the appropriate number based on the athlete's experience level, sport, and race distance. Vary the count by phase — fewer in recovery/taper weeks, more in build/peak.${sport === 'triathlon' ? ' For triathlon, double-session days (AM + PM on the same day) are normal and expected for intermediate/advanced athletes.' : ''}
 
 Periodisation:
 - Weeks 1–${baseWeeks}: Base — Z2 aerobic volume, 1 threshold session/week, long session on the latest available day of the week
 - Weeks ${baseWeeks + 1}–${peakEnd}: Build — add intervals, race-pace work, brick sessions (triathlon); keep long session on latest available day of week
 - Weeks ${peakEnd + 1}–${totalWeeks}: Taper — cut volume 40%, keep intensity, sharpen for race day
-- Schedule exactly ${trainingDaysPerWeek} training sessions per week. Sessions MUST only fall on the athlete's available days. Not every available day needs a session — pick the best ${trainingDaysPerWeek} from the available pool. All other days use sport "rest".
+- Sessions MUST only fall on the athlete's available days. Not every available day needs a session. All other days use sport "rest".
 
 Sport codes: swim, bike, run, sc (strength/core), brick (bike+run), rest
 
@@ -169,7 +168,7 @@ Return exactly this JSON structure:
   ]
 }
 
-Generate all ${totalWeeks} weeks, 7 sessions per week (one per day). Every day must appear including rest days. Rest day description = "".`
+Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon' ? 'Multiple sessions on the same day are allowed — output them as separate entries with the same week and day_of_week but different time_of_day ("AM"/"PM"). Rest days have a single entry with sport "rest".' : 'One entry per day (one per day_of_week).'} Rest day description = "".`
 
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

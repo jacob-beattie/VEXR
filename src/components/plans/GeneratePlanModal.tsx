@@ -118,7 +118,6 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
   const [raceDistance, setRaceDistance] = useState<string>(RACE_DISTANCES[profileSportToType(profile?.sport)][0])
   const [raceDate, setRaceDate] = useState('')
   const [startDate, setStartDate] = useState(nextMonday)
-  const [daysPerWeek, setDaysPerWeek] = useState(4)
   const [preferredDays, setPreferredDays] = useState<string[]>(['Monday', 'Wednesday', 'Friday', 'Saturday'])
   const [goalTime, setGoalTime] = useState('')
   const [generateError, setGenerateError] = useState<string | null>(null)
@@ -205,7 +204,6 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
           raceDistance,
           raceDate,
           startDate,
-          trainingDaysPerWeek: daysPerWeek,
           preferredDays,
           level,
           goalTime: goalTime || undefined,
@@ -240,14 +238,11 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
   }
 
   const toggleDay = (full: string) => {
-    setPreferredDays(prev => {
-      const next = prev.includes(full)
+    setPreferredDays(prev =>
+      prev.includes(full)
         ? prev.length === 1 ? prev : prev.filter(d => d !== full)
         : [...prev, full]
-      // clamp sessions/week to newly available count
-      setDaysPerWeek(d => Math.min(d, next.length))
-      return next
-    })
+    )
   }
 
   const handleGenerate = () => {
@@ -494,23 +489,6 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
                       {short}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* Sessions per week */}
-              <div>
-                <label style={labelStyle}>Sessions per Week</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[3, 4, 5, 6].filter(d => d <= preferredDays.length).map(d => (
-                    <button key={d} style={pillStyle(daysPerWeek === d)} onClick={() => setDaysPerWeek(d)}>
-                      {d} sessions
-                    </button>
-                  ))}
-                  {preferredDays.length < 3 && (
-                    <span style={{ fontSize: 13, color: COLORS.muted, alignSelf: 'center' }}>
-                      Select at least 3 available days
-                    </span>
-                  )}
                 </div>
               </div>
 
