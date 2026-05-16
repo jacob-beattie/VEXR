@@ -18,13 +18,13 @@ export function ProGate({ feature, description, children }: ProGateProps) {
   return (
     <div style={{ position: 'relative' }}>
       {/* Blurred preview */}
-      <div style={{ filter: 'blur(4px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.4 }}>
+      <div style={{ filter: 'blur(4px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.4, maxHeight: '60vh', overflow: 'hidden' }}>
         {children}
       </div>
 
-      {/* Lock overlay */}
+      {/* Lock overlay — fixed so it stays centered in the viewport regardless of page height */}
       <div style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
         display: 'flex',
         alignItems: 'center',
