@@ -11,12 +11,6 @@ import type { User } from '@supabase/supabase-js'
 
 // ─── Zone constants ───────────────────────────────────────────────────────────
 
-interface ZoneRow {
-  zone_number: number
-  zone_name: string
-  min_value: string
-  max_value: string
-}
 
 const CYCLING_ZONE_DEFS = [
   { zone_number: 1, zone_name: 'Active Recovery', minPct: 0,    maxPct: 0.55 },
@@ -27,20 +21,6 @@ const CYCLING_ZONE_DEFS = [
   { zone_number: 6, zone_name: 'Anaerobic',         minPct: 1.21, maxPct: null  },
 ] as const
 
-const DEFAULT_RUNNING_ZONES: ZoneRow[] = [
-  { zone_number: 1, zone_name: 'Recovery',   min_value: '', max_value: '' },
-  { zone_number: 2, zone_name: 'Aerobic',    min_value: '', max_value: '' },
-  { zone_number: 3, zone_name: 'Tempo',      min_value: '', max_value: '' },
-  { zone_number: 4, zone_name: 'Threshold',  min_value: '', max_value: '' },
-  { zone_number: 5, zone_name: 'VO2 Max',    min_value: '', max_value: '' },
-]
-
-const DEFAULT_SWIMMING_ZONES: ZoneRow[] = [
-  { zone_number: 1, zone_name: 'Recovery',   min_value: '', max_value: '' },
-  { zone_number: 2, zone_name: 'Aerobic',    min_value: '', max_value: '' },
-  { zone_number: 3, zone_name: 'Threshold',  min_value: '', max_value: '' },
-  { zone_number: 4, zone_name: 'Speed',      min_value: '', max_value: '' },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +52,35 @@ function paceToSeconds(pace: string): number | null {
   const [min, sec] = pace.split(':').map(Number)
   if (isNaN(min) || isNaN(sec)) return null
   return min * 60 + sec
+}
+
+function secondsToPace(seconds: number): string {
+  const min = Math.floor(seconds / 60)
+  const sec = Math.round(seconds % 60)
+  return `${min}:${String(sec).padStart(2, '0')}`
+}
+
+function calcRunningZones(runPace: string) {
+  const T = paceToSeconds(runPace)
+  if (!T) return null
+  return [
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.25), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.10), max_value: secondsToPace(T * 1.25) },
+    { zone_number: 3, zone_name: 'Tempo',     min_value: secondsToPace(T * 1.02), max_value: secondsToPace(T * 1.10) },
+    { zone_number: 4, zone_name: 'Threshold', min_value: secondsToPace(T * 0.97), max_value: secondsToPace(T * 1.02) },
+    { zone_number: 5, zone_name: 'VO2 Max',   min_value: '',                      max_value: secondsToPace(T * 0.97) },
+  ]
+}
+
+function calcSwimmingZones(css: string) {
+  const T = paceToSeconds(css)
+  if (!T) return null
+  return [
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.20), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.05), max_value: secondsToPace(T * 1.20) },
+    { zone_number: 3, zone_name: 'Threshold', min_value: secondsToPace(T * 0.95), max_value: secondsToPace(T * 1.05) },
+    { zone_number: 4, zone_name: 'Speed',     min_value: '',                      max_value: secondsToPace(T * 0.95) },
+  ]
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -165,100 +174,6 @@ function BenchmarkSparkline({
   )
 }
 
-function ZonesEditorTable({
-  zones,
-  onChange,
-  color,
-  unit,
-}: {
-  zones: ZoneRow[]
-  onChange: (zones: ZoneRow[]) => void
-  color: string
-  unit: string
-}) {
-  const isMobile = useIsMobile()
-  const inputStyle: React.CSSProperties = {
-    background: COLORS.surface,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: 6,
-    padding: isMobile ? '5px 6px' : '6px 8px',
-    color: COLORS.text,
-    fontSize: 12,
-    width: isMobile ? 64 : 80,
-    outline: 'none',
-    fontFamily: "'DM Mono', monospace",
-    boxSizing: 'border-box',
-  }
-
-  const colTemplate = isMobile ? '28px 1fr 68px 68px' : '36px 1fr 90px 90px'
-  const colGap = isMobile ? 6 : 10
-  const colPad = isMobile ? '0 8px' : '0 14px'
-
-  return (
-    <div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: colTemplate,
-        gap: colGap,
-        padding: colPad,
-        marginBottom: 6,
-      }}>
-        <div />
-        <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>Zone</div>
-        <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>Min</div>
-        <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>Max</div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {zones.map((zone, i) => (
-          <div key={zone.zone_number} style={{
-            display: 'grid',
-            gridTemplateColumns: colTemplate,
-            gap: colGap,
-            alignItems: 'center',
-            padding: isMobile ? '7px 8px' : '8px 14px',
-            background: COLORS.bg,
-            borderRadius: 8,
-            border: `1px solid ${COLORS.border}`,
-          }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 6,
-              background: color + '18',
-              border: `1px solid ${color}35`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 700, color,
-            }}>
-              Z{zone.zone_number}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>{zone.zone_name}</div>
-            <input
-              style={inputStyle}
-              value={zone.min_value}
-              placeholder={unit === 'min/km' ? '5:30' : '1:45'}
-              onChange={e => {
-                const updated = [...zones]
-                updated[i] = { ...updated[i], min_value: e.target.value }
-                onChange(updated)
-              }}
-            />
-            <input
-              style={inputStyle}
-              value={zone.max_value}
-              placeholder={unit === 'min/km' ? '6:00' : '2:00'}
-              onChange={e => {
-                const updated = [...zones]
-                updated[i] = { ...updated[i], max_value: e.target.value }
-                onChange(updated)
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: COLORS.muted }}>
-        Pace format: {unit === 'min/km' ? 'min:sec per km (e.g. 5:30)' : 'min:sec per 100m (e.g. 1:45)'}
-      </div>
-    </div>
-  )
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -285,8 +200,6 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   })
 
   const [benchmarks, setBenchmarks] = useState<FitnessBenchmark[]>([])
-  const [runningZones, setRunningZones] = useState<ZoneRow[]>(DEFAULT_RUNNING_ZONES)
-  const [swimmingZones, setSwimmingZones] = useState<ZoneRow[]>(DEFAULT_SWIMMING_ZONES)
   const [activeZoneTab, setActiveZoneTab] = useState<'cycling' | 'running' | 'swimming' | 'heart_rate'>('cycling')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -319,30 +232,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
 
     if (bData) setBenchmarks(bData as FitnessBenchmark[])
 
-    if (zData && zData.length > 0) {
-      const running = zData
-        .filter(z => z.sport === 'running')
-        .sort((a, b) => a.zone_number - b.zone_number)
-      const swimming = zData
-        .filter(z => z.sport === 'swimming')
-        .sort((a, b) => a.zone_number - b.zone_number)
-      if (running.length > 0) {
-        setRunningZones(running.map(z => ({
-          zone_number: z.zone_number,
-          zone_name: z.zone_name,
-          min_value: z.min_value ?? '',
-          max_value: z.max_value ?? '',
-        })))
-      }
-      if (swimming.length > 0) {
-        setSwimmingZones(swimming.map(z => ({
-          zone_number: z.zone_number,
-          zone_name: z.zone_name,
-          min_value: z.min_value ?? '',
-          max_value: z.max_value ?? '',
-        })))
-      }
-    }
+
 
     setLoadingData(false)
   }
@@ -419,6 +309,8 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
       await supabase.from('training_zones').delete().eq('user_id', user.id)
 
       const cyclingZones = calcCyclingZones(ftpNum)
+      const runZones = calcRunningZones(form.run_pace) ?? []
+      const swimZones = calcSwimmingZones(form.css) ?? []
       const zoneInserts = [
         ...cyclingZones.map(z => ({
           user_id: user.id,
@@ -429,7 +321,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           max_value: z.max_value,
           updated_at: now,
         })),
-        ...runningZones.map(z => ({
+        ...runZones.map(z => ({
           user_id: user.id,
           sport: 'running',
           zone_number: z.zone_number,
@@ -438,7 +330,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           max_value: z.max_value || null,
           updated_at: now,
         })),
-        ...swimmingZones.map(z => ({
+        ...swimZones.map(z => ({
           user_id: user.id,
           sport: 'swimming',
           zone_number: z.zone_number,
@@ -909,35 +801,129 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
             </div>
           )}
 
-          {/* Running — manual */}
-          {activeZoneTab === 'running' && (
-            <div>
-              <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
-                Set your running pace zones manually. Faster pace = lower value (e.g. 4:00 is faster than 5:00).
+          {/* Running — auto from threshold pace */}
+          {activeZoneTab === 'running' && (() => {
+            const runZones = calcRunningZones(form.run_pace)
+            return (
+              <div>
+                <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
+                  {form.run_pace
+                    ? `Auto-calculated from threshold pace of ${form.run_pace} min/km. Update pace above and save to recalculate.`
+                    : 'Enter your threshold pace above to auto-calculate running zones.'}
+                </div>
+                {runZones ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {runZones.map(zone => (
+                      <div key={zone.zone_number} style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 14px',
+                        background: COLORS.bg,
+                        borderRadius: 8,
+                        border: `1px solid ${COLORS.border}`,
+                      }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                          background: COLORS.green + '18',
+                          border: `1px solid ${COLORS.green}35`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, color: COLORS.green,
+                        }}>
+                          Z{zone.zone_number}
+                        </div>
+                        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: COLORS.text }}>
+                          {zone.zone_name}
+                        </div>
+                        <div style={{
+                          fontSize: 13, fontFamily: "'DM Mono', monospace",
+                          color: COLORS.muted, letterSpacing: '0.02em',
+                        }}>
+                          {zone.min_value === ''
+                            ? `< ${zone.max_value} min/km`
+                            : zone.max_value === ''
+                              ? `${zone.min_value}+ min/km`
+                              : `${zone.min_value} – ${zone.max_value} min/km`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '24px',
+                    background: COLORS.bg,
+                    borderRadius: 8,
+                    border: `1px solid ${COLORS.border}`,
+                    textAlign: 'center',
+                    color: COLORS.muted,
+                    fontSize: 13,
+                  }}>
+                    Enter your threshold pace in the profile section above
+                  </div>
+                )}
               </div>
-              <ZonesEditorTable
-                zones={runningZones}
-                onChange={setRunningZones}
-                color={COLORS.green}
-                unit="min/km"
-              />
-            </div>
-          )}
+            )
+          })()}
 
-          {/* Swimming — manual */}
-          {activeZoneTab === 'swimming' && (
-            <div>
-              <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
-                Set your swimming pace zones manually. Faster pace = lower value (e.g. 1:30 is faster than 2:00).
+          {/* Swimming — auto from CSS */}
+          {activeZoneTab === 'swimming' && (() => {
+            const swimZones = calcSwimmingZones(form.css)
+            return (
+              <div>
+                <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 14 }}>
+                  {form.css
+                    ? `Auto-calculated from CSS of ${form.css} min/100m. Update CSS above and save to recalculate.`
+                    : 'Enter your CSS above to auto-calculate swimming zones.'}
+                </div>
+                {swimZones ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {swimZones.map(zone => (
+                      <div key={zone.zone_number} style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 14px',
+                        background: COLORS.bg,
+                        borderRadius: 8,
+                        border: `1px solid ${COLORS.border}`,
+                      }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                          background: COLORS.accent + '18',
+                          border: `1px solid ${COLORS.accent}35`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, color: COLORS.accent,
+                        }}>
+                          Z{zone.zone_number}
+                        </div>
+                        <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: COLORS.text }}>
+                          {zone.zone_name}
+                        </div>
+                        <div style={{
+                          fontSize: 13, fontFamily: "'DM Mono', monospace",
+                          color: COLORS.muted, letterSpacing: '0.02em',
+                        }}>
+                          {zone.min_value === ''
+                            ? `< ${zone.max_value} min/100m`
+                            : zone.max_value === ''
+                              ? `${zone.min_value}+ min/100m`
+                              : `${zone.min_value} – ${zone.max_value} min/100m`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '24px',
+                    background: COLORS.bg,
+                    borderRadius: 8,
+                    border: `1px solid ${COLORS.border}`,
+                    textAlign: 'center',
+                    color: COLORS.muted,
+                    fontSize: 13,
+                  }}>
+                    Enter your CSS in the profile section above
+                  </div>
+                )}
               </div>
-              <ZonesEditorTable
-                zones={swimmingZones}
-                onChange={setSwimmingZones}
-                color={COLORS.accent}
-                unit="min/100m"
-              />
-            </div>
-          )}
+            )
+          })()}
 
           {/* Heart Rate — auto from max HR */}
           {activeZoneTab === 'heart_rate' && (() => {
