@@ -9,6 +9,16 @@ import { useProfile } from '../../contexts/ProfileContext'
 
 type SportType = 'triathlon' | 'run' | 'bike' | 'swim'
 
+const DAYS_OF_WEEK = [
+  { short: 'Mon', full: 'Monday' },
+  { short: 'Tue', full: 'Tuesday' },
+  { short: 'Wed', full: 'Wednesday' },
+  { short: 'Thu', full: 'Thursday' },
+  { short: 'Fri', full: 'Friday' },
+  { short: 'Sat', full: 'Saturday' },
+  { short: 'Sun', full: 'Sunday' },
+]
+
 const RACE_DISTANCES: Record<SportType, string[]> = {
   triathlon: ['Sprint', 'Olympic', '70.3', 'Ironman'],
   run: ['5K', '10K', 'Half Marathon', 'Marathon'],
@@ -104,10 +114,12 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [sport, setSport] = useState<SportType>(() => profileSportToType(profile?.sport))
+  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate')
   const [raceDistance, setRaceDistance] = useState<string>(RACE_DISTANCES[profileSportToType(profile?.sport)][0])
   const [raceDate, setRaceDate] = useState('')
   const [startDate, setStartDate] = useState(nextMonday)
   const [daysPerWeek, setDaysPerWeek] = useState(4)
+  const [preferredDays, setPreferredDays] = useState<string[]>(['Monday', 'Wednesday', 'Friday', 'Saturday'])
   const [goalTime, setGoalTime] = useState('')
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateMessages, setGenerateMessages] = useState<string[]>([])
@@ -194,6 +206,8 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
           raceDate,
           startDate,
           trainingDaysPerWeek: daysPerWeek,
+          preferredDays,
+          level,
           goalTime: goalTime || undefined,
           athleteProfile: {
             ctl: Math.round(fitness.ctl),
@@ -223,6 +237,17 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
     if (sessions.length === 0) throw 'No sessions were generated. Please try again.'
 
     return sessions
+  }
+
+  const toggleDay = (full: string) => {
+    setPreferredDays(prev => {
+      const next = prev.includes(full)
+        ? prev.length === 1 ? prev : prev.filter(d => d !== full)
+        : [...prev, full]
+      // clamp sessions/week to newly available count
+      setDaysPerWeek(d => Math.min(d, next.length))
+      return next
+    })
   }
 
   const handleGenerate = () => {
@@ -405,6 +430,27 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
                 </div>
               </div>
 
+              {/* Level */}
+              <div>
+                <label style={labelStyle}>Experience Level</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {([
+                    { value: 'beginner', label: 'Beginner', hint: 'New to the sport' },
+                    { value: 'intermediate', label: 'Intermediate', hint: 'Training consistently' },
+                    { value: 'advanced', label: 'Advanced', hint: 'Competitive athlete' },
+                  ] as const).map(({ value, label, hint }) => (
+                    <button
+                      key={value}
+                      style={{ ...pillStyle(level === value), display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1, padding: '8px 14px' }}
+                      onClick={() => setLevel(value)}
+                    >
+                      <span>{label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 400, color: level === value ? `${COLORS.accent}cc` : COLORS.subtle }}>{hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Race distance */}
               <div>
                 <label style={labelStyle}>Race Distance</label>
@@ -439,15 +485,32 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
                 </div>
               </div>
 
-              {/* Days per week */}
+              {/* Available training days */}
               <div>
-                <label style={labelStyle}>Training Days per Week</label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[3, 4, 5, 6].map(d => (
-                    <button key={d} style={pillStyle(daysPerWeek === d)} onClick={() => setDaysPerWeek(d)}>
-                      {d} days
+                <label style={labelStyle}>Days Available to Train</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {DAYS_OF_WEEK.map(({ short, full }) => (
+                    <button key={full} style={pillStyle(preferredDays.includes(full))} onClick={() => toggleDay(full)}>
+                      {short}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Sessions per week */}
+              <div>
+                <label style={labelStyle}>Sessions per Week</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[3, 4, 5, 6].filter(d => d <= preferredDays.length).map(d => (
+                    <button key={d} style={pillStyle(daysPerWeek === d)} onClick={() => setDaysPerWeek(d)}>
+                      {d} sessions
+                    </button>
+                  ))}
+                  {preferredDays.length < 3 && (
+                    <span style={{ fontSize: 13, color: COLORS.muted, alignSelf: 'center' }}>
+                      Select at least 3 available days
+                    </span>
+                  )}
                 </div>
               </div>
 

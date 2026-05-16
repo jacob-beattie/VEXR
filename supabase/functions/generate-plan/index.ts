@@ -61,12 +61,14 @@ Deno.serve(async (req: Request) => {
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const body = await req.json()
-    const { sport, raceDistance, raceDate, startDate, trainingDaysPerWeek, goalTime, athleteProfile } = body as {
+    const { sport, raceDistance, raceDate, startDate, trainingDaysPerWeek, preferredDays, level, goalTime, athleteProfile } = body as {
       sport: 'triathlon' | 'run' | 'bike' | 'swim'
       raceDistance: string
       raceDate: string
       startDate: string
       trainingDaysPerWeek: number
+      preferredDays?: string[]
+      level?: 'beginner' | 'intermediate' | 'advanced'
       goalTime?: string
       athleteProfile: {
         ctl: number
@@ -101,10 +103,25 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
+    const availableDaysLine = preferredDays && preferredDays.length > 0
+      ? preferredDays.join(', ')
+      : 'any day'
+
+    const athleteLevel = level ?? 'intermediate'
+
+    const levelGuidance: Record<string, string> = {
+      beginner: 'Beginner: mostly Z1–Z2 aerobic work; no more than 1 harder session/week; sessions capped at 60–75 min; conservative volume progression (5–8% per week); prioritise consistency and injury prevention over intensity.',
+      intermediate: 'Intermediate: 1–2 quality sessions/week (threshold or intervals); long sessions up to 90 min; standard 10% volume progression; mix of aerobic base and race-specific work.',
+      advanced: 'Advanced: 2–3 quality sessions/week; long sessions 90–150 min; aggressive periodisation; VO2max and race-pace work in build phase; athlete can handle high TSS weeks.',
+    }
+
     const prompt = `You are an expert endurance coach writing a personalised training plan. Return ONLY valid JSON — no explanation, no markdown, no code blocks.
 
 Athlete:
 ${fitnessLines.join('\n')}
+Experience level: ${athleteLevel}
+
+Level guidance: ${levelGuidance[athleteLevel]}
 
 Plan:
 - Sport: ${sport}
@@ -112,13 +129,14 @@ Plan:
 - Race date: ${raceDate}
 - Start date: ${startDate}
 - Total weeks: ${totalWeeks}
-- Training days/week: ${trainingDaysPerWeek}${goalTime ? `\n- Goal time: ${goalTime}` : ''}
+- Sessions per week: ${trainingDaysPerWeek}
+- Athlete is available to train on: ${availableDaysLine}${goalTime ? `\n- Goal time: ${goalTime}` : ''}
 
 Periodisation:
-- Weeks 1–${baseWeeks}: Base — Z2 aerobic volume, 1 threshold session/week, long session Saturday or Sunday
-- Weeks ${baseWeeks + 1}–${peakEnd}: Build — add intervals, race-pace work, brick sessions (triathlon); keep long session weekend
+- Weeks 1–${baseWeeks}: Base — Z2 aerobic volume, 1 threshold session/week, long session on the latest available day of the week
+- Weeks ${baseWeeks + 1}–${peakEnd}: Build — add intervals, race-pace work, brick sessions (triathlon); keep long session on latest available day of week
 - Weeks ${peakEnd + 1}–${totalWeeks}: Taper — cut volume 40%, keep intensity, sharpen for race day
-- Alternate hard/easy days. Rest on non-training days (use sport "rest").
+- Schedule exactly ${trainingDaysPerWeek} training sessions per week. Sessions MUST only fall on the athlete's available days. Not every available day needs a session — pick the best ${trainingDaysPerWeek} from the available pool. All other days use sport "rest".
 
 Sport codes: swim, bike, run, sc (strength/core), brick (bike+run), rest
 
