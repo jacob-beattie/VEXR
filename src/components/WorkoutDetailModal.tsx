@@ -6,6 +6,126 @@ import type { Workout, WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { useProfile } from '../contexts/ProfileContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 
+// ── Session plan parser for planned workouts with WU/Main/CD descriptions ──
+
+interface SessionPhase {
+  label: string
+  type: 'warmup' | 'main' | 'cooldown' | 'tip'
+  content: string
+  durationMinutes: number
+}
+
+const PHASE_META: Record<SessionPhase['type'], { color: string; label: string }> = {
+  warmup:   { color: COLORS.green,   label: 'Warmup' },
+  main:     { color: COLORS.orange,  label: 'Main Set' },
+  cooldown: { color: COLORS.muted,   label: 'Cooldown' },
+  tip:      { color: '#8b9eb0',      label: 'Tip' },
+}
+
+function extractMinutes(text: string): number {
+  const rep = text.match(/(\d+)\s*[×xX]\s*(\d+)\s*min/i)
+  if (rep) return parseInt(rep[1]) * parseInt(rep[2])
+  const simple = text.match(/(\d+)\s*min/i)
+  return simple ? parseInt(simple[1]) : 0
+}
+
+function parseSessionPlan(notes: string): SessionPhase[] | null {
+  if (!/\b(WU|Main|CD|Tip):/i.test(notes)) return null
+  const re = /\b(WU|Main(?:\s+Set)?|CD|Tip):/gi
+  const markers: { index: number; full: string; key: string }[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(notes)) !== null) {
+    markers.push({ index: m.index, full: m[0], key: m[1].toLowerCase().replace(/\s+/g, '') })
+  }
+  if (markers.length === 0) return null
+  const phases: SessionPhase[] = []
+  for (let i = 0; i < markers.length; i++) {
+    const start = markers[i].index + markers[i].full.length
+    const end = i + 1 < markers.length ? markers[i + 1].index : notes.length
+    const content = notes.slice(start, end).replace(/\.\s*$/, '').trim()
+    const key = markers[i].key
+    let type: SessionPhase['type'] = 'warmup'
+    if (key === 'wu') type = 'warmup'
+    else if (key === 'main' || key === 'mainset') type = 'main'
+    else if (key === 'cd') type = 'cooldown'
+    else if (key === 'tip') type = 'tip'
+    phases.push({ label: PHASE_META[type].label, type, content, durationMinutes: extractMinutes(content) })
+  }
+  return phases.length > 0 ? phases : null
+}
+
+function SessionPlanVisual({ phases, totalDuration }: { phases: SessionPhase[]; totalDuration: number }) {
+  const barPhases = phases.filter(p => p.type !== 'tip')
+  const workoutPhases = phases.filter(p => p.type !== 'tip')
+  const tip = phases.find(p => p.type === 'tip')
+  const totalParsed = barPhases.reduce((s, p) => s + p.durationMinutes, 0)
+  const fallbackFlex = totalDuration / Math.max(barPhases.length, 1)
+
+  return (
+    <div>
+      {barPhases.length > 0 && (
+        <div style={{ display: 'flex', gap: 2, marginBottom: 14, height: 10, borderRadius: 4, overflow: 'hidden' }}>
+          {barPhases.map(phase => (
+            <div
+              key={phase.type}
+              style={{
+                flex: phase.durationMinutes > 0 ? phase.durationMinutes : (totalParsed > 0 ? fallbackFlex : 1),
+                background: PHASE_META[phase.type].color,
+                opacity: 0.85,
+                minWidth: 4,
+              }}
+            />
+          ))}
+        </div>
+      )}
+      {workoutPhases.map(phase => {
+        const { color } = PHASE_META[phase.type]
+        return (
+          <div
+            key={phase.type}
+            style={{
+              display: 'flex', alignItems: 'flex-start',
+              padding: '9px 12px',
+              borderTop: 'none', borderBottom: 'none', borderRight: 'none',
+              borderLeft: `3px solid ${color}`,
+              background: color + '0d',
+              borderRadius: '0 6px 6px 0',
+              marginBottom: 4,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {phase.label}
+                </span>
+                {phase.durationMinutes > 0 && (
+                  <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
+                    {phase.durationMinutes} min
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.55 }}>{phase.content}</div>
+            </div>
+          </div>
+        )
+      })}
+      {tip && (
+        <div style={{
+          marginTop: 10,
+          padding: '8px 12px',
+          background: COLORS.surface,
+          borderRadius: 8,
+          border: `1px solid ${COLORS.border}`,
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <span style={{ fontSize: 13 }}>💡</span>
+          <span style={{ fontSize: 12, color: COLORS.muted, lineHeight: 1.5 }}>{tip.content}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
   interval: COLORS.accent,
@@ -354,15 +474,24 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                 </div>
               )}
 
-              {/* Notes */}
-              {workout.notes && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Notes</div>
-                  <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.6, background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
-                    {workout.notes}
+              {/* Notes / Session Plan */}
+              {workout.notes && (() => {
+                const phases = workout.planned ? parseSessionPlan(workout.notes) : null
+                return (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      {phases ? 'Session Plan' : 'Notes'}
+                    </div>
+                    {phases ? (
+                      <SessionPlanVisual phases={phases} totalDuration={workout.duration_minutes} />
+                    ) : (
+                      <div style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.6, background: COLORS.surface, borderRadius: 8, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
+                        {workout.notes}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Strava link */}
               {workout.strava_activity_id && (

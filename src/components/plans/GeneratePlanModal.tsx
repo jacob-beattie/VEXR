@@ -315,7 +315,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
           duration_minutes: parseInt(s.dur) || 0,
           tss: 0,
           planned: true,
-          notes: s.metric || null,
+          notes: s.description || s.metric || null,
         }))
 
       if (calendarRows.length > 0) {
