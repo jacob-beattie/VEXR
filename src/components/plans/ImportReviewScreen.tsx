@@ -178,9 +178,9 @@ export function ImportReviewScreen({
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '10px 16px',
-                  background: '#0d1017',
+                  background: COLORS.bg,
                   borderRadius: 8,
-                  border: `1px solid ${hoveredWeek === w ? COLORS.subtle : COLORS.border}`,
+                  border: `1px solid ${hoveredWeek === w ? COLORS.border : COLORS.border}`,
                   cursor: 'pointer',
                   userSelect: 'none',
                   marginBottom: isOpen ? 6 : 0,
@@ -227,7 +227,7 @@ export function ImportReviewScreen({
                       padding: isMobile ? '10px 12px' : '11px 16px',
                       borderRadius: 8,
                       border: `1px solid ${isHovered ? COLORS.border : 'transparent'}`,
-                      background: isHovered ? '#ffffff05' : 'transparent',
+                      background: isHovered ? COLORS.bg : 'transparent',
                       cursor: 'default',
                       transition: 'background 0.12s, border-color 0.12s',
                     }}

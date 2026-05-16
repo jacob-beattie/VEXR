@@ -386,7 +386,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
       />
 
       <div style={{
-        background: '#0f1319',
+        background: COLORS.surface,
         border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
         borderRadius: isMobile ? '18px 18px 0 0' : 18,
         width: modalWidth,

@@ -342,7 +342,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
       onClick={e => !isMobile && e.target === e.currentTarget && onClose()}
     >
       <div style={{
-        background: '#0f1319',
+        background: COLORS.surface,
         border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
         borderRadius: isMobile ? '18px 18px 0 0' : 18,
         width: modalWidth,
@@ -465,7 +465,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
 
               {/* Current fitness */}
               <div style={{
-                background: COLORS.surface,
+                background: COLORS.bg,
                 border: `1px solid ${COLORS.border}`,
                 borderRadius: 10,
                 padding: '12px 16px',
