@@ -53,7 +53,7 @@ WEARABLE / DEVICE SYNC
 
 PLANNING
 --------
-- Drag and drop plan builder: visually move workouts around the calendar
+✅ Drag and drop calendar: planned workouts draggable in month and week views (desktop); drop on any day to reschedule via Supabase; ghost card overlay, cyan drop-zone highlight, 8px activation threshold preserves click behaviour
 - Taper calculator: automatically adjusts last 2-3 weeks before race day
 - Multi-sport periodization: build blocks across swim/bike/run with load balancing
 

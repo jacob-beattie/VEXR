@@ -21,7 +21,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 ### Core
 
-- 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed
+- 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed, drag-and-drop rescheduling
 - 📊 **Performance Dashboard** — personalised greeting, CTL/ATL/TSB stat cards with fitness area chart, weekly load, coming up, AI coach teaser, and season goals
 - 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony, power curve, pace curve, heart rate zones
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
@@ -194,7 +194,7 @@ See `roadmap.txt` for the full feature roadmap.
 
 **Coming soon:**
 
-- Drag and drop calendar
+- ~~Drag and drop calendar~~ ✅ shipped
 - Garmin direct sync
 - Whoop/Oura HRV integration
 - Auto-TSS from plain English description
