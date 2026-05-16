@@ -51,6 +51,10 @@ export interface Profile {
   onboarding_completed?: boolean
   max_hr?: number | null
   avatar_url?: string | null
+  subscription_tier?: 'free' | 'pro'
+  stripe_customer_id?: string | null
+  stripe_subscription_id?: string | null
+
 }
 
 export interface TrainingPlan {

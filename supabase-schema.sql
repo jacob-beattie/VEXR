@@ -8,8 +8,16 @@ create table profiles (
   css text default '1:45',
   race_goal text,
   race_date date,
-  created_at timestamp with time zone default now()
+  created_at timestamp with time zone default now(),
+  subscription_tier text default 'free' check (subscription_tier in ('free', 'pro')),
+  stripe_customer_id text,
+  stripe_subscription_id text
 );
+
+-- Migration for existing installs:
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_tier text default 'free' check (subscription_tier in ('free', 'pro'));
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id text;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id text;
 
 -- Workouts
 create table workouts (

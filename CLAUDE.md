@@ -85,6 +85,20 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - TSB: CTL − ATL
 - Calculated in `WorkoutsContext.tsx` — `calculateFitnessMetrics()` and `getFitnessHistory()`
 
+## Monetisation
+
+- Free tier: workout logging, calendar, dashboard, Strava sync
+- Pro tier: Analytics, AI Coach, Training Plans, Nutrition
+- `profiles` table has `subscription_tier` ('free'|'pro'), `stripe_customer_id`, `stripe_subscription_id`
+- `useSubscription()` hook (`src/hooks/useSubscription.ts`) — reads tier from `ProfileContext`, returns `{ isPro, tier }`
+- `<ProGate>` component (`src/components/ui/ProGate.tsx`) — wraps Pro pages; free users see blurred preview + upgrade CTA
+- Pro gates applied in `App.tsx` routes for `/analytics`, `/ai-coach`, `/plans`, `/nutrition`
+- `/upgrade` page (`src/pages/Upgrade.tsx`) — pricing cards, Stripe Checkout redirect, success state
+- Sidebar shows Upgrade banner for free users
+- Edge functions: `create-checkout-session` (creates Stripe Checkout session), `stripe-webhook` (handles subscription events, updates `profiles.subscription_tier`)
+- Required Supabase secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`
+- Stripe webhook events handled: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+
 ## Features Shipped
 
 - Auth: email/password, Supabase RLS

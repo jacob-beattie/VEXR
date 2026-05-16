@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from '../../lib/colors'
 import { useProfile } from '../../contexts/ProfileContext'
 import { useStrava } from '../../contexts/StravaContext'
+import { useSubscription } from '../../hooks/useSubscription'
 
 interface SidebarProps {
   onProfileClick: () => void
@@ -26,6 +27,7 @@ const navItems = [
 export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = false, isOpen = false, onClose }: SidebarProps) {
   const { profile } = useProfile()
   const { syncing, connection } = useStrava()
+  const { isPro } = useSubscription()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -167,6 +169,40 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
           </button>
         )
       })}
+
+      {/* Upgrade banner for free users */}
+      {!isPro && (
+        <div style={{ padding: '0 12px', marginTop: 12 }}>
+          <button
+            onClick={() => handleNav('/upgrade')}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: `${COLORS.accent}18`,
+              border: `1px solid ${COLORS.accent}40`,
+              borderRadius: 10,
+              color: COLORS.accent,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${COLORS.accent}28`)}
+            onMouseLeave={e => (e.currentTarget.style.background = `${COLORS.accent}18`)}
+          >
+            <span style={{ fontSize: 14 }}>⬡</span>
+            <div>
+              <div>Upgrade to Pro</div>
+              <div style={{ fontSize: 10, fontWeight: 400, color: COLORS.muted, marginTop: 1 }}>Analytics · AI Coach · Plans</div>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Sign out + Strava indicator */}
       <div style={{ marginTop: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>

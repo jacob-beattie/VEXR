@@ -10,6 +10,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
 import { ProfileSettingsModal } from './components/ProfileSettingsModal'
+import { ProGate } from './components/ui/ProGate'
 import type { User } from '@supabase/supabase-js'
 
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
@@ -23,6 +24,7 @@ const Signup = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signu
 const StravaCallback = lazy(() => import('./pages/StravaCallback').then(m => ({ default: m.StravaCallback })))
 const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })))
 const Nutrition = lazy(() => import('./pages/Nutrition').then(m => ({ default: m.Nutrition })))
+const Upgrade = lazy(() => import('./pages/Upgrade').then(m => ({ default: m.Upgrade })))
 
 function PageLoader() {
   return (
@@ -39,6 +41,7 @@ const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: 
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
   '/nutrition': { title: 'Nutrition', subtitle: 'Track your daily fuel and macros' },
+  '/upgrade': { title: 'Upgrade', subtitle: 'Unlock the full Vexr experience' },
 }
 
 
@@ -220,11 +223,28 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
-            <Route path="/ai-coach" element={<AICoach />} />
-            <Route path="/plans" element={<Plans />} />
+            <Route path="/analytics" element={
+              <ProGate feature="Performance Analytics" description="Dive deep into power curves, pace analysis, heart rate zones, and long-term fitness trends.">
+                <Analytics onOpenProfile={() => setShowProfileModal(true)} />
+              </ProGate>
+            } />
+            <Route path="/ai-coach" element={
+              <ProGate feature="AI Coach" description="Get personalised weekly briefings from Claude, race time predictions, and training phase analysis.">
+                <AICoach />
+              </ProGate>
+            } />
+            <Route path="/plans" element={
+              <ProGate feature="Training Plans" description="Import PDF training plans or generate a fully periodised plan with AI, synced straight to your calendar.">
+                <Plans />
+              </ProGate>
+            } />
             <Route path="/library" element={<Library />} />
-            <Route path="/nutrition" element={<Nutrition />} />
+            <Route path="/nutrition" element={
+              <ProGate feature="Nutrition Tracking" description="Log meals, track macros and calories against your targets, monitor hydration, and fuel your training properly.">
+                <Nutrition />
+              </ProGate>
+            } />
+            <Route path="/upgrade" element={<Upgrade />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
