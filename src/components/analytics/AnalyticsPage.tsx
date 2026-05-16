@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, LabelList,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { COLORS } from '../../lib/colors'
+import { COLORS, SPORT_COLORS } from '../../lib/colors'
 import type { Workout, WorkoutType, Profile } from '../../types'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -20,12 +20,12 @@ const RANGE_OPTIONS = [
 ]
 
 const ZONE_COLORS: Record<string, string> = {
-  'Zone 1': '#4a9eff',
-  'Zone 2': COLORS.accent,
-  'Zone 3': COLORS.green,
+  'Zone 1': COLORS.accent,
+  'Zone 2': COLORS.green,
+  'Zone 3': COLORS.amber,
   'Zone 4': COLORS.orange,
-  'Zone 5': '#ff4757',
-  'Zone 6': '#ff2d55',
+  'Zone 5': COLORS.danger,
+  'Zone 6': COLORS.danger,
 }
 
 // Each band shows best avg_power from rides of AT LEAST this duration.
@@ -46,7 +46,7 @@ const PACE_BANDS = [
   { label: 'Mar', minKm: 40, maxKm: 45 },
 ]
 
-const HR_ZONE_COLORS = ['#4a9eff', COLORS.green, '#ffdd00', COLORS.orange, '#ff4757']
+const HR_ZONE_COLORS = [COLORS.accent, COLORS.green, COLORS.amber, COLORS.orange, COLORS.danger]
 const HR_ZONE_LABELS = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5']
 
 // Default boundaries using 220-35 and correct zone percentages
@@ -81,10 +81,10 @@ function parseZone(zone: string | null | undefined): string {
   if (match) return `Zone ${match[1]}`
   const lower = zone.toLowerCase()
   if (lower.includes('recov')) return 'Zone 1'
-  if (lower.includes('thresh')) return 'Zone 4'
+  if (lower === 'endurance' || lower === 'long' || lower.includes('aerob')) return 'Zone 2'
   if (lower.includes('tempo')) return 'Zone 3'
-  if (lower.includes('aerob')) return 'Zone 2'
-  if (lower.includes('vo2') || lower.includes('v02')) return 'Zone 5'
+  if (lower.includes('thresh')) return 'Zone 4'
+  if (lower === 'intervals' || lower === 'race' || lower.includes('vo2') || lower.includes('v02')) return 'Zone 5'
   return zone
 }
 
@@ -126,8 +126,11 @@ function getVolumeHistory(workouts: Workout[], weeks: number) {
   })
 }
 
-function getZoneDistribution(workouts: Workout[]) {
-  const completed = workouts.filter(w => !w.planned && w.duration_minutes > 0)
+function getZoneDistribution(workouts: Workout[], rangeStart: Date) {
+  const completed = workouts.filter(w => {
+    if (w.planned || !w.duration_minutes) return false
+    return new Date(w.date + 'T00:00:00') >= rangeStart
+  })
   const totals: Record<string, number> = {}
   for (const w of completed) {
     const z = parseZone(w.zone)
@@ -380,8 +383,6 @@ interface AnalyticsPageProps {
 export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, onWeeksChange, onOpenProfile, profile }: AnalyticsPageProps) {
   const isMobile = useIsMobile()
   const volumeHistory = getVolumeHistory(workouts, weeks)
-  const zoneDist = getZoneDistribution(workouts)
-  const hasZoneData = zoneDist.some(z => z.zone !== 'Unspecified')
   const monotony = getMonotony(workouts, weeks)
   const ytd = getYTDStats(workouts)
   const best = getBestPerformances(workouts)
@@ -392,6 +393,9 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
   const rangeStart = new Date()
   rangeStart.setHours(0, 0, 0, 0)
   rangeStart.setDate(rangeStart.getDate() - weeks * 7)
+
+  const zoneDist = getZoneDistribution(workouts, rangeStart)
+  const hasZoneData = zoneDist.some(z => z.zone !== 'Unspecified')
 
   const sportTotals = workouts.filter(w => {
     if (w.planned) return false
@@ -410,7 +414,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
   const monotonyColor = monotony === null ? COLORS.muted
     : monotony < 1.5 ? COLORS.green
     : monotony < 2.0 ? COLORS.orange
-    : '#ff4757'
+    : COLORS.danger
   const monotonyLabel = monotony === null ? '—'
     : monotony < 1.5 ? 'Good variety'
     : monotony < 2.0 ? 'Moderate risk'
@@ -451,14 +455,14 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       {/* YTD Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12 }}>
         {[
-          { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count), color: COLORS.accent },
-          { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours), color: COLORS.green },
-          { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km`, color: COLORS.purple },
-          { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss), color: COLORS.orange },
+          { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count) },
+          { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours) },
+          { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km` },
+          { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss) },
         ].map(s => (
           <div key={s.label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -574,10 +578,10 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
                 <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={tickInterval(volumeHistory.length)} />
                 <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} unit="h" />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="run"      stackId="vol" fill={COLORS.green}   radius={[0, 0, 0, 0]} name="Run" />
-                <Bar dataKey="ride"     stackId="vol" fill={COLORS.accent}  radius={[0, 0, 0, 0]} name="Ride" />
-                <Bar dataKey="swim"     stackId="vol" fill={COLORS.purple}  radius={[0, 0, 0, 0]} name="Swim" />
-                <Bar dataKey="strength" stackId="vol" fill={COLORS.orange}  radius={[3, 3, 0, 0]} name="Strength" />
+                <Bar dataKey="run"      stackId="vol" fill={SPORT_COLORS.run}      radius={[0, 0, 0, 0]} name="Run" />
+                <Bar dataKey="ride"     stackId="vol" fill={SPORT_COLORS.ride}     radius={[0, 0, 0, 0]} name="Ride" />
+                <Bar dataKey="swim"     stackId="vol" fill={SPORT_COLORS.swim}     radius={[0, 0, 0, 0]} name="Swim" />
+                <Bar dataKey="strength" stackId="vol" fill={SPORT_COLORS.strength} radius={[3, 3, 0, 0]} name="Strength" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -615,27 +619,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
               )}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 12, textAlign: 'center' }}>
-              <div style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.5, maxWidth: 220 }}>
-                Set your training zones in Profile Settings to see zone distribution
-              </div>
-              {onOpenProfile && (
-                <button
-                  onClick={onOpenProfile}
-                  style={{
-                    background: COLORS.accentDim, border: `1px solid ${COLORS.accent}`,
-                    borderRadius: 8, color: COLORS.accent,
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    padding: '7px 16px', fontFamily: 'inherit',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = COLORS.accent + '30')}
-                  onMouseLeave={e => (e.currentTarget.style.background = COLORS.accentDim)}
-                >
-                  Open Profile Settings
-                </button>
-              )}
-            </div>
+            <EmptyChart height={160} message="Set a Session Focus when logging workouts to see zone distribution" />
           )}
         </ChartCard>
       </div>
@@ -661,7 +645,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
               {[
                 { range: '< 1.5', label: 'Good variety', color: COLORS.green },
                 { range: '1.5 – 2.0', label: 'Moderate risk', color: COLORS.orange },
-                { range: '> 2.0', label: 'High risk', color: '#ff4757' },
+                { range: '> 2.0', label: 'High risk', color: COLORS.danger },
               ].map(s => (
                 <div key={s.range} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
@@ -684,30 +668,26 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
               label: 'Longest Run',
               value: best.longestRun ? `${(best.longestRun.distance_meters! / 1000).toFixed(1)} km` : '—',
               sub: best.longestRun?.title ?? '',
-              color: COLORS.green,
             },
             {
               label: 'Longest Ride',
               value: best.longestRide ? `${(best.longestRide.distance_meters! / 1000).toFixed(1)} km` : '—',
               sub: best.longestRide?.title ?? '',
-              color: COLORS.accent,
             },
             {
               label: 'Highest TSS',
               value: best.highestTSS ? String(best.highestTSS.tss) : '—',
               sub: best.highestTSS?.title ?? '',
-              color: COLORS.orange,
             },
             {
               label: 'Best TSS Week',
               value: best.bestWeekTSS > 0 ? String(best.bestWeekTSS) : '—',
               sub: 'all time',
-              color: COLORS.purple,
             },
           ].map(s => (
             <div key={s.label} style={{ background: COLORS.surface, borderRadius: 8, padding: '14px 16px', border: `1px solid ${COLORS.border}` }}>
               <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: 'DM Mono, monospace', marginBottom: 4 }}>{s.value}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace', marginBottom: 4 }}>{s.value}</div>
               {s.sub && <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sub}</div>}
             </div>
           ))}
