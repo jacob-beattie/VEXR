@@ -1,4 +1,3 @@
-import React from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'

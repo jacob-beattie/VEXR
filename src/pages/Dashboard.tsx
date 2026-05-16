@@ -644,7 +644,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, unit, sub, color, dimSub }: {
+function StatCard({ label, value, unit, sub, color }: {
   label: string
   value: string | number
   unit?: string
@@ -717,7 +717,6 @@ export function Dashboard() {
   const subtitle = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Stat card helpers
-  const tsbColor = COLORS.green
   const ctlSub = ctlDelta !== 0 ? `${ctlDelta > 0 ? '↑' : '↓'} ${Math.abs(ctlDelta)} this week` : 'Stable this week'
   const atlSub = atl > 70 ? 'Heavy training load' : atl > 45 ? 'Moderate load' : atl > 20 ? 'Light load' : 'Very fresh'
   const tsbSub = tsb > 10 ? '🟢 Fresh — ready to race' : tsb < -20 ? '⚠️ High fatigue' : tsb < -10 ? 'Some fatigue' : 'Balanced form'

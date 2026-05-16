@@ -218,17 +218,11 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   async function loadData() {
     setLoadingData(true)
 
-    const [{ data: bData }, { data: zData }] = await Promise.all([
-      supabase
-        .from('fitness_benchmarks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('recorded_at', { ascending: true }),
-      supabase
-        .from('training_zones')
-        .select('*')
-        .eq('user_id', user.id),
-    ])
+    const { data: bData } = await supabase
+      .from('fitness_benchmarks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('recorded_at', { ascending: true })
 
     if (bData) setBenchmarks(bData as FitnessBenchmark[])
 

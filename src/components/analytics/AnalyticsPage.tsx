@@ -379,7 +379,7 @@ interface AnalyticsPageProps {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, effectiveWeeks, onWeeksChange, onOpenProfile, profile }: AnalyticsPageProps) {
+export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, effectiveWeeks, onWeeksChange, profile }: AnalyticsPageProps) {
   const isMobile = useIsMobile()
 
   const rangeStart = new Date()
