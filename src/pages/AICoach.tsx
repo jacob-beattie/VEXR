@@ -59,20 +59,20 @@ function MetricCard({
   return (
     <div style={{
       flex: 1,
-      background: COLORS.surface,
-      borderTop: `2px solid ${color}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 10,
+      background: COLORS.card,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 12,
       padding: '14px 16px',
       textAlign: 'center',
       minWidth: 80,
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      <div style={{ fontSize: 9, color, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
         {label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 900, color, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
+      <div style={{ fontSize: 26, fontWeight: 900, color: COLORS.text, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
         {value}
       </div>
       {sub && (
@@ -97,15 +97,12 @@ function QuickStatCard({
     <div style={{
       flex: 1,
       background: COLORS.card,
-      borderTop: `1px solid ${COLORS.border}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 10,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 12,
       padding: '14px 16px',
       minWidth: 120,
     }}>
-      <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
         {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -266,12 +263,9 @@ export function AICoach() {
         ) : (
           <div style={{
             flex: 1,
-            background: COLORS.surface,
-            borderTop: `2px solid ${COLORS.border}`,
-            borderRight: `1px solid ${COLORS.border}`,
-            borderBottom: `1px solid ${COLORS.border}`,
-            borderLeft: `1px solid ${COLORS.border}`,
-            borderRadius: 10,
+            background: COLORS.card,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 12,
             padding: '14px 16px',
             textAlign: 'center',
             minWidth: 80,
@@ -279,8 +273,11 @@ export function AICoach() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
           }}>
-            <div style={{ fontSize: 9, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
+            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
               Race Countdown
             </div>
             <div style={{ fontSize: 12, color: COLORS.muted }}>No race set</div>
