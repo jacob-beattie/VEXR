@@ -110,7 +110,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: '#000',
+            fontSize: 14, fontWeight: 700, color: '#fff',
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

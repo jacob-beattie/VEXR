@@ -524,7 +524,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   width: '100%', height: '100%',
                   background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 700, color: '#000',
+                  fontSize: 22, fontWeight: 700, color: '#fff',
                 }}>
                   {form.name ? form.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                 </div>
