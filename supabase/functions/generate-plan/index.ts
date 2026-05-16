@@ -1,9 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const VALID_SPORTS = ['triathlon', 'run', 'bike', 'swim'] as const
+const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
+const RATE_LIMIT = 5
+const RATE_WINDOW_MS = 60 * 60 * 1000
 
 const DAY_OFFSETS: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
@@ -30,6 +36,21 @@ interface RawSession {
   zone_label: string
   phase: string
   notes: string
+}
+
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('api_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('function_name', 'generate-plan')
+    .gte('called_at', windowStart)
+  if ((count ?? 0) >= RATE_LIMIT) return false
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'generate-plan' })
+  return true
 }
 
 Deno.serve(async (req: Request) => {
@@ -59,15 +80,23 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    // ── Parse body ────────────────────────────────────────────────────────────
+    // ── Rate limit ────────────────────────────────────────────────────────────
+    const allowed = await checkRateLimit(supabase, user.id)
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can generate up to 5 plans per hour.' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // ── Parse + validate body ─────────────────────────────────────────────────
     const body = await req.json()
     const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = body as {
-      sport: 'triathlon' | 'run' | 'bike' | 'swim'
+      sport: string
       raceDistance: string
       raceDate: string
       startDate: string
       preferredDays?: string[]
-      level?: 'beginner' | 'intermediate' | 'advanced'
+      level?: string
       goalTime?: string
       athleteProfile: {
         ctl: number
@@ -83,9 +112,34 @@ Deno.serve(async (req: Request) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    if (!(VALID_SPORTS as readonly string[]).includes(sport)) {
+      return new Response(JSON.stringify({ error: 'Invalid sport' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (typeof raceDistance !== 'string' || raceDistance.length === 0 || raceDistance.length > 100) {
+      return new Response(JSON.stringify({ error: 'Invalid race distance' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (level !== undefined && !(VALID_LEVELS as readonly string[]).includes(level)) {
+      return new Response(JSON.stringify({ error: 'Invalid level' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const startMs = Date.parse(startDate)
+    const raceMs = Date.parse(raceDate)
+    if (isNaN(startMs) || isNaN(raceMs)) {
+      return new Response(JSON.stringify({ error: 'Invalid date format' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (raceMs <= startMs) {
+      return new Response(JSON.stringify({ error: 'Race date must be after start date' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    const startMs = new Date(startDate + 'T00:00:00Z').getTime()
-    const raceMs = new Date(raceDate + 'T00:00:00Z').getTime()
     const totalWeeks = Math.max(1, Math.round((raceMs - startMs) / (7 * 86400000)))
 
     const baseWeeks = Math.round(totalWeeks * 0.55)
@@ -186,7 +240,8 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()
-      throw new Error(`Anthropic API error ${aiRes.status}: ${errBody}`)
+      console.error('[generate-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+      throw new Error('AI service error')
     }
 
     const aiData = await aiRes.json()
@@ -257,7 +312,7 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
     const message = err instanceof Error ? err.message : String(err)
     console.error('[generate-plan] error:', message)
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }

@@ -266,6 +266,18 @@ insert into food_database (name, calories, protein, carbs, fat) values
   ('Blueberries (150g)', 86, 1, 21, 0),
   ('Quinoa (180g cooked)', 222, 8, 40, 4);
 
+-- ── API rate limits ───────────────────────────────────────────────────────────
+create table if not exists api_rate_limits (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references auth.users(id) on delete cascade not null,
+  function_name text not null,
+  called_at    timestamptz default now() not null
+);
+create index if not exists idx_api_rate_limits on api_rate_limits(user_id, function_name, called_at);
+alter table api_rate_limits enable row level security;
+create policy "Users can manage own rate limits" on api_rate_limits
+  for all using (auth.uid() = user_id);
+
 -- ── Profile avatar ────────────────────────────────────────────────────────────
 alter table profiles add column if not exists avatar_url text;
 

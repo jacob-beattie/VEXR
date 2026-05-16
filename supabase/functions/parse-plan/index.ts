@@ -1,9 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const VALID_CONTENT_TYPES = ['pdf', 'html', 'text'] as const
+const RATE_LIMIT = 5
+const RATE_WINDOW_MS = 60 * 60 * 1000
 
 const DAY_OFFSETS: Record<string, number> = {
   Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
@@ -30,6 +35,21 @@ interface RawSession {
   zone_label: string
   phase: string
   notes: string
+}
+
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('api_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('function_name', 'parse-plan')
+    .gte('called_at', windowStart)
+  if ((count ?? 0) >= RATE_LIMIT) return false
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'parse-plan' })
+  return true
 }
 
 Deno.serve(async (req: Request) => {
@@ -59,11 +79,19 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    // ── Parse body ────────────────────────────────────────────────────────────
+    // ── Rate limit ────────────────────────────────────────────────────────────
+    const allowed = await checkRateLimit(supabase, user.id)
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can import up to 5 plans per hour.' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // ── Parse + validate body ─────────────────────────────────────────────────
     const body = await req.json()
     const { content, contentType, startDate, raceDate, planName } = body as {
       content: string
-      contentType: 'pdf' | 'html' | 'text'
+      contentType: string
       startDate: string
       raceDate: string
       planName?: string
@@ -74,9 +102,23 @@ Deno.serve(async (req: Request) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-
     if (content.length > 80000) {
       return new Response(JSON.stringify({ error: 'content_too_large' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (!(VALID_CONTENT_TYPES as readonly string[]).includes(contentType)) {
+      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (startDate && isNaN(Date.parse(startDate))) {
+      return new Response(JSON.stringify({ error: 'Invalid start date format' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (raceDate && isNaN(Date.parse(raceDate))) {
+      return new Response(JSON.stringify({ error: 'Invalid race date format' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -148,7 +190,8 @@ ${content}`
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()
-      throw new Error(`Anthropic API error ${aiRes.status}: ${errBody}`)
+      console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+      throw new Error('AI service error')
     }
 
     const aiData = await aiRes.json()
@@ -221,7 +264,7 @@ ${content}`
     const message = err instanceof Error ? err.message : String(err)
     console.error('[parse-plan] error:', message)
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
