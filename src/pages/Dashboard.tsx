@@ -8,6 +8,7 @@ import { workoutTypes } from '../components/ui/Badge'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
+import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import type { Workout } from '../types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ function FitnessAreaChart({ data }: { data: Array<{ week: string; fitness: numbe
 
 // ─── Weekly Load ──────────────────────────────────────────────────────────────
 
-function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
+function WeeklyLoadCard({ weekWorkouts, onDayClick }: { weekWorkouts: Workout[], onDayClick: (date: Date, workouts: Workout[]) => void }) {
   const actual = weekWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const planned = weekWorkouts.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const target = actual + planned
@@ -134,7 +135,7 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
     const dw = weekWorkouts.filter(w => w.date.split('T')[0] === key)
     const done = dw.filter(w => !w.planned)
     const pending = dw.filter(w => w.planned)
-    return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i], done, pending, isToday: localDateKey(new Date()) === key }
+    return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i], done, pending, isToday: localDateKey(new Date()) === key, date: d, all: dw }
   })
 
   const sportColor = (type: string) => workoutTypes[type as keyof typeof workoutTypes]?.color ?? COLORS.muted
@@ -168,13 +169,20 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
           const hasPending = day.pending.length > 0 && !isDone
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-              <div style={{
-                width: '100%', aspectRatio: '1', borderRadius: 6,
-                background: isDone ? color + '28' : 'transparent',
-                border: `1px ${hasPending ? 'dashed' : 'solid'} ${isDone ? color : hasPending ? color + '70' : COLORS.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12,
-              }}>
+              <div
+                onClick={() => day.all.length > 0 && onDayClick(day.date, day.all)}
+                style={{
+                  width: '100%', aspectRatio: '1', borderRadius: 6,
+                  background: isDone ? color + '28' : 'transparent',
+                  border: `1px ${hasPending ? 'dashed' : 'solid'} ${isDone ? color : hasPending ? color + '70' : COLORS.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12,
+                  cursor: day.all.length > 0 ? 'pointer' : 'default',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => { if (day.all.length > 0) e.currentTarget.style.opacity = '0.75' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+              >
                 {isDone && <span style={{ color }}>✓</span>}
                 {hasPending && <span style={{ color: color + '90', fontSize: 9 }}>○</span>}
               </div>
@@ -693,6 +701,7 @@ export function Dashboard() {
   const { profile } = useProfile()
   const [showWelcome, setShowWelcome] = useState(() => sessionStorage.getItem('onboardingWelcome') === 'true')
   const [detailWorkout, setDetailWorkout] = useState<Workout | null>(null)
+  const [dayModal, setDayModal] = useState<{ date: Date; workouts: Workout[] } | null>(null)
   const isMobile = useIsMobile()
   const navigate = useNavigate()
 
@@ -864,7 +873,7 @@ export function Dashboard() {
         {/* Left: chart + weekly load */}
         <div>
           <FitnessAreaChart data={fitnessHistory} />
-          <WeeklyLoadCard weekWorkouts={weekWorkouts} />
+          <WeeklyLoadCard weekWorkouts={weekWorkouts} onDayClick={(date, workouts) => setDayModal({ date, workouts })} />
         </div>
 
         {/* Right: coming up + AI coach + goals */}
@@ -882,6 +891,15 @@ export function Dashboard() {
           onClose={() => setDetailWorkout(null)}
           onDelete={async (id) => { await deleteWorkout(id); setDetailWorkout(null) }}
           onUpdate={async (id, updates) => { await updateWorkout(id, updates); setDetailWorkout(null) }}
+        />
+      )}
+      {dayModal && !detailWorkout && (
+        <DayWorkoutsModal
+          date={dayModal.date}
+          workouts={dayModal.workouts}
+          onSelectWorkout={(w) => { setDayModal(null); setDetailWorkout(w) }}
+          onAddWorkout={() => setDayModal(null)}
+          onClose={() => setDayModal(null)}
         />
       )}
     </>
