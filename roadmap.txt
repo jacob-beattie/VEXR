@@ -16,7 +16,7 @@ CORE (SHIPPED)
 ✅ Dark mode only
 ✅ Vercel deployment config
 ✅ Dashboard redesign: today's workout + mark complete, CTL/ATL/TSB cards, race countdown, weekly load progress, upcoming 4 days
-✅ Profile Settings: name/sport/FTP/pace/CSS/max HR, benchmark history charts, training zones (cycling auto-calc, running/swimming manual, heart rate auto-calc from max HR)
+✅ Profile Settings: name/sport/FTP/pace/CSS/max HR, benchmark history charts, training zones (all auto-calc — cycling from FTP, running from threshold pace, swimming from CSS, heart rate from max HR)
 ✅ TSS auto-calculation in Log Workout modal: type-specific inputs (run=avg pace, ride=avg power, swim=distance, strength/rest=RPE slider), read-only auto TSS with Edit/Auto override toggle
 ✅ Structured workout builder: Simple/Structured mode toggle (run/ride/swim), drag-to-reorder interval blocks (Warmup/Interval/Rest/Cooldown), per-block duration/reps/intensity/notes, auto TSS + duration from blocks, structured data saved as JSONB in workouts.structure column
 ✅ Session Focus picker: replaces zone text input with pill selector (Recovery/Endurance/Tempo/Threshold/Intervals/Race/Long), shown as badge in workout detail view

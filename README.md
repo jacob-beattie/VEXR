@@ -39,7 +39,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 🔄 **Strava Sync** — auto-import workouts with HR, power, pace, distance and elevation
 - 📏 **Benchmark Tracking** — FTP, run pace and CSS history with trend charts
-- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim, heart rate zones from max HR
+- 🎯 **Training Zones** — all zones auto-calculated: cycling from FTP, running from threshold pace, swimming from CSS, heart rate from max HR
 
 ### UX
 
