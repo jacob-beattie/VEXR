@@ -12,11 +12,11 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RANGE_OPTIONS = [
+const RANGE_OPTIONS: Array<{ label: string; weeks: number | null }> = [
   { label: '4W',  weeks: 4  },
-  { label: '8W',  weeks: 8  },
   { label: '12W', weeks: 12 },
   { label: '6M',  weeks: 26 },
+  { label: 'All', weeks: null },
 ]
 
 const ZONE_COLORS: Record<string, string> = {
@@ -189,10 +189,8 @@ function getYTDStats(workouts: Workout[]) {
   }
 }
 
-function getBestPerformances(workouts: Workout[]) {
-  const year = new Date().getFullYear()
-  const completed = workouts.filter(w => !w.planned)
-  const ytd = completed.filter(w => new Date(w.date + 'T00:00:00').getFullYear() === year)
+function getBestPerformances(workouts: Workout[], rangeStart: Date) {
+  const completed = workouts.filter(w => !w.planned && new Date(w.date + 'T00:00:00') >= rangeStart)
 
   const longestRun = completed
     .filter(w => w.type === 'run' && w.distance_meters)
@@ -220,7 +218,7 @@ function getBestPerformances(workouts: Workout[]) {
     ? Math.max(...Object.values(tssByWeek))
     : 0
 
-  const sportCounts = ytd.reduce<Record<string, number>>((acc, w) => {
+  const sportCounts = completed.reduce<Record<string, number>>((acc, w) => {
     acc[w.type] = (acc[w.type] || 0) + 1
     return acc
   }, {})
@@ -372,27 +370,29 @@ interface AnalyticsPageProps {
   workouts: Workout[]
   fitnessHistory: Array<{ week: string; fitness: number; fatigue: number; form: number }>
   weeklyHistory: Array<{ week: string; tss: number; planned: number }>
-  weeks: number
-  onWeeksChange: (w: number) => void
+  weeks: number | null
+  effectiveWeeks: number
+  onWeeksChange: (w: number | null) => void
   onOpenProfile?: () => void
   profile?: Profile | null
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, onWeeksChange, onOpenProfile, profile }: AnalyticsPageProps) {
+export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, effectiveWeeks, onWeeksChange, onOpenProfile, profile }: AnalyticsPageProps) {
   const isMobile = useIsMobile()
-  const volumeHistory = getVolumeHistory(workouts, weeks)
-  const monotony = getMonotony(workouts, weeks)
-  const ytd = getYTDStats(workouts)
-  const best = getBestPerformances(workouts)
-
-  const tickInterval = (len: number) =>
-    isMobile ? Math.max(1, Math.floor(len / 3)) : (len > 12 ? Math.floor(len / 6) : 0)
 
   const rangeStart = new Date()
   rangeStart.setHours(0, 0, 0, 0)
-  rangeStart.setDate(rangeStart.getDate() - weeks * 7)
+  rangeStart.setDate(rangeStart.getDate() - effectiveWeeks * 7)
+
+  const volumeHistory = getVolumeHistory(workouts, effectiveWeeks)
+  const monotony = getMonotony(workouts, effectiveWeeks)
+  const ytd = getYTDStats(workouts)
+  const best = getBestPerformances(workouts, rangeStart)
+
+  const tickInterval = (len: number) =>
+    isMobile ? Math.max(1, Math.floor(len / 3)) : (len > 12 ? Math.floor(len / 6) : 0)
 
   const zoneDist = getZoneDistribution(workouts, rangeStart)
   const hasZoneData = zoneDist.some(z => z.zone !== 'Unspecified')
@@ -660,7 +660,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       {/* Best Performances */}
       <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-          Best Performances
+          Best Performances — {RANGE_OPTIONS.find(o => o.weeks === weeks)?.label ?? `${weeks}W`}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
@@ -696,7 +696,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
         {Object.keys(best.sportCounts).length > 0 && (
           <>
             <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
-              {new Date().getFullYear()} workouts by sport
+              Workouts by sport
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {(Object.keys(workoutTypes) as WorkoutType[]).filter(t => best.sportCounts[t]).map(type => {
