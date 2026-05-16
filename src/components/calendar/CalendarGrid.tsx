@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import {
+  DndContext, DragOverlay, PointerSensor,
+  useSensor, useSensors, useDroppable, useDraggable,
+  closestCenter,
+} from '@dnd-kit/core'
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { COLORS } from '../../lib/colors'
 import { CalendarDay } from './CalendarDay'
 import { workoutTypes } from '../ui/Badge'
@@ -18,6 +24,7 @@ interface CalendarGridProps {
   onViewChange: (v: 'month' | 'week') => void
   onDayClick?: (date: Date, workouts: Workout[]) => void
   onWorkoutClick?: (workout: Workout) => void
+  onWorkoutMove?: (workoutId: string, newDate: string) => void
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -39,16 +46,209 @@ function formatDuration(minutes: number): string {
   return `${h}h ${m}m`
 }
 
+// ── Ghost card shown under cursor while dragging ─────────────────────────────
+function GhostCard({ workout }: { workout: Workout }) {
+  const wt = workoutTypes[workout.type]
+  return (
+    <div style={{
+      background: COLORS.surface,
+      borderTop: `2px solid ${wt.color}`,
+      borderRight: `2px solid ${wt.color}`,
+      borderBottom: `2px solid ${wt.color}`,
+      borderLeft: `2px solid ${wt.color}`,
+      borderRadius: 10,
+      padding: '10px 14px',
+      boxShadow: `0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px ${wt.color}33`,
+      minWidth: 160,
+      maxWidth: 220,
+      pointerEvents: 'none',
+      rotate: '2deg',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+        <span style={{ fontSize: 15 }}>{wt.icon}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{wt.label}</span>
+        <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', marginLeft: 2 }}>PLANNED</span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {workout.title}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {workout.duration_minutes > 0 && (
+          <span style={{ fontSize: 12, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
+        )}
+        {workout.tss > 0 && (
+          <span style={{ fontSize: 12, color: wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Droppable month-view day cell ────────────────────────────────────────────
+function DroppableCalendarDay(props: {
+  droppableId: string
+  day: number
+  workouts: Workout[]
+  isToday: boolean
+  onClick?: () => void
+}) {
+  const { droppableId, ...rest } = props
+  const { setNodeRef, isOver } = useDroppable({ id: droppableId })
+  return <CalendarDay {...rest} droppableRef={setNodeRef} isDropOver={isOver} />
+}
+
+// ── Droppable week-view workout area ─────────────────────────────────────────
+function WeekDropZone({ id, isToday, isEmpty, isHovered, onClick, onMouseEnter, onMouseLeave, children }: {
+  id: string
+  isToday: boolean
+  isEmpty: boolean
+  isHovered: boolean
+  onClick: () => void
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        flex: 1,
+        borderTop: 'none',
+        borderRight: `1px solid ${isOver || isToday ? COLORS.accent : COLORS.border}`,
+        borderBottom: `1px solid ${isOver || isToday ? COLORS.accent : COLORS.border}`,
+        borderLeft: `1px solid ${isOver || isToday ? COLORS.accent : COLORS.border}`,
+        borderRadius: '0 0 8px 8px',
+        padding: '8px 7px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 7,
+        cursor: isEmpty ? 'pointer' : 'default',
+        background: isOver
+          ? COLORS.accentDim
+          : isEmpty && isHovered
+            ? COLORS.subtle
+            : isToday ? COLORS.accentDim + '44' : COLORS.surface,
+        minHeight: 240,
+        transition: 'background 0.12s, border-color 0.12s',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ── Draggable week-view workout card ─────────────────────────────────────────
+function DraggableWeekCard({ workout, onWorkoutClick }: { workout: Workout; onWorkoutClick?: (w: Workout) => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: workout.id,
+    data: { workout },
+    disabled: !workout.planned,
+  })
+  const wt = workoutTypes[workout.type]
+  const isPlanned = workout.planned
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
+      style={{
+        background: COLORS.surface,
+        borderTop: `1px solid ${COLORS.border}`,
+        borderRight: `1px solid ${COLORS.border}`,
+        borderBottom: `1px solid ${COLORS.border}`,
+        borderLeft: `3px solid ${isPlanned ? wt.color + '80' : wt.color}`,
+        borderRadius: 8,
+        padding: '10px 10px',
+        cursor: isDragging ? 'grabbing' : isPlanned ? 'grab' : 'pointer',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        transition: isDragging ? 'none' : 'box-shadow 0.12s, border-color 0.12s',
+        position: 'relative',
+        opacity: isDragging ? 0.3 : 1,
+        touchAction: 'none',
+        userSelect: 'none',
+      }}
+      onMouseEnter={e => {
+        if (isDragging) return
+        e.currentTarget.style.boxShadow = `0 3px 10px ${wt.shadowColor}, 0 1px 3px rgba(0,0,0,0.06)`
+        e.currentTarget.style.borderTopColor = wt.darkBorder
+        e.currentTarget.style.borderRightColor = wt.darkBorder
+        e.currentTarget.style.borderBottomColor = wt.darkBorder
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'
+        e.currentTarget.style.borderTopColor = COLORS.border
+        e.currentTarget.style.borderRightColor = COLORS.border
+        e.currentTarget.style.borderBottomColor = COLORS.border
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: wt.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {wt.label}
+          </span>
+        </div>
+        {isPlanned && (
+          <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
+        )}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6, lineHeight: 1.3 }}>
+        {workout.title}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {workout.duration_minutes > 0 && (
+          <span style={{ fontSize: 12, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
+        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {workout.tss > 0 && (
+            <span style={{ fontSize: 12, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
+          )}
+          {workout.distance_meters && workout.distance_meters > 0 && (
+            <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)}km</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function CalendarGrid({
   workouts, view, year, month, weekStart,
   onPrevMonth, onNextMonth, onPrevWeek, onNextWeek,
-  onViewChange, onDayClick, onWorkoutClick,
+  onViewChange, onDayClick, onWorkoutClick, onWorkoutMove,
 }: CalendarGridProps) {
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   const todayKey = localDateKey(now)
   const isMobile = useIsMobile()
   const [hoveredEmptyKey, setHoveredEmptyKey] = useState<string | null>(null)
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const workout = event.active.data.current?.workout as Workout | undefined
+    setActiveWorkout(workout ?? null)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveWorkout(null)
+    if (!over || !onWorkoutMove) return
+    const workout = active.data.current?.workout as Workout | undefined
+    if (!workout) return
+    const newDate = over.id as string
+    if (workout.date.split('T')[0] === newDate) return
+    onWorkoutMove(workout.id, newDate)
+  }
 
   // ── View toggle ──────────────────────────────────────────────────────────────
   const toggleStyle = (active: boolean) => ({
@@ -87,40 +287,46 @@ export function CalendarGrid({
       day === now.getDate() && month === now.getMonth() && year === now.getFullYear()
 
     return (
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{MONTHS[month]} {year}</div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button style={toggleStyle(true)} onClick={() => onViewChange('month')}>Month</button>
-              <button style={toggleStyle(false)} onClick={() => onViewChange('week')}>Week</button>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{MONTHS[month]} {year}</div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button style={toggleStyle(true)} onClick={() => onViewChange('month')}>Month</button>
+                <button style={toggleStyle(false)} onClick={() => onViewChange('week')}>Week</button>
+              </div>
+              <button onClick={onPrevMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
+              <button onClick={onNextMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>
             </div>
-            <button onClick={onPrevMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
-            <button onClick={onNextMonth} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+            {DAYS.map(d => (
+              <div key={d} style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, textAlign: 'center', letterSpacing: '0.08em', padding: '4px 0' }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+            {calDays.map((day, i) => {
+              const dayWorkouts = day ? (workoutsByDay[day] ?? []) : []
+              if (!day) return <div key={i} style={{ borderRadius: 8, aspectRatio: '1' }} />
+              const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              return (
+                <DroppableCalendarDay
+                  key={i}
+                  droppableId={dayKey}
+                  day={day}
+                  workouts={dayWorkouts}
+                  isToday={isToday(day)}
+                  onClick={() => onDayClick?.(new Date(year, month, day), dayWorkouts)}
+                />
+              )
+            })}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
-          {DAYS.map(d => (
-            <div key={d} style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, textAlign: 'center', letterSpacing: '0.08em', padding: '4px 0' }}>{d}</div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-          {calDays.map((day, i) => {
-            const dayWorkouts = day ? (workoutsByDay[day] ?? []) : []
-            return (
-              <CalendarDay
-                key={i}
-                day={day}
-                workouts={dayWorkouts}
-                isToday={day !== null && isToday(day)}
-                onClick={() => {
-                  if (day && onDayClick) onDayClick(new Date(year, month, day), dayWorkouts)
-                }}
-              />
-            )
-          })}
-        </div>
-      </div>
+        <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
+          {activeWorkout && <GhostCard workout={activeWorkout} />}
+        </DragOverlay>
+      </DndContext>
     )
   }
 
@@ -144,249 +350,191 @@ export function CalendarGrid({
     : `${SHORT_MONTHS[weekStart.getMonth()]} – ${SHORT_MONTHS[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{headerLabel}</div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button style={toggleStyle(false)} onClick={() => onViewChange('month')}>Month</button>
-            <button style={toggleStyle(true)} onClick={() => onViewChange('week')}>Week</button>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{headerLabel}</div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button style={toggleStyle(false)} onClick={() => onViewChange('month')}>Month</button>
+              <button style={toggleStyle(true)} onClick={() => onViewChange('week')}>Week</button>
+            </div>
+            <button onClick={onPrevWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
+            <button onClick={onNextWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>
           </div>
-          <button onClick={onPrevWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>←</button>
-          <button onClick={onNextWeek} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.text, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}>→</button>
         </div>
-      </div>
 
-      {/* Day columns — stack vertically on mobile */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(7, 1fr)',
-        gap: isMobile ? 10 : 8,
-      }}>
-        {weekDays.map((date) => {
-          const key = localDateKey(date)
-          const isToday = key === todayKey
-          const dayWorkouts = workoutsByKey[key] ?? []
-          const isFuture = date > now
+        {/* Day columns */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(7, 1fr)',
+          gap: isMobile ? 10 : 8,
+        }}>
+          {weekDays.map((date) => {
+            const key = localDateKey(date)
+            const isToday = key === todayKey
+            const dayWorkouts = workoutsByKey[key] ?? []
+            const isFuture = date > now
 
-          return (
-            <div
-              key={key}
-              style={{ display: 'flex', flexDirection: 'column', minHeight: isMobile ? 0 : 320 }}
-            >
-              {/* Day header */}
+            return (
               <div
-                onClick={() => onDayClick?.(date, dayWorkouts)}
-                style={{
-                  textAlign: isMobile ? 'left' : 'center',
-                  padding: isMobile ? '10px 12px' : '12px 6px 14px',
-                  borderRadius: isMobile ? 8 : '8px 8px 0 0',
-                  background: isToday ? COLORS.accentDim : 'transparent',
-                  border: `1px solid ${isToday ? COLORS.accent : COLORS.border}`,
-                  borderBottom: isMobile ? undefined : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: isMobile ? 10 : 0,
-                  flexDirection: isMobile ? 'row' : 'column',
-                }}
+                key={key}
+                style={{ display: 'flex', flexDirection: 'column', minHeight: isMobile ? 0 : 320 }}
               >
-                <div style={{
-                  fontSize: isMobile ? 20 : 26, fontWeight: 800,
-                  color: isToday ? COLORS.accent : isFuture ? COLORS.muted : COLORS.text,
-                  lineHeight: 1, fontFamily: "'DM Mono', monospace",
-                }}>
-                  {date.getDate()}
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? COLORS.accent : COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {DAYS[(date.getDay() + 6) % 7]}
+                {/* Day header */}
+                <div
+                  onClick={() => onDayClick?.(date, dayWorkouts)}
+                  style={{
+                    textAlign: isMobile ? 'left' : 'center',
+                    padding: isMobile ? '10px 12px' : '12px 6px 14px',
+                    borderRadius: isMobile ? 8 : '8px 8px 0 0',
+                    background: isToday ? COLORS.accentDim : 'transparent',
+                    border: `1px solid ${isToday ? COLORS.accent : COLORS.border}`,
+                    borderBottom: isMobile ? undefined : 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: isMobile ? 10 : 0,
+                    flexDirection: isMobile ? 'row' : 'column',
+                  }}
+                >
+                  <div style={{
+                    fontSize: isMobile ? 20 : 26, fontWeight: 800,
+                    color: isToday ? COLORS.accent : isFuture ? COLORS.muted : COLORS.text,
+                    lineHeight: 1, fontFamily: "'DM Mono', monospace",
+                  }}>
+                    {date.getDate()}
                   </div>
-                  {isMobile && (
-                    <div style={{ fontSize: 10, color: isToday ? COLORS.accent : COLORS.muted, marginTop: 1 }}>
-                      {SHORT_MONTHS[date.getMonth()]}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: isToday ? COLORS.accent : COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      {DAYS[(date.getDay() + 6) % 7]}
                     </div>
-                  )}
-                  {!isMobile && (
                     <div style={{ fontSize: 11, color: isToday ? COLORS.accent : COLORS.muted, marginTop: 1 }}>
                       {SHORT_MONTHS[date.getMonth()]}
                     </div>
+                  </div>
+                  {isMobile && dayWorkouts.length > 0 && (
+                    <div style={{ marginLeft: 'auto', fontSize: 11, color: COLORS.muted }}>
+                      {dayWorkouts.length} workout{dayWorkouts.length > 1 ? 's' : ''}
+                    </div>
                   )}
                 </div>
-                {isMobile && dayWorkouts.length > 0 && (
-                  <div style={{ marginLeft: 'auto', fontSize: 11, color: COLORS.muted }}>
-                    {dayWorkouts.length} workout{dayWorkouts.length > 1 ? 's' : ''}
-                  </div>
-                )}
-              </div>
 
-              {/* Workouts area */}
-              <div
-                onClick={() => { if (dayWorkouts.length === 0) onDayClick?.(date, []) }}
-                onMouseEnter={() => { if (dayWorkouts.length === 0) setHoveredEmptyKey(key) }}
-                onMouseLeave={() => setHoveredEmptyKey(null)}
-                style={{
-                  flex: isMobile ? undefined : 1,
-                  borderTop: 'none',
-                  borderRight: isMobile ? 'none' : `1px solid ${isToday ? COLORS.accent : COLORS.border}`,
-                  borderBottom: isMobile ? 'none' : `1px solid ${isToday ? COLORS.accent : COLORS.border}`,
-                  borderLeft: isMobile ? 'none' : `1px solid ${isToday ? COLORS.accent : COLORS.border}`,
-                  borderRadius: isMobile ? 0 : '0 0 8px 8px',
-                  padding: isMobile ? (dayWorkouts.length > 0 ? '8px 0 0' : '0') : '8px 7px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: isMobile ? 8 : 7,
-                  cursor: dayWorkouts.length === 0 ? 'pointer' : 'default',
-                  background: isMobile ? 'transparent' : (
-                    dayWorkouts.length === 0 && hoveredEmptyKey === key
-                      ? COLORS.subtle
-                      : isToday ? COLORS.accentDim + '44' : COLORS.surface
-                  ),
-                  minHeight: isMobile ? 0 : 240,
-                  transition: 'background 0.15s',
-                }}
-              >
-                {!isMobile && dayWorkouts.length === 0 && (
-                  <div style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: hoveredEmptyKey === key ? COLORS.muted : COLORS.border,
-                    fontSize: 24, fontWeight: 300, transition: 'color 0.15s',
-                  }}>
-                    +
+                {/* Workouts area — desktop uses droppable zone */}
+                {isMobile ? (
+                  <div
+                    onClick={() => { if (dayWorkouts.length === 0) onDayClick?.(date, []) }}
+                    onMouseEnter={() => { if (dayWorkouts.length === 0) setHoveredEmptyKey(key) }}
+                    onMouseLeave={() => setHoveredEmptyKey(null)}
+                    style={{
+                      padding: dayWorkouts.length > 0 ? '8px 0 0' : '0',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      cursor: dayWorkouts.length === 0 ? 'pointer' : 'default',
+                    }}
+                  >
+                    {dayWorkouts.length === 0 && (
+                      <div style={{ padding: '4px 0', textAlign: 'center', fontSize: 11, color: COLORS.border }}>
+                        + Add workout
+                      </div>
+                    )}
+                    {dayWorkouts.map(workout => {
+                      const wt = workoutTypes[workout.type]
+                      const isPlanned = workout.planned
+                      return (
+                        <div
+                          key={workout.id}
+                          onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
+                          style={{
+                            background: COLORS.surface,
+                            borderTop: `1px solid ${COLORS.border}`,
+                            borderRight: `1px solid ${COLORS.border}`,
+                            borderBottom: `1px solid ${COLORS.border}`,
+                            borderLeft: `4px solid ${isPlanned ? wt.color + '80' : wt.color}`,
+                            borderRadius: 8,
+                            padding: '12px 14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                          }}
+                        >
+                          <div style={{
+                            width: 40, height: 40, borderRadius: 9, flexShrink: 0,
+                            background: wt.bg,
+                            border: `1.5px solid ${wt.darkBorder}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 20,
+                          }}>
+                            {wt.icon}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                {wt.label}
+                              </span>
+                              {isPlanned && (
+                                <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2, marginBottom: 4 }}>
+                              {workout.title}
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                              {workout.duration_minutes > 0 && (
+                                <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
+                              )}
+                              {workout.tss > 0 && (
+                                <span style={{ fontSize: 13, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
+                              )}
+                              {workout.distance_meters && workout.distance_meters > 0 && (
+                                <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)} km</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                )}
-                {isMobile && dayWorkouts.length === 0 && (
-                  <div style={{ padding: '4px 0', textAlign: 'center', fontSize: 11, color: COLORS.border }}>
-                    + Add workout
-                  </div>
-                )}
-                {dayWorkouts.map(workout => {
-                  const wt = workoutTypes[workout.type]
-                  const isPlanned = workout.planned
-                  if (isMobile) {
-                    // Mobile: spacious horizontal card
-                    return (
-                      <div
+                ) : (
+                  <WeekDropZone
+                    id={key}
+                    isToday={isToday}
+                    isEmpty={dayWorkouts.length === 0}
+                    isHovered={hoveredEmptyKey === key}
+                    onClick={() => { if (dayWorkouts.length === 0) onDayClick?.(date, []) }}
+                    onMouseEnter={() => { if (dayWorkouts.length === 0) setHoveredEmptyKey(key) }}
+                    onMouseLeave={() => setHoveredEmptyKey(null)}
+                  >
+                    {dayWorkouts.length === 0 && (
+                      <div style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: hoveredEmptyKey === key ? COLORS.muted : COLORS.border,
+                        fontSize: 24, fontWeight: 300, transition: 'color 0.15s',
+                      }}>
+                        +
+                      </div>
+                    )}
+                    {dayWorkouts.map(workout => (
+                      <DraggableWeekCard
                         key={workout.id}
-                        onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
-                        style={{
-                          background: COLORS.surface,
-                          borderTop: `1px solid ${COLORS.border}`,
-                          borderRight: `1px solid ${COLORS.border}`,
-                          borderBottom: `1px solid ${COLORS.border}`,
-                          borderLeft: `4px solid ${isPlanned ? wt.color + '80' : wt.color}`,
-                          borderRadius: 8,
-                          padding: '12px 14px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                        }}
-                      >
-                        <div style={{
-                          width: 40, height: 40, borderRadius: 9, flexShrink: 0,
-                          background: wt.bg,
-                          border: `1.5px solid ${wt.darkBorder}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 20,
-                        }}>
-                          {wt.icon}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              {wt.label}
-                            </span>
-                            {isPlanned && (
-                              <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2, marginBottom: 4 }}>
-                            {workout.title}
-                          </div>
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                            {workout.duration_minutes > 0 && (
-                              <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
-                            )}
-                            {workout.tss > 0 && (
-                              <span style={{ fontSize: 13, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
-                            )}
-                            {workout.distance_meters && workout.distance_meters > 0 && (
-                              <span style={{ fontSize: 13, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)} km</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-                  // Desktop: compact column card
-                  return (
-                    <div
-                      key={workout.id}
-                      onClick={(e) => { e.stopPropagation(); onWorkoutClick?.(workout) }}
-                      style={{
-                        background: COLORS.surface,
-                        borderTop: `1px solid ${COLORS.border}`,
-                        borderRight: `1px solid ${COLORS.border}`,
-                        borderBottom: `1px solid ${COLORS.border}`,
-                        borderLeft: `3px solid ${isPlanned ? wt.color + '80' : wt.color}`,
-                        borderRadius: 8,
-                        padding: '10px 10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        transition: 'box-shadow 0.12s, border-color 0.12s',
-                        position: 'relative',
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.boxShadow = `0 3px 10px ${wt.shadowColor}, 0 1px 3px rgba(0,0,0,0.06)`
-                        e.currentTarget.style.borderTopColor = wt.darkBorder
-                        e.currentTarget.style.borderRightColor = wt.darkBorder
-                        e.currentTarget.style.borderBottomColor = wt.darkBorder
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'
-                        e.currentTarget.style.borderTopColor = COLORS.border
-                        e.currentTarget.style.borderRightColor = COLORS.border
-                        e.currentTarget.style.borderBottomColor = COLORS.border
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: wt.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {wt.label}
-                          </span>
-                        </div>
-                        {isPlanned && (
-                          <span style={{ fontSize: 9, color: wt.color, fontWeight: 700, background: wt.bg, border: `1px solid ${wt.border}`, borderRadius: 4, padding: '2px 5px', letterSpacing: '0.04em' }}>PLANNED</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6, lineHeight: 1.3 }}>
-                        {workout.title}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        {workout.duration_minutes > 0 && (
-                          <span style={{ fontSize: 12, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{formatDuration(workout.duration_minutes)}</span>
-                        )}
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {workout.tss > 0 && (
-                            <span style={{ fontSize: 12, color: isPlanned ? COLORS.muted : wt.color, fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{workout.tss} TSS</span>
-                          )}
-                          {workout.distance_meters && workout.distance_meters > 0 && (
-                            <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>{(workout.distance_meters / 1000).toFixed(1)}km</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                        workout={workout}
+                        onWorkoutClick={onWorkoutClick}
+                      />
+                    ))}
+                  </WeekDropZone>
+                )}
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
-    </div>
+      <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>
+        {activeWorkout && <GhostCard workout={activeWorkout} />}
+      </DragOverlay>
+    </DndContext>
   )
 }
