@@ -23,6 +23,7 @@ const Signup = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signu
 const StravaCallback = lazy(() => import('./pages/StravaCallback').then(m => ({ default: m.StravaCallback })))
 const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })))
 const Nutrition = lazy(() => import('./pages/Nutrition').then(m => ({ default: m.Nutrition })))
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then(m => ({ default: m.ResetPassword })))
 
 function PageLoader() {
   return (
@@ -339,6 +340,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
           <Route path="/*" element={<ProtectedLayout />} />
