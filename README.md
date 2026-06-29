@@ -63,6 +63,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 | Edge Functions | Supabase Edge Functions (Deno)           |
 | AI             | Anthropic Claude API (claude-sonnet-4-6) |
 | Deployment     | Vercel                                   |
+| Testing        | Vitest + @testing-library/react (jsdom)          |
 | Dev Tooling    | Supabase MCP (direct DB access in Claude Code) |
 
 ---
@@ -149,6 +150,17 @@ App runs at `http://localhost:5173`
 
 ---
 
+## Testing
+
+```bash
+npm test          # run all tests once
+npm run test:watch  # watch mode
+```
+
+264 tests across 26 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable Proxy that replicates the query builder API without hitting the network.
+
+---
+
 ## Database Schema
 
 | Table                | Description                                           |
@@ -168,6 +180,7 @@ App runs at `http://localhost:5173`
 | `hydration_logs`     | Daily hydration (litres) per user                     |
 | `nutrition_custom_foods` | User-created food items                           |
 | `food_database`      | Global shared food database (read-only)               |
+| `api_rate_limits`    | Per-user rate limiting for Strava and AI edge functions |
 
 ---
 

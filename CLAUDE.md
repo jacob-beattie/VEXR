@@ -12,6 +12,7 @@ Built as a solo project. Goal is to eventually monetise with free/pro/coach tier
 - Recharts (all charts)
 - pdfjs-dist (PDF text extraction in Training Plans import)
 - No Tailwind — all styles are inline using the COLORS object from `src/lib/colors.ts`
+- Testing: Vitest + @testing-library/react, jsdom environment
 
 ## Supabase MCP
 
@@ -60,6 +61,17 @@ src/
     WorkoutDetailModal.tsx
     DayWorkoutsModal.tsx
     ProfileSettingsModal.tsx
+  test/
+    setup.ts                — global Vitest setup (jest-dom matchers, canvas mock)
+    mocks/supabase.ts       — chainable Supabase query builder mock
+    edge-helpers/           — unit tests for edge function shared logic (cors, aiBriefing, stravaSync)
+supabase/functions/
+  _shared/cors.ts           — shared CORS headers helper imported by all edge functions
+  ai-briefing/              — weekly AI briefing + race predictor narrative (claude-sonnet-4-6)
+  generate-plan/            — AI training plan generation from free-text prompt (claude-sonnet-4-6)
+  parse-plan/               — PDF/HTML/text plan parsing for import pipeline (claude-sonnet-4-6)
+  strava-auth/              — Strava OAuth token exchange
+  strava-sync/              — import last 30 days of Strava activities
 ```
 
 ## Database (Supabase)
@@ -82,6 +94,8 @@ Tables (all with RLS enabled, users can only access their own rows):
 | `hydration_logs` | user_id + date (PK), liters |
 | `nutrition_custom_foods` | user_id, name, calories, protein, carbs, fat |
 | `food_database` | global shared table — name (unique), calories, protein, carbs, fat; read-only for all authenticated users |
+| `goals` | id, user_id, text, completed, created_at; season goals CRUD on dashboard |
+| `api_rate_limits` | user_id, function_name, request_count, window_start; used by strava-auth (5/hr) and strava-sync (3/hr) |
 
 Profile is auto-created on signup via `handle_new_user` trigger.
 
@@ -101,7 +115,8 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - CTL: 42-day time constant (1/42 decay)
 - ATL: 7-day time constant (1/7 decay)
 - TSB: CTL − ATL
-- Calculated in `WorkoutsContext.tsx` — `calculateFitnessMetrics()` and `getFitnessHistory()`
+- Canonical PMC engine: `src/lib/calculateMetrics.ts` — `calculatePMC`, `buildTssByDay`, `runPMC`
+- `WorkoutsContext.tsx` calls the engine and exposes `calculateFitnessMetrics()` / `getFitnessHistory()` to consumers
 
 ## Features Shipped
 
@@ -134,7 +149,17 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Nutrition page (`/nutrition`): date navigator; 4 stat cards (Calories/Protein/Carbohydrates/Fat vs per-user targets); SVG calorie ring (colour shifts accent→green→orange as you fill); macro progress bars + macro split segmented bar; meal log (Breakfast/Lunch/Dinner/Snacks) with collapsible sections, food item rows, remove button; Add Food modal with Browse/Create tabs — Browse searches merged `food_database` + `nutrition_custom_foods` with CUSTOM badge, Create saves to `nutrition_custom_foods`; Hydration card with 12-cup grid + ±250ml buttons; Workout Fuel Guide (Pre/During/Recovery phases); ⚙ Targets button opens `NutritionTargetsModal` to edit calorie/macro targets (upserted to `nutrition_targets`). Food database is DB-driven (no hardcoded list). All SQL in `supabase-schema.sql`.
 - Typography: Inter (400–900) + DM Mono loaded via Google Fonts in `index.html`; `TopBar` title updated to `fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em'` — matches Nutrition page title style across all non-dashboard pages.
 - Drag-and-drop calendar rescheduling: planned workouts are draggable in both month and week views (desktop only) via `@dnd-kit/core`. `DndContext` lives in `CalendarGrid`; `DraggableWeekCard` and `DraggableMonthItem` use `useDraggable` (disabled when `!workout.planned`); day cells/columns use `useDroppable`. Ghost `DragOverlay` follows cursor. Drop calls `updateWorkout(id, { date: newDate })`. 8px activation constraint preserves click behaviour. Mobile layout is unchanged.
-- Production hardening: `src/components/ErrorBoundary.tsx` (class component) wraps the root render in `main.tsx` — catches unhandled render errors and shows a reload prompt instead of a blank screen. Password reset flow added to `Login.tsx` — "Forgot password?" toggles an inline form that calls `supabase.auth.resetPasswordForEmail` with `redirectTo: /reset-password`; `src/pages/ResetPassword.tsx` handles the reset link (validates session via `supabase.auth.getSession`, calls `supabase.auth.updateUser`). `Plans.tsx` and `Library.tsx` now have `loading` and `error` states. Edge functions: `strava-auth` and `strava-sync` have per-user rate limiting (5/hr and 3/hr) using the `api_rate_limits` table. All Anthropic API `fetch` calls have 30s `AbortController` timeouts. `generate-plan` max_tokens reduced from 16000 → 8000. `public/robots.txt` blocks all crawlers until a landing page exists.
+- Production hardening: `src/components/ErrorBoundary.tsx` (class component) wraps the root render in `main.tsx` — catches unhandled render errors and shows a reload prompt instead of a blank screen. Password reset flow added to `Login.tsx` — "Forgot password?" toggles an inline form that calls `supabase.auth.resetPasswordForEmail` with `redirectTo: /reset-password`; `src/pages/ResetPassword.tsx` handles the reset link (validates session via `supabase.auth.getSession`, calls `supabase.auth.updateUser`). `Plans.tsx` and `Library.tsx` now have `loading` and `error` states. Edge functions: `strava-auth` and `strava-sync` have per-user rate limiting (5/hr and 3/hr) using the `api_rate_limits` table. All Anthropic API `fetch` calls have 30s `AbortController` timeouts. `generate-plan` max_tokens reduced from 16000 → 8000. `public/robots.txt` — landing page shipped at `/` (light-theme portfolio showcase, `src/pages/Landing.tsx`), so update robots.txt before public launch if SEO is desired.
+
+## Testing
+
+- Framework: Vitest + @testing-library/react, jsdom environment
+- Commands: `npm test` (run once), `npm run test:watch` (watch mode), `npm run test -- --coverage` for coverage
+- Setup: `src/test/setup.ts` — loads jest-dom matchers and mocks canvas
+- Supabase mock: `src/test/mocks/supabase.ts` — `makeQueryBuilder()` returns a chainable Proxy (`.select().eq().order()` etc.) that resolves at `.single()` / `.maybeSingle()` or when awaited directly; `mockFrom` is the vi.fn() to configure per-test
+- 26 test files, each co-located in `__tests__/` beside the file under test
+- Edge function helpers tested in `src/test/edge-helpers/` (cors, aiBriefing, stravaSync)
+- Do not mock the Supabase client at the module level across all tests — set up `mockFrom.mockReturnValue(chain)` per test for precise control
 
 ## Page roles (important — don't overlap these)
 

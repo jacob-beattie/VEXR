@@ -85,6 +85,7 @@ INFRASTRUCTURE / DEV TOOLING
 -----------------------------
 ✅ Supabase MCP: connected via .mcp.json — Claude Code can run SQL queries, apply migrations, check edge function logs, deploy functions, and get security/performance advisors directly from the conversation without leaving the IDE
 ✅ DB health audit: fixed RLS initplan issue across all 17 tables ((select auth.uid()) pattern), pinned handle_new_user search_path, revoked public execute on trigger function, removed redundant training_plans SELECT policy, added missing indexes on ai_briefings and goals, seeded food_database with 23 base foods
+✅ Test suite: 264 tests across 26 files — Vitest + @testing-library/react; unit tests for PMC engine, TSS calculations, all contexts, all pages, key components, and edge function helpers (CORS, AI briefing, Strava sync)
 - Supabase GitHub integration: auto-deploy migrations on push to main
 
 MONETISATION (when ready)
