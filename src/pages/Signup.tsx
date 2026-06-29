@@ -71,7 +71,7 @@ export function Signup() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
-            <span style={{ color: COLORS.accent }}>VEX</span>R
+            VE<span style={{ color: COLORS.text }}>X</span>R
           </div>
           <div style={{ fontSize: 11, color: COLORS.muted, letterSpacing: '0.14em', marginTop: 4 }}>TRAINING SYSTEM</div>
         </div>

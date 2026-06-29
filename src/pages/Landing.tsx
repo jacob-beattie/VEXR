@@ -200,7 +200,7 @@ export function Landing() {
           fontSize: 20, fontWeight: 900, letterSpacing: '-0.04em',
           color: COLORS.text,
         }}>
-          VE<span style={{ color: COLORS.accent }}>X</span>R
+          VE<span style={{ color: COLORS.text }}>X</span>R
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <a
