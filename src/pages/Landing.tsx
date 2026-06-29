@@ -85,47 +85,40 @@ function FeatureCard({ icon, color, title, desc, isMobile }: {
   )
 }
 
-// Dark mockup panels — shown as a preview of the actual app
 function StatMockup() {
   const stats = [
     { label: 'CTL', value: '68', sub: 'Fitness', color: COLORS.purple },
     { label: 'ATL', value: '74', sub: 'Fatigue', color: COLORS.orange },
-    { label: 'TSB', value: '-6', sub: 'Form', color: '#ff4d4d' },
-    { label: 'TSS', value: '342', sub: 'This week', color: COLORS.accent },
+    { label: 'TSB', value: '-6', sub: 'Form', color: '#dc2626' },
+    { label: 'TSS', value: '342', sub: 'This week', color: L.accent },
   ]
   return (
     <div style={{
-      background: COLORS.surface,
-      borderTop: `1px solid ${COLORS.border}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
+      background: L.card,
+      borderTop: `1px solid ${L.border}`,
+      borderRight: `1px solid ${L.border}`,
+      borderBottom: `1px solid ${L.border}`,
+      borderLeft: `1px solid ${L.border}`,
+      borderRadius: 10,
       padding: '18px 24px',
       display: 'flex',
       gap: 0,
-      position: 'relative',
-      overflow: 'hidden',
     }}>
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-        background: `linear-gradient(90deg, transparent, ${COLORS.accent}50, transparent)`,
-      }} />
       {stats.map((s, i) => (
         <div key={s.label} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
           {i > 0 && (
             <div style={{
               position: 'absolute', left: 0, top: '10%', bottom: '10%',
-              width: 1, background: COLORS.border,
+              width: 1, background: L.border,
             }} />
           )}
-          <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, color: L.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
             {s.label}
           </div>
           <div style={{ fontSize: 26, fontWeight: 900, color: s.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
             {s.value}
           </div>
-          <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>{s.sub}</div>
+          <div style={{ fontSize: 11, color: L.muted, marginTop: 5 }}>{s.sub}</div>
         </div>
       ))}
     </div>
@@ -142,26 +135,26 @@ function ChartMockup() {
 
   return (
     <div style={{
-      background: COLORS.surface,
-      borderTop: `1px solid ${COLORS.border}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
+      background: L.card,
+      borderTop: `1px solid ${L.border}`,
+      borderRight: `1px solid ${L.border}`,
+      borderBottom: `1px solid ${L.border}`,
+      borderLeft: `1px solid ${L.border}`,
+      borderRadius: 10,
       padding: '16px 20px',
     }}>
-      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: L.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
         Fitness · Fatigue · Form
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block' }} preserveAspectRatio="none">
         <defs>
           <linearGradient id="lp-ctl" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLORS.purple} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={COLORS.purple} stopOpacity="0.02" />
+            <stop offset="0%" stopColor={COLORS.purple} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={COLORS.purple} stopOpacity="0.01" />
           </linearGradient>
           <linearGradient id="lp-atl" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLORS.orange} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={COLORS.orange} stopOpacity="0.02" />
+            <stop offset="0%" stopColor={COLORS.orange} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={COLORS.orange} stopOpacity="0.01" />
           </linearGradient>
         </defs>
         <path d={`${toPath(ctl)} L${w},${h} L0,${h} Z`} fill="url(#lp-ctl)" />
@@ -170,10 +163,10 @@ function ChartMockup() {
         <path d={toPath(atl)} fill="none" stroke={COLORS.orange} strokeWidth="2" />
       </svg>
       <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
-        {[['CTL', COLORS.purple], ['ATL', COLORS.orange], ['TSB', COLORS.green]].map(([label, color]) => (
+        {[['CTL', COLORS.purple], ['ATL', COLORS.orange], ['TSB', '#16a34a']].map(([label, color]) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: color }} />
-            <span style={{ fontSize: 11, color: COLORS.muted }}>{label}</span>
+            <span style={{ fontSize: 11, color: L.muted }}>{label}</span>
           </div>
         ))}
       </div>
@@ -356,7 +349,7 @@ export function Landing() {
           gap: 10,
         }}>
           {/* Fake browser chrome */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 10, borderBottom: `1px solid ${L.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 10, borderBottom: `1px solid ${L.border}`, marginBottom: 4 }}>
             {['#ff5f57', '#febc2e', '#28c840'].map(c => (
               <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
             ))}
