@@ -5,6 +5,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const RATE_WINDOW_MS = 60 * 60 * 1000
+const STRAVA_SYNC_RATE_LIMIT = 3
+
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function checkRateLimit(
+  supabase: SupabaseClient,
+  userId: string,
+  functionName: string,
+  limit: number,
+): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('api_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('function_name', functionName)
+    .gte('called_at', windowStart)
+  if ((count ?? 0) >= limit) return false
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
+  return true
+}
+
 // Map Strava sport_type → Vexr workout type
 function mapStravaType(sportType: string): string {
   const runTypes = ['Run', 'TrailRun', 'VirtualRun', 'Hike', 'Walk']
@@ -99,6 +122,14 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const allowed = await checkRateLimit(supabase, user.id, 'strava-sync', STRAVA_SYNC_RATE_LIMIT)
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
+        status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

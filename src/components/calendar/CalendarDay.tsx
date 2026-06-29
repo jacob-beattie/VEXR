@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -9,12 +10,37 @@ interface CalendarDayProps {
   workouts: Workout[]
   isToday: boolean
   onClick?: () => void
+  droppableRef?: (node: HTMLDivElement | null) => void
+  isDropOver?: boolean
 }
 
 const MOBILE_MAX_DOTS = 2
 const DESKTOP_MAX_VISIBLE = 3
 
-export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProps) {
+function DraggableMonthItem({ workout, children }: { workout: Workout; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: workout.id,
+    data: { workout },
+    disabled: !workout.planned,
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        opacity: isDragging ? 0.3 : 1,
+        cursor: workout.planned ? 'grab' : 'default',
+        touchAction: 'none',
+        userSelect: 'none',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function CalendarDay({ day, workouts, isToday, onClick, droppableRef, isDropOver }: CalendarDayProps) {
   const [hovered, setHovered] = useState(false)
   const isMobile = useIsMobile()
 
@@ -52,7 +78,6 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
           transition: 'background 0.15s',
         }}
       >
-        {/* Day number */}
         <span style={{
           fontSize: 11,
           fontWeight: isToday ? 700 : 500,
@@ -76,14 +101,12 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
 
         {hasWorkouts && (
           <>
-            {/* Workout dots */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
               {visibleDots.map(workout => {
                 const wt = workoutTypes[workout.type]
                 const isPlanned = workout.planned
                 return (
                   <div key={workout.id} style={{ display: 'flex', alignItems: 'center', gap: 3, opacity: isPlanned ? 0.65 : 1 }}>
-                    {/* Solid dot = completed, ring = planned */}
                     <div style={{
                       width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
                       background: isPlanned ? 'transparent' : wt.color,
@@ -103,7 +126,6 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
               )}
             </div>
 
-            {/* Completed TSS only */}
             {totalTSS > 0 && (
               <div style={{
                 fontSize: 9, color: COLORS.muted,
@@ -125,22 +147,27 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
 
   return (
     <div
+      ref={droppableRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
       style={{
         aspectRatio: '1',
         borderRadius: 8,
-        border: isToday
+        border: isDropOver
           ? `2px solid ${COLORS.accent}`
-          : hasWorkouts && hovered
-            ? `1px solid ${firstWt!.color + '50'}`
-            : `1px solid ${COLORS.border}`,
-        background: !hasWorkouts && hovered
-          ? COLORS.subtle
-          : hasWorkouts && hovered
-            ? firstWt!.color + '0d'
-            : isToday ? COLORS.accentDim : COLORS.surface,
+          : isToday
+            ? `2px solid ${COLORS.accent}`
+            : hasWorkouts && hovered
+              ? `1px solid ${firstWt!.color + '50'}`
+              : `1px solid ${COLORS.border}`,
+        background: isDropOver
+          ? COLORS.accentDim
+          : !hasWorkouts && hovered
+            ? COLORS.subtle
+            : hasWorkouts && hovered
+              ? firstWt!.border
+              : isToday ? COLORS.accentDim : COLORS.surface,
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
@@ -183,43 +210,44 @@ export function CalendarDay({ day, workouts, isToday, onClick }: CalendarDayProp
             const wt = workoutTypes[workout.type]
             const isPlanned = workout.planned
             return (
-              <div key={workout.id} style={{ opacity: isPlanned ? 0.72 : 1 }}>
-                {/* Top indicator: solid bar for completed, dashed for planned */}
-                {isPlanned ? (
-                  <div style={{
-                    height: 0, marginBottom: 3,
-                    borderTop: `1px dashed ${wt.color}bb`,
-                    borderRight: 'none', borderBottom: 'none', borderLeft: 'none',
-                  }} />
-                ) : (
-                  <div style={{ height: 2, borderRadius: 1, background: wt.color, opacity: 0.85, marginBottom: 2 }} />
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: wt.color,
-                    letterSpacing: '0.03em',
-                    textTransform: 'uppercase',
-                    lineHeight: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {wt.icon} {wt.label}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0, marginLeft: 2 }}>
-                    {isPlanned && (
-                      <span style={{ fontSize: 7, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.04em' }}>PLN</span>
-                    )}
-                    {workout.tss > 0 && (
-                      <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'monospace', lineHeight: 1 }}>
-                        {workout.tss}
-                      </span>
-                    )}
+              <DraggableMonthItem key={workout.id} workout={workout}>
+                <div style={{ opacity: isPlanned ? 0.72 : 1 }}>
+                  {isPlanned ? (
+                    <div style={{
+                      height: 0, marginBottom: 3,
+                      borderTop: `1px dashed ${wt.color}bb`,
+                      borderRight: 'none', borderBottom: 'none', borderLeft: 'none',
+                    }} />
+                  ) : (
+                    <div style={{ height: 2, borderRadius: 1, background: wt.color, opacity: 0.85, marginBottom: 2 }} />
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: wt.color,
+                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase',
+                      lineHeight: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {wt.icon} {wt.label}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0, marginLeft: 2 }}>
+                      {isPlanned && (
+                        <span style={{ fontSize: 7, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.04em' }}>PLN</span>
+                      )}
+                      {workout.tss > 0 && (
+                        <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'monospace', lineHeight: 1 }}>
+                          {workout.tss}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </DraggableMonthItem>
             )
           })}
 

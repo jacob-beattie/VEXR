@@ -80,7 +80,6 @@ export function StravaProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({}),
       })
       const data = await res.json()
-      console.log('[StravaContext] sync response:', data)
       if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`)
 
       const count = data?.count ?? 0
@@ -88,8 +87,7 @@ export function StravaProvider({ children }: { children: ReactNode }) {
         await refetchWorkouts()
         showToast(`${count} new workout${count === 1 ? '' : 's'} imported from Strava`)
       }
-    } catch (err) {
-      console.error('[StravaContext] sync failed:', err)
+    } catch {
     } finally {
       setSyncing(false)
     }

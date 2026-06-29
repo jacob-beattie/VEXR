@@ -233,9 +233,9 @@ function TriSplitBar({ row, isMobile }: { row: TriRow; isMobile: boolean }) {
   const total = row.totalSec
   const pct = (s: number) => `${(s / total * 100).toFixed(1)}%`
   const segments = [
-    { label: 'Swim', seconds: row.swimSec, color: COLORS.purple },
+    { label: 'Swim', seconds: row.swimSec, color: COLORS.accent },
     { label: 'T1', seconds: row.t1Sec, color: COLORS.border },
-    { label: 'Bike', seconds: row.bikeSec, color: COLORS.accent },
+    { label: 'Bike', seconds: row.bikeSec, color: COLORS.purple },
     { label: 'T2', seconds: row.t2Sec, color: COLORS.border },
     { label: 'Run', seconds: row.runSec, color: COLORS.green },
   ]
@@ -433,7 +433,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         key={r.name} label={r.name}
         time={fmtTime(r.totalSeconds)}
         sub={`${r.avgSpeedKmh.toFixed(1)} km/h · ${r.avgPowerW}w`}
-        color={COLORS.accent}
+        color={COLORS.purple}
         isLast={i === bikeRows.length - 1}
       />
     )))
@@ -446,7 +446,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         key={r.name} label={r.name}
         time={fmtTime(r.totalSeconds)}
         sub={fmtPace100m(r.paceSeconds100m)}
-        color={COLORS.purple}
+        color={COLORS.accent}
         isLast={i === swimRows.length - 1}
       />
     )))
@@ -482,7 +482,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{row.name}</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: COLORS.accent, fontFamily: "'DM Mono', monospace" }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: COLORS.text, fontFamily: "'DM Mono', monospace" }}>
                 {fmtTime(row.totalSec)}
               </div>
             </div>
@@ -570,7 +570,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
       {/* AI narrative */}
       <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${COLORS.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Coach Analysis
           </div>
           {(narrative || narrativeStale) && (

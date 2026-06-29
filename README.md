@@ -21,13 +21,14 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 ### Core
 
-- 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed
+- 📅 **Training Calendar** — month and week view, multi-workout days, planned vs completed, drag-and-drop rescheduling
 - 📊 **Performance Dashboard** — personalised greeting, CTL/ATL/TSB stat cards with fitness area chart, weekly load, coming up, AI coach teaser, and season goals
 - 📈 **Analytics** — fitness/fatigue/form chart, sport breakdown, volume trends, training monotony, power curve, pace curve, heart rate zones
 - 🏋️ **Workout Logger** — simple and structured mode with interval builder, auto-TSS calculation
 - 🥗 **Nutrition** — daily calorie/macro/hydration tracking, meal log, SVG calorie ring, workout fuel guide, editable targets, custom food database
 - 📚 **Workout Library** — save and reuse workout templates
 - 🗓️ **Training Plans** — import plans from PDF/HTML/text, AI-parsed sessions, conflict detection, calendar sync
+- 🤖 **AI Plan Generator** — describe your race and fitness, Claude builds a full periodised training plan from scratch
 
 ### AI
 
@@ -39,13 +40,14 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 
 - 🔄 **Strava Sync** — auto-import workouts with HR, power, pace, distance and elevation
 - 📏 **Benchmark Tracking** — FTP, run pace and CSS history with trend charts
-- 🎯 **Training Zones** — cycling zones auto-calculated from FTP, manual zones for run and swim, heart rate zones from max HR
+- 🎯 **Training Zones** — all zones auto-calculated: cycling from FTP, running from threshold pace, swimming from CSS, heart rate from max HR
 
 ### UX
 
 - 📱 **Mobile First** — fully responsive, bottom nav, touch-friendly modals
 - 🌙 **Dark Mode** — always dark, optimised for athlete use
 - ⚡ **Real-time Sync** — Supabase realtime keeps all views in sync instantly
+- 🔒 **Production Hardening** — React error boundary, password reset flow, per-user rate limiting on Strava and AI edge functions, 30s fetch timeouts on all Claude API calls
 
 ---
 
@@ -114,6 +116,7 @@ supabase functions deploy strava-auth --no-verify-jwt
 supabase functions deploy strava-sync --no-verify-jwt
 supabase functions deploy ai-briefing --no-verify-jwt
 supabase functions deploy parse-plan --no-verify-jwt
+supabase functions deploy generate-plan --no-verify-jwt
 ```
 
 `--no-verify-jwt` is required because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced inside each function handler via `supabase.auth.getUser()`.
@@ -192,10 +195,11 @@ See `roadmap.txt` for the full feature roadmap.
 
 **Coming soon:**
 
-- Drag and drop calendar
+- ~~Drag and drop calendar~~ ✅ shipped
 - Garmin direct sync
 - Whoop/Oura HRV integration
 - Auto-TSS from plain English description
+- Injury risk score
 - Coach tier — manage multiple athletes
 - Monetisation — free vs pro tiers
 

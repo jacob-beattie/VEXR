@@ -228,7 +228,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
             borderRadius: '50%',
             background: showForm ? COLORS.surface : COLORS.accent,
             border: showForm ? `1px solid ${COLORS.border}` : 'none',
-            color: showForm ? COLORS.muted : '#000',
+            color: showForm ? COLORS.muted : '#fff',
             fontSize: 26,
             fontWeight: 300,
             display: 'flex',

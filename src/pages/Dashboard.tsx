@@ -7,6 +7,8 @@ import { COLORS } from '../lib/colors'
 import { workoutTypes } from '../components/ui/Badge'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
+import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
+import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import type { Workout } from '../types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,7 +70,7 @@ function FitnessAreaChart({ data }: { data: Array<{ week: string; fitness: numbe
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Fitness · Fatigue · Form
         </div>
         <div style={{ display: 'flex', gap: 14, marginLeft: 'auto' }}>
@@ -117,7 +119,7 @@ function FitnessAreaChart({ data }: { data: Array<{ week: string; fitness: numbe
 
 // ─── Weekly Load ──────────────────────────────────────────────────────────────
 
-function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
+function WeeklyLoadCard({ weekWorkouts, onDayClick }: { weekWorkouts: Workout[], onDayClick: (date: Date, workouts: Workout[]) => void }) {
   const actual = weekWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const planned = weekWorkouts.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0)
   const target = actual + planned
@@ -133,14 +135,14 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
     const dw = weekWorkouts.filter(w => w.date.split('T')[0] === key)
     const done = dw.filter(w => !w.planned)
     const pending = dw.filter(w => w.planned)
-    return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i], done, pending, isToday: localDateKey(new Date()) === key }
+    return { label: ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i], done, pending, isToday: localDateKey(new Date()) === key, date: d, all: dw }
   })
 
   const sportColor = (type: string) => workoutTypes[type as keyof typeof workoutTypes]?.color ?? COLORS.muted
 
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Weekly Load
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -167,13 +169,20 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
           const hasPending = day.pending.length > 0 && !isDone
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-              <div style={{
-                width: '100%', aspectRatio: '1', borderRadius: 6,
-                background: isDone ? color + '28' : 'transparent',
-                border: `1px ${hasPending ? 'dashed' : 'solid'} ${isDone ? color : hasPending ? color + '70' : COLORS.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12,
-              }}>
+              <div
+                onClick={() => day.all.length > 0 && onDayClick(day.date, day.all)}
+                style={{
+                  width: '100%', aspectRatio: '1', borderRadius: 6,
+                  background: isDone ? color + '28' : 'transparent',
+                  border: `1px ${hasPending ? 'dashed' : 'solid'} ${isDone ? color : hasPending ? color + '70' : COLORS.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12,
+                  cursor: day.all.length > 0 ? 'pointer' : 'default',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => { if (day.all.length > 0) e.currentTarget.style.opacity = '0.75' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+              >
                 {isDone && <span style={{ color }}>✓</span>}
                 {hasPending && <span style={{ color: color + '90', fontSize: 9 }}>○</span>}
               </div>
@@ -190,36 +199,73 @@ function WeeklyLoadCard({ weekWorkouts }: { weekWorkouts: Workout[] }) {
 
 // ─── Coming Up ────────────────────────────────────────────────────────────────
 
-function ComingUpCard({ workouts }: { workouts: Workout[] }) {
+function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (w: Workout) => void }) {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Coming Up
       </div>
       {workouts.length === 0 ? (
-        <div style={{ color: COLORS.muted, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-          No planned workouts ahead
+        <div style={{
+          background: COLORS.subtle,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 10,
+          padding: '20px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <span style={{ fontSize: 20, lineHeight: 1 }}>📅</span>
+          <span style={{ color: COLORS.muted, fontSize: 13, fontWeight: 500 }}>No planned workouts ahead</span>
+          <span style={{ color: COLORS.muted, fontSize: 11, opacity: 0.7 }}>Add a training plan to populate your calendar</span>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {workouts.map(w => {
             const wt = workoutTypes[w.type]
             return (
-              <div key={w.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px',
-                background: COLORS.bg, borderRadius: 9,
-                border: `1px solid ${COLORS.border}`,
-              }}>
+              <div
+                key={w.id}
+                onClick={() => onSelect(w)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 12px',
+                  background: COLORS.surface, borderRadius: 9,
+                  borderTop: `1px solid ${COLORS.border}`,
+                  borderRight: `1px solid ${COLORS.border}`,
+                  borderBottom: `1px solid ${COLORS.border}`,
+                  borderLeft: `3px solid ${wt.color}`,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                  cursor: 'pointer',
+                  transition: 'box-shadow 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.boxShadow = `0 4px 12px ${wt.shadowColor}, 0 1px 4px rgba(0,0,0,0.06)`
+                  e.currentTarget.style.borderTopColor = wt.darkBorder
+                  e.currentTarget.style.borderRightColor = wt.darkBorder
+                  e.currentTarget.style.borderBottomColor = wt.darkBorder
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'
+                  e.currentTarget.style.borderTopColor = COLORS.border
+                  e.currentTarget.style.borderRightColor = COLORS.border
+                  e.currentTarget.style.borderBottomColor = COLORS.border
+                }}
+              >
                 <div style={{
                   width: 32, height: 32, borderRadius: 7, flexShrink: 0,
-                  background: wt.color + '20',
+                  background: wt.bg,
+                  border: `1.5px solid ${wt.darkBorder}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 15,
                 }}>
                   {wt.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: wt.color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>
+                    {wt.label}
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.title}
                   </div>
@@ -283,7 +329,7 @@ function AICoachTeaser({ onClick }: { onClick: () => void }) {
       }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ fontSize: 14, color: COLORS.accent }}>✦</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           AI Coach
         </span>
       </div>
@@ -360,7 +406,7 @@ function SeasonGoalsPanel() {
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Season Goals
         </div>
         {goals.length > 0 && (
@@ -493,7 +539,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.green}, ${COLORS.orange}, ${COLORS.purple})` }} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Nutrition Today</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Nutrition Today</div>
         <button
           onClick={onNavigate}
           style={{ background: 'none', border: 'none', color: COLORS.accent, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'flex', alignItems: 'center', gap: 4, transition: 'gap 0.15s' }}
@@ -579,7 +625,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
 
           {/* Macro split */}
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 7 }}>Macro Split</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 7 }}>Macro Split</div>
             <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
               <div style={{ width: `${proteinPct}%`, background: COLORS.green,  transition: 'width 0.5s ease' }} />
               <div style={{ width: `${carbsPct}%`,   background: COLORS.orange, transition: 'width 0.5s ease' }} />
@@ -606,7 +652,7 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, unit, sub, color, dimSub }: {
+function StatCard({ label, value, unit, sub, color }: {
   label: string
   value: string | number
   unit?: string
@@ -624,7 +670,7 @@ function StatCard({ label, value, unit, sub, color, dimSub }: {
       overflow: 'hidden',
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
-      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
         {label}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
@@ -633,7 +679,7 @@ function StatCard({ label, value, unit, sub, color, dimSub }: {
         </span>
         {unit && <span style={{ fontSize: 14, color: COLORS.muted, fontWeight: 500 }}>{unit}</span>}
       </div>
-      <div style={{ fontSize: 12, color: dimSub ? COLORS.muted : color, fontWeight: 600 }}>
+      <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600 }}>
         {sub}
       </div>
     </div>
@@ -649,9 +695,13 @@ export function Dashboard() {
     calculateFitnessMetrics,
     getUpcomingWorkouts,
     getFitnessHistory,
+    deleteWorkout,
+    updateWorkout,
   } = useWorkouts()
   const { profile } = useProfile()
   const [showWelcome, setShowWelcome] = useState(() => sessionStorage.getItem('onboardingWelcome') === 'true')
+  const [detailWorkout, setDetailWorkout] = useState<Workout | null>(null)
+  const [dayModal, setDayModal] = useState<{ date: Date; workouts: Workout[] } | null>(null)
   const isMobile = useIsMobile()
   const navigate = useNavigate()
 
@@ -676,7 +726,6 @@ export function Dashboard() {
   const subtitle = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Stat card helpers
-  const tsbColor = COLORS.green
   const ctlSub = ctlDelta !== 0 ? `${ctlDelta > 0 ? '↑' : '↓'} ${Math.abs(ctlDelta)} this week` : 'Stable this week'
   const atlSub = atl > 70 ? 'Heavy training load' : atl > 45 ? 'Moderate load' : atl > 20 ? 'Light load' : 'Very fresh'
   const tsbSub = tsb > 10 ? '🟢 Fresh — ready to race' : tsb < -20 ? '⚠️ High fatigue' : tsb < -10 ? 'Some fatigue' : 'Balanced form'
@@ -778,21 +827,21 @@ export function Dashboard() {
           label="Fitness (CTL)"
           value={ctl}
           sub={ctl < 10 ? 'Log workouts to build' : ctlSub}
-          color={COLORS.purple}
+          color={COLORS.accent}
           dimSub={ctl < 10}
         />
         <StatCard
           label="Fatigue (ATL)"
           value={atl}
           sub={atl < 10 ? 'No recent load' : atlSub}
-          color={COLORS.orange}
+          color={COLORS.accent}
           dimSub={atl < 10}
         />
         <StatCard
           label="Form (TSB)"
           value={tsb > 0 ? `+${tsb}` : tsb}
           sub={tsbSub}
-          color={tsbColor}
+          color={COLORS.accent}
         />
         {hasRace ? (
           <StatCard
@@ -800,7 +849,7 @@ export function Dashboard() {
             value={raceDays!}
             unit="days"
             sub={profile!.race_goal!}
-            color={COLORS.purple}
+            color={COLORS.accent}
           />
         ) : (
           <div style={{
@@ -808,7 +857,7 @@ export function Dashboard() {
             position: 'relative', overflow: 'hidden',
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
-            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Race Goal</div>
+            <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Race Goal</div>
             <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 20 }}>Set in profile settings</div>
           </div>
         )}
@@ -824,17 +873,35 @@ export function Dashboard() {
         {/* Left: chart + weekly load */}
         <div>
           <FitnessAreaChart data={fitnessHistory} />
-          <WeeklyLoadCard weekWorkouts={weekWorkouts} />
+          <WeeklyLoadCard weekWorkouts={weekWorkouts} onDayClick={(date, workouts) => setDayModal({ date, workouts })} />
         </div>
 
         {/* Right: coming up + AI coach + goals */}
         <div>
-          <ComingUpCard workouts={comingUp} />
+          <ComingUpCard workouts={comingUp} onSelect={setDetailWorkout} />
           <AICoachTeaser onClick={() => navigate('/ai-coach')} />
           <NutritionSummaryCard onNavigate={() => navigate('/nutrition')} />
           <SeasonGoalsPanel />
         </div>
       </div>
+
+      {detailWorkout && (
+        <WorkoutDetailModal
+          workout={detailWorkout}
+          onClose={() => setDetailWorkout(null)}
+          onDelete={async (id) => { await deleteWorkout(id); setDetailWorkout(null) }}
+          onUpdate={async (id, updates) => { await updateWorkout(id, updates); setDetailWorkout(null) }}
+        />
+      )}
+      {dayModal && !detailWorkout && (
+        <DayWorkoutsModal
+          date={dayModal.date}
+          workouts={dayModal.workouts}
+          onSelectWorkout={(w) => { setDayModal(null); setDetailWorkout(w) }}
+          onAddWorkout={() => setDayModal(null)}
+          onClose={() => setDayModal(null)}
+        />
+      )}
     </>
   )
 }

@@ -13,7 +13,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
   }
 }
 
-const VALID_CONTENT_TYPES = ['pdf', 'html', 'text'] as const
+const VALID_SPORTS = ['triathlon', 'run', 'bike', 'swim'] as const
+const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 60 * 60 * 1000
 
@@ -52,10 +53,10 @@ async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise
     .from('api_rate_limits')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('function_name', 'parse-plan')
+    .eq('function_name', 'generate-plan')
     .gte('called_at', windowStart)
   if ((count ?? 0) >= RATE_LIMIT) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'parse-plan' })
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'generate-plan' })
   return true
 }
 
@@ -90,100 +91,149 @@ Deno.serve(async (req: Request) => {
     // ── Rate limit ────────────────────────────────────────────────────────────
     const allowed = await checkRateLimit(supabase, user.id)
     if (!allowed) {
-      return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can import up to 5 plans per hour.' }), {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can generate up to 5 plans per hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────────
     const body = await req.json()
-    const { content, contentType, startDate, raceDate, planName } = body as {
-      content: string
-      contentType: string
-      startDate: string
+    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = body as {
+      sport: string
+      raceDistance: string
       raceDate: string
-      planName?: string
+      startDate: string
+      preferredDays?: string[]
+      level?: string
+      goalTime?: string
+      athleteProfile: {
+        ctl: number
+        ftp?: number
+        thresholdPace?: string
+        css?: string
+        primarySport: string
+      }
     }
 
-    if (!content || typeof content !== 'string') {
-      return new Response(JSON.stringify({ error: 'Missing content' }), {
+    if (!sport || !raceDistance || !raceDate || !startDate) {
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (content.length > 80000) {
-      return new Response(JSON.stringify({ error: 'content_too_large' }), {
+    if (!(VALID_SPORTS as readonly string[]).includes(sport)) {
+      return new Response(JSON.stringify({ error: 'Invalid sport' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (!(VALID_CONTENT_TYPES as readonly string[]).includes(contentType)) {
-      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
+    if (typeof raceDistance !== 'string' || raceDistance.length === 0 || raceDistance.length > 100) {
+      return new Response(JSON.stringify({ error: 'Invalid race distance' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (startDate && isNaN(Date.parse(startDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid start date format' }), {
+    if (level !== undefined && !(VALID_LEVELS as readonly string[]).includes(level)) {
+      return new Response(JSON.stringify({ error: 'Invalid level' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (raceDate && isNaN(Date.parse(raceDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid race date format' }), {
+    const startMs = Date.parse(startDate)
+    const raceMs = Date.parse(raceDate)
+    if (isNaN(startMs) || isNaN(raceMs)) {
+      return new Response(JSON.stringify({ error: 'Invalid date format' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (raceMs <= startMs) {
+      return new Response(JSON.stringify({ error: 'Race date must be after start date' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // ── Call Claude ───────────────────────────────────────────────────────────
+    const totalWeeks = Math.max(1, Math.round((raceMs - startMs) / (7 * 86400000)))
+
+    const baseWeeks = Math.round(totalWeeks * 0.55)
+    const buildWeeks = Math.round(totalWeeks * 0.3)
+    const peakEnd = baseWeeks + buildWeeks
+    const taperWeeks = Math.max(1, totalWeeks - peakEnd)
+
+    // ── Build prompt ──────────────────────────────────────────────────────────
+    const fitnessLines: string[] = [`CTL: ${athleteProfile.ctl}`]
+    if (athleteProfile.ftp) fitnessLines.push(`FTP: ${athleteProfile.ftp}W`)
+    if (athleteProfile.thresholdPace) fitnessLines.push(`Run threshold pace: ${athleteProfile.thresholdPace} min/km`)
+    if (athleteProfile.css) fitnessLines.push(`Swim CSS: ${athleteProfile.css} /100m`)
+
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-    const prompt = `You are a training plan parser. Extract all training sessions from the plan text below and return ONLY valid JSON. No explanation, no markdown, no code blocks — just raw JSON.
+    const availableDaysLine = preferredDays && preferredDays.length > 0
+      ? preferredDays.join(', ')
+      : 'any day'
 
-Return this exact structure:
+    const athleteLevel = level ?? 'intermediate'
+
+    const levelGuidance: Record<string, string> = {
+      beginner: 'Beginner: mostly Z1–Z2 aerobic work; no more than 1 harder session/week; sessions capped at 60–75 min; conservative volume progression (5–8% per week); prioritise consistency and injury prevention over intensity.',
+      intermediate: 'Intermediate: 1–2 quality sessions/week (threshold or intervals); long sessions up to 90 min; standard 10% volume progression; mix of aerobic base and race-specific work.',
+      advanced: 'Advanced: 2–3 quality sessions/week; long sessions 90–150 min; aggressive periodisation; VO2max and race-pace work in build phase; athlete can handle high TSS weeks.',
+    }
+
+    const prompt = `You are an expert endurance coach writing a personalised training plan. Return ONLY valid JSON — no explanation, no markdown, no code blocks.
+
+Athlete:
+${fitnessLines.join('\n')}
+Experience level: ${athleteLevel}
+
+Level guidance: ${levelGuidance[athleteLevel]}
+
+Plan:
+- Sport: ${sport}
+- Race: ${raceDistance}
+- Race date: ${raceDate}
+- Start date: ${startDate}
+- Total weeks: ${totalWeeks}
+- Athlete is available to train on: ${availableDaysLine}${goalTime ? `\n- Goal time: ${goalTime}` : ''}
+- Sessions per week: choose the appropriate number based on the athlete's experience level, sport, and race distance. Vary the count by phase — fewer in recovery/taper weeks, more in build/peak.${sport === 'triathlon' ? ' For triathlon, double-session days (AM + PM on the same day) are normal and expected for intermediate/advanced athletes.' : ''}
+
+Periodisation:
+- Weeks 1–${baseWeeks}: Base — Z2 aerobic volume, 1 threshold session/week, long session on the latest available day of the week
+- Weeks ${baseWeeks + 1}–${peakEnd}: Build — add intervals, race-pace work, brick sessions (triathlon); keep long session on latest available day of week
+- Weeks ${peakEnd + 1}–${totalWeeks}: Taper — cut volume 40%, keep intensity, sharpen for race day
+- Sessions MUST only fall on the athlete's available days. Not every available day needs a session. All other days use sport "rest".
+
+Sport codes: swim, bike, run, sc (strength/core), brick (bike+run), rest
+
+For every non-rest session, write a coach-quality "description" using this compact format (keep each description under 60 words):
+"WU: [duration + effort]. Main: [specific reps/duration/pace/power]. CD: [duration + effort]. Tip: [one beginner tip]."
+
+Use real numbers. Don't say "threshold pace" — say "threshold pace (${athleteProfile.thresholdPace ? athleteProfile.thresholdPace + ' min/km' : 'your goal race pace'})". Don't say "easy effort" — say "conversational pace, HR under 75% max".
+
+Example: "WU: 10min easy jog (conversational). Main: 4×8min at threshold pace (4:15/km) w/ 3min jog recovery. CD: 10min easy. Tip: drop to 3 reps if pace slips — quality over volume."
+
+Return exactly this JSON structure:
 {
-  "plan_name": "string — infer from text, or use 'Training Plan'",
-  "total_weeks": number,
-  "races": [{"name": "string", "date": "YYYY-MM-DD or empty string"}],
+  "plan_name": "string",
+  "total_weeks": ${totalWeeks},
+  "races": [{"name": "${raceDistance} ${sport}", "date": "${raceDate}"}],
   "sessions": [
     {
       "week": 1,
-      "day_of_week": "Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday",
-      "time_of_day": "AM|PM|",
-      "sport": "swim|bike|run|sc|brick|rest",
-      "title": "string",
-      "description": "string",
-      "duration_minutes": number or null,
-      "target_metric": "string — power zone, pace zone, HR zone, RPE, etc.",
-      "zone_label": "string",
-      "phase": "string",
-      "notes": "string"
+      "day_of_week": "Monday",
+      "time_of_day": "AM",
+      "sport": "run",
+      "title": "Threshold Run",
+      "description": "WU: 10min easy jog. Main: 4×8min at threshold pace (4:15/km) w/ 3min jog recovery. CD: 10min easy. Tip: drop to 3 reps if pace falls apart.",
+      "duration_minutes": 60,
+      "target_metric": "Z4, threshold pace",
+      "zone_label": "Zone 4",
+      "phase": "Base",
+      "notes": ""
     }
   ]
 }
 
-Sport codes:
-- swim = swimming
-- bike = cycling/riding
-- run = running
-- sc = strength, conditioning, gym, yoga, core, weights
-- brick = combined bike+run or multi-sport
-- rest = rest days, recovery, off
+Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon' ? 'Multiple sessions on the same day are allowed — output them as separate entries with the same week and day_of_week but different time_of_day ("AM"/"PM"). Rest days have a single entry with sport "rest".' : 'One entry per day (one per day_of_week).'} Rest day description = "".`
 
-Rules:
-- week numbers start at 1
-- duration_minutes is a number (not a string), null if unknown
-- Include all sessions including rest days
-- target_metric captures the key training target (e.g. "185-215w", "5:20-5:45/km", "Z2", "RPE 6-7")
-
-Plan context:
-Start date: ${startDate || 'not specified'}
-Race date: ${raceDate || 'not specified'}
-${planName ? `Plan name: ${planName}` : ''}
-Content type: ${contentType}
-
-Plan text:
-${content}`
-
-    const parseController = new AbortController()
-    const parseTimeout = setTimeout(() => parseController.abort(), 30000)
+    const generateController = new AbortController()
+    const generateTimeout = setTimeout(() => generateController.abort(), 30000)
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -193,16 +243,16 @@ ${content}`
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       }),
-      signal: parseController.signal,
+      signal: generateController.signal,
     })
-    clearTimeout(parseTimeout)
+    clearTimeout(generateTimeout)
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()
-      console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+      console.error('[generate-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
       throw new Error('AI service error')
     }
 
@@ -219,7 +269,7 @@ ${content}`
     try {
       parsed = JSON.parse(jsonStr)
     } catch {
-      console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
+      console.error('[generate-plan] JSON parse failed. Raw:', rawText.slice(0, 500))
       return new Response(JSON.stringify({ error: 'parse_failed' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -230,9 +280,7 @@ ${content}`
     // ── Resolve scheduled dates ───────────────────────────────────────────────
     const resolvedSessions = rawSessions.map(s => ({
       ...s,
-      scheduled_date: startDate && s.day_of_week
-        ? resolveDate(startDate, s.week, s.day_of_week)
-        : null,
+      scheduled_date: s.day_of_week ? resolveDate(startDate, s.week, s.day_of_week) : null,
       has_conflict: false,
     }))
 
@@ -260,13 +308,13 @@ ${content}`
 
     const conflictCount = resolvedSessions.filter(s => s.has_conflict).length
     const raceName = parsed.races?.[0]?.name ?? null
-    const resolvedPlanName = planName || parsed.plan_name || 'Training Plan'
+    const planName = parsed.plan_name || `${raceDistance} ${sport} Plan`
 
     return new Response(
       JSON.stringify({
-        plan_name: resolvedPlanName,
+        plan_name: planName,
         race_name: raceName,
-        total_weeks: parsed.total_weeks ?? Math.max(...resolvedSessions.map(s => s.week), 1),
+        total_weeks: totalWeeks,
         sessions: resolvedSessions,
         conflict_count: conflictCount,
       }),
@@ -274,7 +322,7 @@ ${content}`
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[parse-plan] error:', message)
+    console.error('[generate-plan] error:', message)
     return new Response(
       JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

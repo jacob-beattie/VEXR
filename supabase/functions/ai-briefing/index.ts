@@ -1,9 +1,21 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS: string[] = Deno.env.get('ALLOWED_ORIGIN')
+  ? [...Deno.env.get('ALLOWED_ORIGIN')!.split(',').map(s => s.trim()), 'http://localhost:5173', 'http://localhost:3000']
+  : []
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowed = ALLOWED_ORIGINS.length === 0 ? '*' : (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0])
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
+
+const RATE_WINDOW_MS = 60 * 60 * 1000
+const BRIEFING_RATE_LIMIT = 5
+const PREDICTOR_RATE_LIMIT = 10
 
 // ─── PMC constants (mirrors src/lib/calculateMetrics.ts) ─────────────────────
 const CTL_K = 1 - Math.exp(-1 / 42)
@@ -53,7 +65,28 @@ function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: 
   }
 }
 
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function checkRateLimit(
+  supabase: SupabaseClient,
+  userId: string,
+  functionName: string,
+  limit: number,
+): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('api_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('function_name', functionName)
+    .gte('called_at', windowStart)
+  if ((count ?? 0) >= limit) return false
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
+  return true
+}
+
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -94,6 +127,13 @@ Deno.serve(async (req: Request) => {
 
     // ── Race predictor mode ──────────────────────────────────────────────────
     if (mode === 'race_predictor') {
+      const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing-predictor', PREDICTOR_RATE_LIMIT)
+      if (!allowed) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing predictions.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       const { ctl, ftp, runPace, css, sport, predictions } = raceBody as {
         ctl: number; ftp: number; runPace: string; css: string
         sport: string
@@ -117,6 +157,8 @@ Triathlon: ${predictions?.triathlon || 'No data'}
 
 Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
 
+      const predictorController = new AbortController()
+      const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
       const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -129,16 +171,19 @@ Comment on what the predictions reveal about their current fitness, highlight on
           max_tokens: 300,
           messages: [{ role: 'user', content: racePrompt }],
         }),
+        signal: predictorController.signal,
       })
+      clearTimeout(predictorTimeout)
 
       if (!aiRes.ok) {
         const errBody = await aiRes.text()
-        throw new Error(`Anthropic API error ${aiRes.status}: ${errBody}`)
+        console.error('[ai-briefing] Anthropic error (predictor):', aiRes.status, errBody.slice(0, 200))
+        throw new Error('AI service error')
       }
 
       const aiData = await aiRes.json()
       const narrative = aiData.content?.[0]?.text?.trim()
-      if (!narrative) throw new Error('Empty response from Claude')
+      if (!narrative) throw new Error('Empty response from AI service')
 
       return new Response(
         JSON.stringify({ narrative }),
@@ -165,6 +210,14 @@ Comment on what the predictions reveal about their current fitness, highlight on
           )
         }
       }
+    }
+
+    // ── Rate limit briefing API calls (cache misses + force refreshes) ────────
+    const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing', BRIEFING_RATE_LIMIT)
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing your briefing.' }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     // Fetch user's profile
@@ -257,6 +310,8 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
+    const briefingController = new AbortController()
+    const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -269,16 +324,19 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: briefingController.signal,
     })
+    clearTimeout(briefingTimeout)
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()
-      throw new Error(`Anthropic API error ${aiRes.status}: ${errBody}`)
+      console.error('[ai-briefing] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+      throw new Error('AI service error')
     }
 
     const aiData = await aiRes.json()
     const briefing = aiData.content?.[0]?.text?.trim()
-    if (!briefing) throw new Error('Empty response from Claude')
+    if (!briefing) throw new Error('Empty response from AI service')
 
     // Insert new briefing (accumulate history)
     const { data: saved, error: saveError } = await supabase
@@ -306,12 +364,10 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err: unknown) {
-    const message = err instanceof Error
-      ? err.message
-      : (err && typeof err === 'object' ? JSON.stringify(err) : String(err))
+    const message = err instanceof Error ? err.message : String(err)
     console.error('[ai-briefing] error:', message)
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
