@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, act } from '@testing-library/react'
 import { useProfile, ProfileProvider } from '../ProfileContext'
 import type { Profile } from '../../types'
 
@@ -124,7 +124,7 @@ describe('ProfileContext — auth state changes', () => {
     )
 
     await waitFor(() => expect(received).toContainEqual(mockProfile))
-    capturedCb?.('SIGNED_OUT', null)
+    act(() => capturedCb?.('SIGNED_OUT', null))
     await waitFor(() => expect(received[received.length - 1]).toBeNull())
   })
 })
@@ -154,7 +154,7 @@ describe('ProfileContext — setProfile', () => {
     await waitFor(() => expect(received).toContainEqual(mockProfile))
 
     const updated = { ...mockProfile, ftp: 300 }
-    setProfileFn(updated)
+    act(() => setProfileFn(updated))
     await waitFor(() => expect(received[received.length - 1]).toEqual(updated))
   })
 })

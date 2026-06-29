@@ -154,8 +154,10 @@ describe('StravaContext — triggerSync', () => {
     // Second call while already syncing should be a no-op
     await act(async () => { await ctx.triggerSync() })
 
-    // Resolve pending fetch
-    resolveFetch({ ok: true, json: async () => ({ count: 0 }) })
+    // Resolve pending fetch and drain resulting state updates
+    await act(async () => {
+      resolveFetch({ ok: true, json: async () => ({ count: 0 }) })
+    })
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 

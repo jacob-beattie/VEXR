@@ -6,7 +6,7 @@ import { Dashboard } from '../Dashboard'
 vi.mock('../../hooks/useIsMobile', () => ({ useIsMobile: () => false }))
 
 vi.mock('recharts', () => ({
-  AreaChart: ({ children }: { children: React.ReactNode }) => <div data-testid="area-chart">{children}</div>,
+  AreaChart: () => <div data-testid="area-chart" />,
   Area: () => null,
   XAxis: () => null,
   YAxis: () => null,

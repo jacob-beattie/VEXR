@@ -24,10 +24,12 @@ beforeEach(() => {
 })
 
 describe('useAuth — initial state', () => {
-  it('starts in loading state with null user', () => {
+  it('starts in loading state with null user', async () => {
     const { result } = renderHook(() => useAuth())
     expect(result.current.loading).toBe(true)
     expect(result.current.user).toBeNull()
+    // Drain the pending getSession() resolution to avoid act() warning
+    await waitFor(() => expect(result.current.loading).toBe(false))
   })
 
   it('resolves to not-loading with null user when no session', async () => {

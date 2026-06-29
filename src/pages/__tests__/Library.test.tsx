@@ -29,10 +29,12 @@ beforeEach(() => {
 })
 
 describe('Library page', () => {
-  it('shows loading state initially', () => {
+  it('shows loading state initially', async () => {
     mockFrom.mockReturnValue(makeChain([], null))
     render(<Library />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
+    // Drain pending fetch to avoid act() warning
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
   })
 
   it('renders LibraryPage with fetched items', async () => {
