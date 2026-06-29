@@ -63,6 +63,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 | Edge Functions | Supabase Edge Functions (Deno)           |
 | AI             | Anthropic Claude API (claude-sonnet-4-6) |
 | Deployment     | Vercel                                   |
+| Dev Tooling    | Supabase MCP (direct DB access in Claude Code) |
 
 ---
 
@@ -101,6 +102,23 @@ VITE_STRAVA_REDIRECT_URI=http://localhost:5173/strava/callback
 - Run the SQL schema from `supabase-schema.sql` in the SQL editor
 - Enable Email auth in Authentication settings
 - Disable email confirmations for local development
+
+### 3a. (Optional) Connect Supabase MCP
+
+For direct DB access from Claude Code, create `.mcp.json` in the repo root:
+
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF"
+    }
+  }
+}
+```
+
+This lets Claude run queries, apply migrations, check logs, and deploy edge functions without leaving the conversation. `.mcp.json` is gitignored — never commit it.
 
 ### 4. Set up Supabase Edge Function secrets
 

@@ -81,6 +81,12 @@ UX / QUALITY OF LIFE
 - Offline mode: log workouts without internet, sync later
 - Push notifications: daily workout reminders, weekly summary
 
+INFRASTRUCTURE / DEV TOOLING
+-----------------------------
+✅ Supabase MCP: connected via .mcp.json — Claude Code can run SQL queries, apply migrations, check edge function logs, deploy functions, and get security/performance advisors directly from the conversation without leaving the IDE
+✅ DB health audit: fixed RLS initplan issue across all 17 tables ((select auth.uid()) pattern), pinned handle_new_user search_path, revoked public execute on trigger function, removed redundant training_plans SELECT policy, added missing indexes on ai_briefings and goals, seeded food_database with 23 base foods
+- Supabase GitHub integration: auto-deploy migrations on push to main
+
 MONETISATION (when ready)
 --------------------------
 - Free tier: basic logging + calendar

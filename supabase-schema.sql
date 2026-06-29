@@ -80,16 +80,15 @@ alter table workouts enable row level security;
 alter table training_plans enable row level security;
 alter table workout_library enable row level security;
 
-create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
-create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
-create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = id);
-create policy "Users can view own workouts" on workouts for select using (auth.uid() = user_id);
-create policy "Users can insert own workouts" on workouts for insert with check (auth.uid() = user_id);
-create policy "Users can update own workouts" on workouts for update using (auth.uid() = user_id);
-create policy "Users can delete own workouts" on workouts for delete using (auth.uid() = user_id);
-create policy "Users can view own plans" on training_plans for select using (auth.uid() = user_id);
-create policy "Users can manage own plans" on training_plans for all using (auth.uid() = user_id);
-create policy "Users can manage own library" on workout_library for all using (auth.uid() = user_id);
+create policy "Users can view own profile" on profiles for select using ((select auth.uid()) = id);
+create policy "Users can update own profile" on profiles for update using ((select auth.uid()) = id);
+create policy "Users can insert own profile" on profiles for insert with check ((select auth.uid()) = id);
+create policy "Users can view own workouts" on workouts for select using ((select auth.uid()) = user_id);
+create policy "Users can insert own workouts" on workouts for insert with check ((select auth.uid()) = user_id);
+create policy "Users can update own workouts" on workouts for update using ((select auth.uid()) = user_id);
+create policy "Users can delete own workouts" on workouts for delete using ((select auth.uid()) = user_id);
+create policy "Users can manage own plans" on training_plans for all using ((select auth.uid()) = user_id);
+create policy "Users can manage own library" on workout_library for all using ((select auth.uid()) = user_id);
 
 -- Fitness Benchmarks (FTP / run pace / CSS history)
 create table fitness_benchmarks (
@@ -115,18 +114,27 @@ create table training_zones (
 alter table fitness_benchmarks enable row level security;
 alter table training_zones enable row level security;
 
-create policy "Users can manage own benchmarks" on fitness_benchmarks for all using (auth.uid() = user_id);
-create policy "Users can manage own zones" on training_zones for all using (auth.uid() = user_id);
+create policy "Users can manage own benchmarks" on fitness_benchmarks for all using ((select auth.uid()) = user_id);
+create policy "Users can manage own zones" on training_zones for all using ((select auth.uid()) = user_id);
 
 -- Auto-create profile on signup
-create or replace function handle_new_user()
-returns trigger as $$
+create or replace function public.handle_new_user()
+  returns trigger
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
 begin
   insert into public.profiles (id, name)
   values (new.id, new.raw_user_meta_data->>'name');
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
+
+-- Prevent direct RPC calls — only the trigger should invoke this
+revoke execute on function public.handle_new_user() from public;
+revoke execute on function public.handle_new_user() from anon;
+revoke execute on function public.handle_new_user() from authenticated;
 
 create trigger on_auth_user_created
   after insert on auth.users
@@ -157,7 +165,7 @@ create table if not exists training_sessions (
 );
 alter table training_sessions enable row level security;
 create policy "Users manage own sessions" on training_sessions
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- Link workouts back to training_plans so calendar entries cascade on plan delete
 alter table workouts
@@ -188,7 +196,7 @@ create table nutrition_logs (
 );
 alter table nutrition_logs enable row level security;
 create policy "Users manage own nutrition logs" on nutrition_logs
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- Per-user macro targets
 create table nutrition_targets (
@@ -200,7 +208,7 @@ create table nutrition_targets (
 );
 alter table nutrition_targets enable row level security;
 create policy "Users manage own nutrition targets" on nutrition_targets
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- Hydration logs (one row per user per day)
 create table hydration_logs (
@@ -211,7 +219,7 @@ create table hydration_logs (
 );
 alter table hydration_logs enable row level security;
 create policy "Users manage own hydration logs" on hydration_logs
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- Per-user custom foods
 create table nutrition_custom_foods (
@@ -226,7 +234,7 @@ create table nutrition_custom_foods (
 );
 alter table nutrition_custom_foods enable row level security;
 create policy "Users manage own custom foods" on nutrition_custom_foods
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- Global food database (shared, read-only for all authenticated users)
 create table food_database (
@@ -239,7 +247,7 @@ create table food_database (
 );
 alter table food_database enable row level security;
 create policy "Authenticated users can read food database" on food_database
-  for select using (auth.role() = 'authenticated');
+  for select to authenticated using (true);
 
 insert into food_database (name, calories, protein, carbs, fat) values
   ('Oats (100g)', 380, 13, 64, 7),
@@ -276,7 +284,7 @@ create table if not exists api_rate_limits (
 create index if not exists idx_api_rate_limits on api_rate_limits(user_id, function_name, called_at);
 alter table api_rate_limits enable row level security;
 create policy "Users can manage own rate limits" on api_rate_limits
-  for all using (auth.uid() = user_id);
+  for all using ((select auth.uid()) = user_id);
 
 -- ── Performance indexes ───────────────────────────────────────────────────────
 -- Composite (user_id, date) covers both user-only and date-range queries
@@ -291,6 +299,31 @@ create index if not exists idx_training_zones_user_id    on training_zones(user_
 -- Composite (user_id, date) for nutrition_logs: date-scoped meal lookups
 create index if not exists idx_nutrition_logs_user_date  on nutrition_logs(user_id, date);
 create index if not exists idx_nutrition_custom_foods_user_id on nutrition_custom_foods(user_id);
+create index if not exists idx_ai_briefings_user_id on ai_briefings(user_id);
+create index if not exists idx_goals_user_id on goals(user_id);
+
+-- ── AI Briefings ──────────────────────────────────────────────────────────────
+create table if not exists ai_briefings (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references auth.users not null,
+  briefing     text not null,
+  generated_at timestamptz default now()
+);
+alter table ai_briefings enable row level security;
+create policy "Users can manage own briefings" on ai_briefings
+  for all using ((select auth.uid()) = user_id);
+
+-- ── Season Goals ──────────────────────────────────────────────────────────────
+create table if not exists goals (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users not null,
+  text       text not null,
+  completed  boolean default false,
+  created_at timestamptz default now()
+);
+alter table goals enable row level security;
+create policy "Users can manage own goals" on goals
+  for all using ((select auth.uid()) = user_id);
 
 -- ── Profile avatar ────────────────────────────────────────────────────────────
 alter table profiles add column if not exists avatar_url text;

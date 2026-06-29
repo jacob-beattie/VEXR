@@ -13,6 +13,24 @@ Built as a solo project. Goal is to eventually monetise with free/pro/coach tier
 - pdfjs-dist (PDF text extraction in Training Plans import)
 - No Tailwind — all styles are inline using the COLORS object from `src/lib/colors.ts`
 
+## Supabase MCP
+
+The project has a Supabase MCP server configured in `.mcp.json` (project ref: `fsskwaazmoidayqtsipy`). This gives Claude Code direct access to the live Supabase project without leaving the conversation.
+
+**Available via MCP:**
+- `execute_sql` — run any query (SELECT, INSERT, UPDATE, etc.)
+- `apply_migration` — apply DDL changes (schema changes always go here, not `execute_sql`)
+- `get_logs` — fetch logs from edge functions, auth, postgres, etc.
+- `get_advisors` — security and performance recommendations
+- `list_tables` — inspect schema
+- `deploy_edge_function` — deploy edge functions directly
+
+**Workflow rules:**
+- DDL changes (CREATE TABLE, ALTER, CREATE POLICY, etc.) → always use `apply_migration` so changes are tracked in migration history
+- Data operations (INSERT, UPDATE, SELECT) → use `execute_sql`
+- All schema changes must also be reflected in `supabase-schema.sql` at the repo root
+- The `.mcp.json` file is gitignored — do not commit it
+
 ## Design System
 
 - Dark theme only, no light mode
