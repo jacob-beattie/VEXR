@@ -35,7 +35,7 @@ function PageLoader() {
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
   '/calendar': { title: 'Training Calendar', subtitle: 'Track and plan your sessions' },
   '/analytics': { title: 'Performance Analytics', subtitle: 'Trends, fitness, and load analysis' },
-  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: '#00e5ff' },
+  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: COLORS.accent },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
   '/nutrition': { title: 'Nutrition', subtitle: 'Track your daily fuel and macros' },
@@ -94,7 +94,7 @@ function SyncToast({ isMobile }: { isMobile: boolean }) {
       style={{
         position: 'fixed', bottom: isMobile ? 76 : 24, right: 24, zIndex: 100,
         background: COLORS.card,
-        border: `1px solid #FC4C02`,
+        border: `1px solid ${COLORS.strava}`,
         borderRadius: 10,
         padding: '12px 18px',
         display: 'flex', alignItems: 'center', gap: 10,
@@ -246,16 +246,16 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             width: 52,
             height: 52,
             borderRadius: '50%',
-            background: '#00e5ff',
+            background: COLORS.accent,
             border: 'none',
-            color: '#000',
+            color: '#fff',
             fontSize: 24,
             fontWeight: 400,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 4px 20px #00e5ff40',
+            boxShadow: '0 4px 16px rgba(14,165,233,0.35)',
             fontFamily: 'system-ui, sans-serif',
           }}
         >

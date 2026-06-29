@@ -120,6 +120,7 @@ export function Calendar() {
           onViewChange={handleViewChange}
           onDayClick={handleDayClick}
           onWorkoutClick={w => setDetailWorkout(w)}
+          onWorkoutMove={async (workoutId, newDate) => { await updateWorkout(workoutId, { date: newDate }) }}
         />
       </div>
 

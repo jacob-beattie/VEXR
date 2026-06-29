@@ -51,7 +51,7 @@ export function Login() {
           <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
             <span style={{ color: COLORS.accent }}>VEX</span>R
           </div>
-          <div style={{ fontSize: 11, color: COLORS.muted, letterSpacing: '0.14em', marginTop: 4 }}>TRAINING SYSTEM</div>
+          <div style={{ fontSize: 13, color: COLORS.muted, letterSpacing: '0.06em', marginTop: 8 }}>Train. Track. Perform.</div>
         </div>
 
         <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 32 }}>

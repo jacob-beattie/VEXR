@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from '../../lib/colors'
 import { useProfile } from '../../contexts/ProfileContext'
@@ -27,6 +28,8 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
   const location = useLocation()
+
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null)
 
   const initials = profile?.name
     ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -104,12 +107,14 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: '50%',
+            width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: '#000',
+            fontSize: 14, fontWeight: 700, color: '#fff',
           }}>
-            {initials}
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials}
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{profile?.name || 'Athlete'}</div>
@@ -120,17 +125,17 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
         </div>
         <div style={{ marginTop: 12, padding: '8px 10px', background: COLORS.bg, borderRadius: 6, display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.accent, fontFamily: 'monospace' }}>{profile?.ftp || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.ftp || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>FTP</div>
           </div>
           <div style={{ width: 1, background: COLORS.border }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.green, fontFamily: 'monospace' }}>{profile?.run_pace || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.run_pace || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>PACE</div>
           </div>
           <div style={{ width: 1, background: COLORS.border }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.purple, fontFamily: 'monospace' }}>{profile?.css || '—'}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: 'monospace' }}>{profile?.css || '—'}</div>
             <div style={{ fontSize: 9, color: COLORS.muted, letterSpacing: '0.08em' }}>CSS</div>
           </div>
         </div>
@@ -139,19 +144,23 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       {/* Nav items */}
       {navItems.map(item => {
         const active = location.pathname === item.path
+        const hovered = hoveredNav === item.path && !active
         return (
           <button
             key={item.path}
             onClick={() => handleNav(item.path)}
+            onMouseEnter={() => setHoveredNav(item.path)}
+            onMouseLeave={() => setHoveredNav(null)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '11px 20px',
-              background: active ? COLORS.accentDim : 'transparent',
+              background: active ? COLORS.accentDim : hovered ? COLORS.border + '40' : 'transparent',
               borderTop: 'none', borderRight: 'none', borderBottom: 'none',
-              borderLeft: `3px solid ${active ? COLORS.accent : 'transparent'}`,
-              color: active ? COLORS.accent : COLORS.muted,
+              borderLeft: `3px solid ${active ? COLORS.accent : hovered ? COLORS.accent + '60' : 'transparent'}`,
+              color: active ? COLORS.accent : hovered ? COLORS.text : COLORS.muted,
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s', textAlign: 'left', width: '100%',
+              transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+              textAlign: 'left', width: '100%',
             }}
           >
             <span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}
@@ -166,10 +175,10 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
           style={{
             width: '100%',
             padding: '12px',
-            background: '#00e5ff',
+            background: COLORS.accent,
             border: 'none',
             borderRadius: 10,
-            color: '#000000',
+            color: '#ffffff',
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
@@ -177,8 +186,8 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             textAlign: 'center',
             transition: 'background 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#00e5ff')}
+          onMouseEnter={e => (e.currentTarget.style.background = '#0284c7')}
+          onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
         >
           + Log Workout
         </button>
@@ -186,7 +195,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '0 2px',
-            fontSize: 11, color: syncing ? '#FC4C02' : COLORS.muted,
+            fontSize: 11, color: syncing ? COLORS.strava : COLORS.muted,
             fontWeight: syncing ? 600 : 400,
           }}>
             <span className={syncing ? 'spinning' : ''} style={{ fontSize: 11, display: 'inline-block', lineHeight: 1 }}>

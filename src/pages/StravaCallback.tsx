@@ -28,9 +28,6 @@ export function StravaCallback() {
 
   async function exchangeCode(code: string) {
     try {
-      console.log('[StravaCallback] exchanging code:', code.slice(0, 6) + '…')
-
-      // Get the user's JWT so the edge function can identify them
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not logged in')
 
@@ -48,8 +45,6 @@ export function StravaCallback() {
       })
 
       const body = await res.json()
-      console.log('[StravaCallback] response status:', res.status, 'body:', JSON.stringify(body))
-
       if (!res.ok) throw new Error(body.error || body.message || `HTTP ${res.status}`)
 
       await refetchConnection()
@@ -57,7 +52,6 @@ export function StravaCallback() {
 
       setTimeout(() => navigate('/dashboard'), 2000)
     } catch (err: unknown) {
-      console.error('[StravaCallback] error:', err)
       setErrorMessage(err instanceof Error ? err.message : 'Connection failed')
       setStatus('error')
     }

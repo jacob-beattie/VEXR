@@ -23,7 +23,7 @@ export function Button({ children, onClick, variant = 'primary', type = 'button'
   }
 
   const variants: Record<string, CSSProperties> = {
-    primary: { background: COLORS.accent, color: '#000' },
+    primary: { background: COLORS.accent, color: '#fff' },
     secondary: {
       background: COLORS.surface,
       color: COLORS.text,

@@ -3,6 +3,7 @@ import { COLORS } from '../../lib/colors'
 import type { TrainingPlan } from '../../types'
 import { PlanCard } from './PlanCard'
 import { ImportModal } from './ImportModal'
+import { GeneratePlanModal } from './GeneratePlanModal'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface PlansPageProps {
@@ -10,7 +11,7 @@ interface PlansPageProps {
   onRefresh: () => void
 }
 
-function EmptyState({ onImport }: { onImport: () => void }) {
+function EmptyState({ onImport, onGenerate }: { onImport: () => void; onGenerate: () => void }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -41,17 +42,35 @@ function EmptyState({ onImport }: { onImport: () => void }) {
         fontSize: 14, color: COLORS.muted, marginBottom: 28,
         maxWidth: 280, lineHeight: 1.6,
       }}>
-        Import a plan from your coach or build your own structured training block.
+        Generate a personalised plan with AI, or import one from your coach.
       </div>
-      <button className="purple-glow-btn" onClick={onImport} style={{ padding: '13px 28px', fontSize: 14 }}>
-        Import Plan
-      </button>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button className="purple-glow-btn" onClick={onGenerate} style={{ padding: '13px 28px', fontSize: 14 }}>
+          ✦ Generate Plan
+        </button>
+        <button
+          onClick={onImport}
+          style={{
+            padding: '13px 28px', fontSize: 14, fontWeight: 700,
+            background: 'transparent',
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 10, color: COLORS.muted, cursor: 'pointer',
+            fontFamily: 'Inter, Helvetica Neue, sans-serif',
+            transition: 'border-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.accent; e.currentTarget.style.color = COLORS.accent }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted }}
+        >
+          Import Plan
+        </button>
+      </div>
     </div>
   )
 }
 
 export function PlansPage({ plans, onRefresh }: PlansPageProps) {
   const [showImport, setShowImport] = useState(false)
+  const [showGenerate, setShowGenerate] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMobile = useIsMobile()
@@ -70,19 +89,32 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
   return (
     <div style={{ padding: isMobile ? '20px 16px' : '32px 36px' }}>
       {plans.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 28 }}>
+          <button
+            onClick={() => setShowImport(true)}
+            style={{
+              padding: '10px 18px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+              background: 'transparent', border: `1px solid ${COLORS.border}`,
+              borderRadius: 8, color: COLORS.muted, cursor: 'pointer',
+              fontFamily: 'Inter, Helvetica Neue, sans-serif', transition: 'border-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.accent; e.currentTarget.style.color = COLORS.accent }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted }}
+          >
+            Import Plan
+          </button>
           <button
             className="purple-glow-btn"
-            onClick={() => setShowImport(true)}
-            style={{ padding: '10px 20px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
+            onClick={() => setShowGenerate(true)}
+            style={{ padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            + Import Plan
+            ✦ Generate Plan
           </button>
         </div>
       )}
 
       {plans.length === 0 ? (
-        <EmptyState onImport={() => setShowImport(true)} />
+        <EmptyState onImport={() => setShowImport(true)} onGenerate={() => setShowGenerate(true)} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {plans.map(plan => (
@@ -95,6 +127,12 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
         <ImportModal
           onClose={() => setShowImport(false)}
           onImportSuccess={handleImportSuccess}
+        />
+      )}
+      {showGenerate && (
+        <GeneratePlanModal
+          onClose={() => setShowGenerate(false)}
+          onSuccess={handleImportSuccess}
         />
       )}
 

@@ -1,8 +1,8 @@
-import React from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
 import { calculatePMC } from '../../lib/calculateMetrics'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 interface WeeklySummaryProps {
   workouts: Workout[]
@@ -23,6 +23,8 @@ function formatDuration(minutes: number): string {
 }
 
 export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
+  const isMobile = useIsMobile()
+
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekStart.getDate() + 6)
   weekEnd.setHours(23, 59, 59, 999)
@@ -46,7 +48,6 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
   const plannedTSS = planned.reduce((s, w) => s + (w.tss || 0), 0)
   const totalDistance = completed.reduce((s, w) => s + (w.distance_meters || 0), 0)
   const totalElevation = completed.reduce((s, w) => s + (w.elevation_gain || 0), 0)
-  const totalCalories = completed.reduce((s, w) => s + (w.calories || 0), 0)
 
   const sports: WorkoutType[] = ['run', 'ride', 'swim', 'strength']
   const sportStats = sports.map(type => {
@@ -64,104 +65,210 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
   fitnessDate.setHours(0, 0, 0, 0)
   const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
-  const tsbValueColor = fitness.tsb >= 0 ? COLORS.green : '#ef4444'
+  const fitnessMetrics = [
+    { label: 'CTL', value: String(fitness.ctl) },
+    { label: 'ATL', value: String(fitness.atl) },
+    { label: 'TSB', value: fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb) },
+  ]
 
-  // Fixed 3-row structure: label / value / subtitle — minHeight on subtitle reserves space even when empty
-  const stat = (label: string, value: string, valueColor = COLORS.text, sub?: string) => (
-    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3, paddingTop: 14 }}>
-      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 800, color: valueColor, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>{value}</div>
-      <div style={{ fontSize: 10, color: COLORS.muted, whiteSpace: 'nowrap', marginTop: 1, minHeight: '1rem' }}>{sub}</div>
+  const sportPills = sportStats.length > 0 && (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {sportStats.map(s => {
+        const wt = workoutTypes[s.type]
+        return (
+          <div key={s.type} style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            background: COLORS.subtle,
+            borderTop: `1px solid ${COLORS.border}`,
+            borderRight: `1px solid ${COLORS.border}`,
+            borderBottom: `1px solid ${COLORS.border}`,
+            borderLeft: `1px solid ${COLORS.border}`,
+            borderRadius: 20,
+            padding: '4px 10px',
+          }}>
+            <span style={{ fontSize: 13 }}>{wt.icon}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: wt.color }}>{wt.label}</span>
+            <span style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: COLORS.muted }}>{formatDuration(s.minutes)}</span>
+            {s.distanceM > 0 && (
+              <span style={{ fontSize: 11, color: COLORS.muted }}>· {(s.distanceM / 1000).toFixed(1)} km</span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 
-  const divider = <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', flexShrink: 0 }} />
+  if (isMobile) {
+    return (
+      <div style={{
+        background: COLORS.surface,
+        borderTop: `1px solid ${COLORS.border}`,
+        borderRight: `1px solid ${COLORS.border}`,
+        borderBottom: `1px solid ${COLORS.border}`,
+        borderLeft: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+      }}>
+        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          This Week
+        </div>
 
-  const coreStats: React.ReactElement[] = [
-    stat('Workouts', String(completed.length), COLORS.text, planned.length > 0 ? `+${planned.length} planned` : undefined),
-    stat('Duration', formatDuration(totalMinutes)),
-    stat('TSS', String(totalTSS), COLORS.accent, plannedTSS > 0 ? `+${plannedTSS} planned` : undefined),
-  ]
-  if (totalDistance > 0) coreStats.push(stat('Distance', `${(totalDistance / 1000).toFixed(1)} km`))
-  if (totalElevation > 0) coreStats.push(stat('Elevation', `${totalElevation} m`))
-  if (totalCalories > 0) coreStats.push(stat('Calories', totalCalories.toLocaleString()))
+        {/* 3 key stats only — no distance/elevation on mobile */}
+        <div style={{ display: 'flex', gap: 0, justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {completed.length}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>
+              Workouts{planned.length > 0 ? <span style={{ color: COLORS.accent }}> +{planned.length}</span> : null}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {formatDuration(totalMinutes)}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>Duration</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: COLORS.accent, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {totalTSS}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>
+              TSS{plannedTSS > 0 ? <span style={{ color: COLORS.muted }}> +{plannedTSS}p</span> : null}
+            </div>
+          </div>
+        </div>
 
-  return (
-    <div style={{
-      background: COLORS.surface,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
-      padding: '14px 20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 0,
-      overflowX: 'auto',
-    }}>
+        {sportPills}
 
-      {/* LEFT — activity stats + sport rows; stretch fills full bar height, center aligns cells within it */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flex: 1, minWidth: 0, flexShrink: 0, alignSelf: 'stretch' }}>
-        {coreStats.map((s, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && divider}
-            {s}
-          </React.Fragment>
-        ))}
-
-        {sportStats.length > 0 && (
+        {/* Fitness as a compact inline footer — not a second wall of numbers */}
+        {hasFitness && (
           <>
-            <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', flexShrink: 0, margin: '0 4px' }} />
-            {sportStats.map((s, i) => {
-              const wt = workoutTypes[s.type]
-              return (
-                <React.Fragment key={s.type}>
-                  {i > 0 && divider}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0, paddingTop: 14 }}>
-                    <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                      {wt.icon} {wt.label}
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: wt.color, fontFamily: 'DM Mono, monospace', lineHeight: 1, whiteSpace: 'nowrap' }}>
-                      {formatDuration(s.minutes)}
-                    </div>
-                    <div style={{ fontSize: 10, color: COLORS.muted, whiteSpace: 'nowrap', marginTop: 1, minHeight: '1rem' }}>
-                      {s.distanceM > 0 ? `${(s.distanceM / 1000).toFixed(1)} km` : undefined}
-                    </div>
-                  </div>
-                </React.Fragment>
-              )
-            })}
+            <div style={{ height: 1, background: COLORS.border }} />
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <span style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
+                Fitness
+              </span>
+              {fitnessMetrics.map(m => (
+                <span key={m.label} style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: COLORS.muted }}>
+                  <span style={{ fontWeight: 700, color: COLORS.text }}>{m.value}</span>
+                  {' '}
+                  <span style={{ fontSize: 11 }}>{m.label}</span>
+                </span>
+              ))}
+            </div>
           </>
         )}
       </div>
+    )
+  }
 
-      {/* VERTICAL DIVIDER between left and right */}
-      {hasFitness && (
-        <div style={{ width: 1, background: COLORS.border, flexShrink: 0, margin: '0 20px', alignSelf: 'stretch' }} />
-      )}
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
 
-      {/* RIGHT — fitness metrics */}
+      {/* Left: This Week activity summary */}
+      <div style={{
+        background: COLORS.surface,
+        borderTop: `1px solid ${COLORS.border}`,
+        borderRight: `1px solid ${COLORS.border}`,
+        borderBottom: `1px solid ${COLORS.border}`,
+        borderLeft: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        padding: '16px 20px',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        minWidth: 0,
+      }}>
+        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          This Week
+        </div>
+
+        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {completed.length}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>
+              Workouts{planned.length > 0 ? <span style={{ color: COLORS.accent }}> +{planned.length}</span> : null}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {formatDuration(totalMinutes)}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Duration</div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.accent, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+              {totalTSS}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>
+              TSS{plannedTSS > 0 ? <span style={{ color: COLORS.muted }}> +{plannedTSS}p</span> : null}
+            </div>
+          </div>
+
+          {totalDistance > 0 && (
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+                {(totalDistance / 1000).toFixed(1)}
+                <span style={{ fontSize: 13, fontWeight: 600 }}> km</span>
+              </div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Distance</div>
+            </div>
+          )}
+
+          {totalElevation > 0 && (
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+                {totalElevation}
+                <span style={{ fontSize: 13, fontWeight: 600 }}> m</span>
+              </div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Elevation</div>
+            </div>
+          )}
+        </div>
+
+        {sportPills}
+      </div>
+
+      {/* Right: Fitness card */}
       {hasFitness && (
         <div style={{
-          background: COLORS.card,
-          borderRadius: 8,
-          padding: '10px 16px',
+          background: COLORS.surface,
+          borderTop: `1px solid ${COLORS.border}`,
+          borderRight: `1px solid ${COLORS.border}`,
+          borderBottom: `1px solid ${COLORS.border}`,
+          borderLeft: `1px solid ${COLORS.border}`,
+          borderRadius: 12,
+          padding: '16px 20px',
           display: 'flex',
-          alignItems: 'center',
-          gap: 20,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: 14,
           flexShrink: 0,
         }}>
-          {[
-            { label: 'CTL', value: String(fitness.ctl), color: COLORS.accent },
-            { label: 'ATL', value: String(fitness.atl), color: COLORS.orange },
-            { label: 'TSB', value: fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb), color: tsbValueColor },
-          ].map((m, i) => (
-            <React.Fragment key={m.label}>
-              {i > 0 && <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch' }} />}
-              <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4, whiteSpace: 'nowrap' }}>{m.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: m.color, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{m.value}</div>
+          <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Fitness
+          </div>
+          <div style={{ display: 'flex', gap: 28 }}>
+            {fitnessMetrics.map(m => (
+              <div key={m.label}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+                  {m.value}
+                </div>
+                <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>{m.label}</div>
               </div>
-            </React.Fragment>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

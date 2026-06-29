@@ -16,7 +16,7 @@ CORE (SHIPPED)
 ✅ Dark mode only
 ✅ Vercel deployment config
 ✅ Dashboard redesign: today's workout + mark complete, CTL/ATL/TSB cards, race countdown, weekly load progress, upcoming 4 days
-✅ Profile Settings: name/sport/FTP/pace/CSS/max HR, benchmark history charts, training zones (cycling auto-calc, running/swimming manual, heart rate auto-calc from max HR)
+✅ Profile Settings: name/sport/FTP/pace/CSS/max HR, benchmark history charts, training zones (all auto-calc — cycling from FTP, running from threshold pace, swimming from CSS, heart rate from max HR)
 ✅ TSS auto-calculation in Log Workout modal: type-specific inputs (run=avg pace, ride=avg power, swim=distance, strength/rest=RPE slider), read-only auto TSS with Edit/Auto override toggle
 ✅ Structured workout builder: Simple/Structured mode toggle (run/ride/swim), drag-to-reorder interval blocks (Warmup/Interval/Rest/Cooldown), per-block duration/reps/intensity/notes, auto TSS + duration from blocks, structured data saved as JSONB in workouts.structure column
 ✅ Session Focus picker: replaces zone text input with pill selector (Recovery/Endurance/Tempo/Threshold/Intervals/Race/Long), shown as badge in workout detail view
@@ -35,8 +35,8 @@ AI-POWERED
 -----------
 ✅ AI Coach: weekly briefing page (/ai-coach) — CTL/ATL/TSB metrics row, Claude-generated personalised briefing (24h cache + force refresh), quick stats (training phase/compliance/TSS/CTL trend), briefing history accordion; edge function calls claude-sonnet-4-6, accumulates up to 9 briefings per user
 ✅ Race Predictor: finish time predictions for running (Riegel formula anchored at HM), cycling (FTP → power → speed model), swimming (CSS intensity factors), and triathlon (all three sports + transitions + brick run factor); sport tabs defaulting to user's primary sport; AI coach analysis narrative cached in localStorage, regenerates when CTL/FTP/pace/CSS drifts >5%; CTL-based adjustment capped at ±5%; low-CTL warning; missing data empty states
+✅ AI plan generator: input sport, race distance, race date, experience level, available training days, and athlete profile (CTL/FTP/pace/CSS); Claude (claude-sonnet-4-6) builds a full periodised multi-week plan; review screen with collapsible week rows + sport filter tabs + session detail preview before confirming; writes to training_sessions + workouts tables; generate-plan edge function; rest days stripped from sessions before insert
 - Auto-TSS estimation: describe a workout in plain English and AI calculates TSS for you
-- Smart plan generator: input race date and current fitness, AI builds entire training block
 
 SOCIAL
 ------
@@ -53,7 +53,7 @@ WEARABLE / DEVICE SYNC
 
 PLANNING
 --------
-- Drag and drop plan builder: visually move workouts around the calendar
+✅ Drag and drop calendar: planned workouts draggable in month and week views (desktop); drop on any day to reschedule via Supabase; ghost card overlay, cyan drop-zone highlight, 8px activation threshold preserves click behaviour
 - Taper calculator: automatically adjusts last 2-3 weeks before race day
 - Multi-sport periodization: build blocks across swim/bike/run with load balancing
 

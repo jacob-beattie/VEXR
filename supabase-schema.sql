@@ -265,3 +265,42 @@ insert into food_database (name, calories, protein, carbs, fat) values
   ('Rice Cakes (3x)', 105, 2, 22, 1),
   ('Blueberries (150g)', 86, 1, 21, 0),
   ('Quinoa (180g cooked)', 222, 8, 40, 4);
+
+-- ── API rate limits ───────────────────────────────────────────────────────────
+create table if not exists api_rate_limits (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references auth.users(id) on delete cascade not null,
+  function_name text not null,
+  called_at    timestamptz default now() not null
+);
+create index if not exists idx_api_rate_limits on api_rate_limits(user_id, function_name, called_at);
+alter table api_rate_limits enable row level security;
+create policy "Users can manage own rate limits" on api_rate_limits
+  for all using (auth.uid() = user_id);
+
+-- ── Performance indexes ───────────────────────────────────────────────────────
+-- Composite (user_id, date) covers both user-only and date-range queries
+create index if not exists idx_workouts_user_date        on workouts(user_id, date);
+create index if not exists idx_workouts_plan_id          on workouts(plan_id);
+create index if not exists idx_training_plans_user_id    on training_plans(user_id);
+create index if not exists idx_training_sessions_user_id on training_sessions(user_id);
+create index if not exists idx_training_sessions_plan_id on training_sessions(plan_id);
+create index if not exists idx_workout_library_user_id   on workout_library(user_id);
+create index if not exists idx_fitness_benchmarks_user_id on fitness_benchmarks(user_id);
+create index if not exists idx_training_zones_user_id    on training_zones(user_id);
+-- Composite (user_id, date) for nutrition_logs: date-scoped meal lookups
+create index if not exists idx_nutrition_logs_user_date  on nutrition_logs(user_id, date);
+create index if not exists idx_nutrition_custom_foods_user_id on nutrition_custom_foods(user_id);
+
+-- ── Profile avatar ────────────────────────────────────────────────────────────
+alter table profiles add column if not exists avatar_url text;
+
+-- Storage bucket for profile avatars (run once in Supabase dashboard or via migration)
+-- insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+--   on conflict (id) do nothing;
+-- create policy "Users can upload their own avatar" on storage.objects
+--   for insert with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+-- create policy "Users can update their own avatar" on storage.objects
+--   for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+-- create policy "Avatars are publicly readable" on storage.objects
+--   for select using (bucket_id = 'avatars');

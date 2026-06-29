@@ -123,14 +123,5 @@ export function calculatePMC(
 
   const result = runPMC(tssByDay, warmupStart, effectiveWindow, today)
 
-  // ── Debug: log last 7 days so we can verify the numbers ──────────────────
-  const last7 = result.history.slice(-7)
-  console.group('[PMC] Last 7 days')
-  last7.forEach(d => {
-    console.log(`${d.date}  TSS=${d.tss}  CTL=${d.ctl}  ATL=${d.atl}  TSB=${d.tsb}`)
-  })
-  console.log(`[PMC] Current → CTL=${result.current.ctl}  ATL=${result.current.atl}  TSB=${result.current.tsb}`)
-  console.groupEnd()
-
   return result
 }
