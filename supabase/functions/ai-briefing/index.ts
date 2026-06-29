@@ -157,6 +157,8 @@ Triathlon: ${predictions?.triathlon || 'No data'}
 
 Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
 
+      const predictorController = new AbortController()
+      const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
       const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -169,7 +171,9 @@ Comment on what the predictions reveal about their current fitness, highlight on
           max_tokens: 300,
           messages: [{ role: 'user', content: racePrompt }],
         }),
+        signal: predictorController.signal,
       })
+      clearTimeout(predictorTimeout)
 
       if (!aiRes.ok) {
         const errBody = await aiRes.text()
@@ -306,6 +310,8 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
+    const briefingController = new AbortController()
+    const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -318,7 +324,9 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: briefingController.signal,
     })
+    clearTimeout(briefingTimeout)
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()

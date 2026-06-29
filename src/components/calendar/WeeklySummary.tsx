@@ -1,3 +1,4 @@
+import React from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
@@ -65,14 +66,12 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
   fitnessDate.setHours(0, 0, 0, 0)
   const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
-  const fitnessMetrics = [
-    { label: 'CTL', value: String(fitness.ctl) },
-    { label: 'ATL', value: String(fitness.atl) },
-    { label: 'TSB', value: fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb) },
-  ]
+
+  const tsbColor = fitness.tsb > 0 ? COLORS.green : fitness.tsb > -10 ? COLORS.orange : COLORS.danger
+  const tsbDisplay = fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb)
 
   const sportPills = sportStats.length > 0 && (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
       {sportStats.map(s => {
         const wt = workoutTypes[s.type]
         return (
@@ -86,10 +85,10 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
             borderBottom: `1px solid ${COLORS.border}`,
             borderLeft: `1px solid ${COLORS.border}`,
             borderRadius: 20,
-            padding: '4px 10px',
+            padding: '3px 10px',
           }}>
-            <span style={{ fontSize: 13 }}>{wt.icon}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: wt.color }}>{wt.label}</span>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: wt.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.text }}>{wt.label}</span>
             <span style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: COLORS.muted }}>{formatDuration(s.minutes)}</span>
             {s.distanceM > 0 && (
               <span style={{ fontSize: 11, color: COLORS.muted }}>· {(s.distanceM / 1000).toFixed(1)} km</span>
@@ -146,7 +145,6 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
 
         {sportPills}
 
-        {/* Fitness as a compact inline footer — not a second wall of numbers */}
         {hasFitness && (
           <>
             <div style={{ height: 1, background: COLORS.border }} />
@@ -154,9 +152,13 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
               <span style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>
                 Fitness
               </span>
-              {fitnessMetrics.map(m => (
+              {[
+                { label: 'CTL', value: String(fitness.ctl), color: COLORS.text },
+                { label: 'ATL', value: String(fitness.atl), color: COLORS.text },
+                { label: 'TSB', value: tsbDisplay, color: tsbColor },
+              ].map(m => (
                 <span key={m.label} style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: COLORS.muted }}>
-                  <span style={{ fontWeight: 700, color: COLORS.text }}>{m.value}</span>
+                  <span style={{ fontWeight: 700, color: m.color }}>{m.value}</span>
                   {' '}
                   <span style={{ fontSize: 11 }}>{m.label}</span>
                 </span>
@@ -168,106 +170,104 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
     )
   }
 
+  const statCell = (label: string, value: React.ReactNode, sub?: React.ReactNode) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'DM Mono, monospace', lineHeight: 1, color: COLORS.text }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4, minHeight: '1rem' }}>{sub}</div>}
+    </div>
+  )
+
+  const divider = <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', margin: '0 20px' }} />
+
   return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
-
-      {/* Left: This Week activity summary */}
-      <div style={{
-        background: COLORS.surface,
-        borderTop: `1px solid ${COLORS.border}`,
-        borderRight: `1px solid ${COLORS.border}`,
-        borderBottom: `1px solid ${COLORS.border}`,
-        borderLeft: `1px solid ${COLORS.border}`,
-        borderRadius: 12,
-        padding: '16px 20px',
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-        minWidth: 0,
-      }}>
-        <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          This Week
+    <div style={{
+      background: COLORS.surface,
+      borderTop: `1px solid ${COLORS.border}`,
+      borderRight: `1px solid ${COLORS.border}`,
+      borderBottom: `1px solid ${COLORS.border}`,
+      borderLeft: `1px solid ${COLORS.border}`,
+      borderRadius: 12,
+      padding: '14px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0,
+    }}>
+      {/* Left: activity stats */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        {/* Top row: THIS WEEK + sport pills */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
+            This Week
+          </span>
+          {sportPills}
         </div>
 
-        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
+        {/* Stats row */}
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+          {statCell(
+            'Workouts',
+            <>
               {completed.length}
-            </div>
-            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>
-              Workouts{planned.length > 0 ? <span style={{ color: COLORS.accent }}> +{planned.length}</span> : null}
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
-              {formatDuration(totalMinutes)}
-            </div>
-            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Duration</div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.accent, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
-              {totalTSS}
-            </div>
-            <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>
-              TSS{plannedTSS > 0 ? <span style={{ color: COLORS.muted }}> +{plannedTSS}p</span> : null}
-            </div>
-          </div>
-
-          {totalDistance > 0 && (
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
-                {(totalDistance / 1000).toFixed(1)}
-                <span style={{ fontSize: 13, fontWeight: 600 }}> km</span>
-              </div>
-              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Distance</div>
-            </div>
+              {planned.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.accent }}> +{planned.length}</span>}
+            </>
           )}
-
+          {divider}
+          {statCell('Duration', formatDuration(totalMinutes))}
+          {divider}
+          {statCell(
+            'TSS',
+            <span style={{ color: COLORS.accent }}>
+              {totalTSS}
+              {plannedTSS > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.muted }}> +{plannedTSS}p</span>}
+            </span>
+          )}
+          {totalDistance > 0 && (
+            <>
+              {divider}
+              {statCell('Distance', <>{(totalDistance / 1000).toFixed(1)}<span style={{ fontSize: 13, fontWeight: 600 }}> km</span></>)}
+            </>
+          )}
           {totalElevation > 0 && (
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
-                {totalElevation}
-                <span style={{ fontSize: 13, fontWeight: 600 }}> m</span>
-              </div>
-              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>Elevation</div>
-            </div>
+            <>
+              {divider}
+              {statCell('Elevation', <>{totalElevation}<span style={{ fontSize: 13, fontWeight: 600 }}> m</span></>)}
+            </>
           )}
         </div>
-
-        {sportPills}
       </div>
 
-      {/* Right: Fitness card */}
+      {/* Vertical divider before fitness */}
       {hasFitness && (
-        <div style={{
-          background: COLORS.surface,
-          borderTop: `1px solid ${COLORS.border}`,
-          borderRight: `1px solid ${COLORS.border}`,
-          borderBottom: `1px solid ${COLORS.border}`,
-          borderLeft: `1px solid ${COLORS.border}`,
-          borderRadius: 12,
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          gap: 14,
-          flexShrink: 0,
-        }}>
+        <div style={{ width: 1, background: COLORS.border, alignSelf: 'stretch', margin: '0 24px' }} />
+      )}
+
+      {/* Right: Fitness */}
+      {hasFitness && (
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Fitness
           </div>
-          <div style={{ display: 'flex', gap: 28 }}>
-            {fitnessMetrics.map(m => (
-              <div key={m.label}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>
-                  {m.value}
-                </div>
-                <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 5 }}>{m.label}</div>
-              </div>
-            ))}
+          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>CTL</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{fitness.ctl}</div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>Fitness</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>ATL</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: COLORS.text, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{fitness.atl}</div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>Fatigue</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>TSB</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: tsbColor, fontFamily: 'DM Mono, monospace', lineHeight: 1 }}>{tsbDisplay}</div>
+              <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 4 }}>Form</div>
+            </div>
           </div>
         </div>
       )}

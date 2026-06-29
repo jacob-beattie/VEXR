@@ -182,6 +182,8 @@ Content type: ${contentType}
 Plan text:
 ${content}`
 
+    const parseController = new AbortController()
+    const parseTimeout = setTimeout(() => parseController.abort(), 30000)
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -194,7 +196,9 @@ ${content}`
         max_tokens: 8192,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: parseController.signal,
     })
+    clearTimeout(parseTimeout)
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()

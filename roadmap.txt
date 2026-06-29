@@ -75,6 +75,7 @@ UX / QUALITY OF LIFE
 ✅ Calendar UX: click empty day to log workout with date pre-filled; planned vs completed visual distinction (dashed/solid borders, opacity, PLANNED badge, hollow/solid dots on mobile)
 ✅ Weekly summary strip redesign: single panel with text+divider stats layout, sport rows, CTL/ATL/TSB panel on right — no individual card boxes
 ✅ Performance: lazy-loaded pages + manualChunks vendor splitting, main bundle 962KB → 33KB
+✅ Production hardening: React ErrorBoundary (blank screen → reload prompt), password reset flow on login page (/reset-password route), loading + error states on Plans and Library pages, rate limiting on strava-auth (5/hr) and strava-sync (3/hr), 30s AbortController timeouts on all Anthropic API calls, generate-plan max_tokens 16k→8k, robots.txt to block crawlers
 ✅ Dashboard redesign: full-width greeting header (time-based, dynamic week/race subtitle, high-fatigue badge); 4 stat cards (CTL/ATL/TSB/Race with coloured top borders and contextual sub-text); two-column layout (left: fitness area chart + weekly load; right: coming up + AI coach teaser + season goals); no top bar on dashboard — greeting replaces it; season goals CRUD backed by Supabase `goals` table
 - One-tap workout logging: log a run in under 30 seconds
 - Offline mode: log workouts without internet, sync later

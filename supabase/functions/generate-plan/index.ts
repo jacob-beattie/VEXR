@@ -232,6 +232,8 @@ Return exactly this JSON structure:
 
 Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon' ? 'Multiple sessions on the same day are allowed — output them as separate entries with the same week and day_of_week but different time_of_day ("AM"/"PM"). Rest days have a single entry with sport "rest".' : 'One entry per day (one per day_of_week).'} Rest day description = "".`
 
+    const generateController = new AbortController()
+    const generateTimeout = setTimeout(() => generateController.abort(), 30000)
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -241,10 +243,12 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 16000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: generateController.signal,
     })
+    clearTimeout(generateTimeout)
 
     if (!aiRes.ok) {
       const errBody = await aiRes.text()

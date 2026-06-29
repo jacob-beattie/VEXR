@@ -5,6 +5,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const RATE_WINDOW_MS = 60 * 60 * 1000
+const STRAVA_AUTH_RATE_LIMIT = 5
+
+type SupabaseClient = ReturnType<typeof createClient>
+
+async function checkRateLimit(
+  supabase: SupabaseClient,
+  userId: string,
+  functionName: string,
+  limit: number,
+): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('api_rate_limits')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('function_name', functionName)
+    .gte('called_at', windowStart)
+  if ((count ?? 0) >= limit) return false
+  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
+  return true
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -21,8 +44,8 @@ Deno.serve(async (req: Request) => {
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
     const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')
 
-    console.log('[strava-auth] STRAVA_CLIENT_ID:', clientId ?? 'NOT SET')
-    console.log('[strava-auth] STRAVA_CLIENT_SECRET:', clientSecret ? `set (${clientSecret.length} chars)` : 'NOT SET')
+    console.log('[strava-auth] STRAVA_CLIENT_ID set:', !!clientId)
+    console.log('[strava-auth] STRAVA_CLIENT_SECRET set:', !!clientSecret)
 
     if (!clientId) throw new Error('STRAVA_CLIENT_ID secret is not set on this edge function')
     if (!clientSecret) throw new Error('STRAVA_CLIENT_SECRET secret is not set on this edge function')
@@ -45,7 +68,6 @@ Deno.serve(async (req: Request) => {
 
     const tokens = await tokenRes.json()
     console.log('[strava-auth] Strava response status:', tokenRes.status)
-    console.log('[strava-auth] Strava response body:', JSON.stringify(tokens))
 
     if (!tokenRes.ok) {
       throw new Error(
@@ -75,6 +97,14 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const allowed = await checkRateLimit(supabase, user.id, 'strava-auth', STRAVA_AUTH_RATE_LIMIT)
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again later.' }), {
+        status: 429,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
