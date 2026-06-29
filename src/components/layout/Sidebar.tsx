@@ -77,7 +77,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       <div style={{ padding: '0 20px 28px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
-            <span style={{ color: COLORS.accent }}>VEX</span><span style={{ color: COLORS.text }}>R</span>
+            VE<span style={{ color: COLORS.accent }}>X</span>R
           </div>
           <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: '0.12em', marginTop: 2 }}>TRAIN. TRACK. PERFORM.</div>
         </div>

@@ -18,6 +18,7 @@ const Analytics = lazy(() => import('./pages/Analytics').then(m => ({ default: m
 const AICoach = lazy(() => import('./pages/AICoach').then(m => ({ default: m.AICoach })))
 const Plans = lazy(() => import('./pages/Plans').then(m => ({ default: m.Plans })))
 const Library = lazy(() => import('./pages/Library').then(m => ({ default: m.Library })))
+const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })))
 const Signup = lazy(() => import('./pages/Signup').then(m => ({ default: m.Signup })))
 const StravaCallback = lazy(() => import('./pages/StravaCallback').then(m => ({ default: m.StravaCallback })))
@@ -301,7 +302,7 @@ function ProtectedLayout() {
     )
   }
 
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/" replace />
 
   return (
     <ProfileProvider>
@@ -338,6 +339,7 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />

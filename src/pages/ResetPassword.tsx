@@ -67,7 +67,7 @@ export function ResetPassword() {
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '0.08em', color: COLORS.text }}>
-            <span style={{ color: COLORS.accent }}>VEX</span>R
+            VE<span style={{ color: COLORS.accent }}>X</span>R
           </div>
           <div style={{ fontSize: 13, color: COLORS.muted, letterSpacing: '0.06em', marginTop: 8 }}>Train. Track. Perform.</div>
         </div>
