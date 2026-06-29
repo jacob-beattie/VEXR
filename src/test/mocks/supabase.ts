@@ -3,8 +3,6 @@ import { vi } from 'vitest'
 // Chainable query builder mock — supports .select().eq().order() etc.
 function makeQueryBuilder(resolvedValue: { data: unknown; error: unknown } = { data: [], error: null }) {
   const builder: Record<string, unknown> = {}
-  const chain = (returnSelf = true) => (returnSelf ? proxy : Promise.resolve(resolvedValue))
-
   const proxy: typeof builder = new Proxy(builder, {
     get(_target, prop: string) {
       if (prop === 'then') {

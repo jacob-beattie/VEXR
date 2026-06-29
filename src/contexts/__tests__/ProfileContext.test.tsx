@@ -100,7 +100,8 @@ describe('ProfileContext — auth state changes', () => {
     )
 
     mockAuth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    capturedCb?.('SIGNED_IN', { access_token: 'tok' })
+    const cb = capturedCb as ((event: string, session: unknown) => void) | null
+    if (cb) cb('SIGNED_IN', { access_token: 'tok' })
 
     await waitFor(() => expect(received).toContainEqual(mockProfile))
   })
