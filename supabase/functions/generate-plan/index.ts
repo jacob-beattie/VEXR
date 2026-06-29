@@ -1,16 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 
-const ALLOWED_ORIGINS: string[] = Deno.env.get('ALLOWED_ORIGIN')
-  ? [...Deno.env.get('ALLOWED_ORIGIN')!.split(',').map(s => s.trim()), 'http://localhost:5173', 'http://localhost:3000']
-  : []
+const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? ''
-  const allowed = ALLOWED_ORIGINS.length === 0 ? '*' : (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0])
-  return {
-    'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
+  return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
 const VALID_SPORTS = ['triathlon', 'run', 'bike', 'swim'] as const

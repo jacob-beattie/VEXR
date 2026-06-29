@@ -1,9 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_AUTH_RATE_LIMIT = 5
@@ -29,6 +27,7 @@ async function checkRateLimit(
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
