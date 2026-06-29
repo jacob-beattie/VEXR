@@ -47,11 +47,12 @@ src/
   lib/           — supabase client, color constants, calculateMetrics (PMC engine)
   types/         — all TypeScript interfaces (index.ts)
   hooks/         — useAuth, useIsMobile
-  contexts/      — WorkoutsContext (workouts + derived fitness metrics)
-  pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Nutrition, Login, Signup
+  contexts/      — ProfileContext, WorkoutsContext, StravaContext
+  pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Nutrition, Login, Signup, Onboarding, ResetPassword, Landing
   components/
     layout/      — Sidebar, TopBar
     ui/          — Button, Badge
+    ai/          — RacePredictor
     dashboard/   — StatCard, WeeklyLoadChart, FitnessChart, UpcomingWorkouts
     calendar/    — CalendarGrid, CalendarDay, WeeklySummary
     analytics/   — AnalyticsPage
@@ -80,7 +81,7 @@ Tables (all with RLS enabled, users can only access their own rows):
 
 | Table | Key columns |
 |---|---|
-| `profiles` | id (= auth user id), name, sport, ftp, run_pace, css, race_goal, race_date, max_hr |
+| `profiles` | id (= auth user id), name, sport, ftp, run_pace, css, race_goal, race_date, max_hr, onboarding_completed |
 | `workouts` | user_id, title, type, date, duration_minutes, tss, zone, notes, planned, plan_id (FK→training_plans ON DELETE CASCADE), structure (jsonb), strava_activity_id, heart_rate_avg, heart_rate_max, distance_meters, calories, elevation_gain, avg_power, avg_pace |
 | `strava_connections` | user_id, access_token, refresh_token, expires_at, athlete_id, athlete_name |
 | `training_plans` | user_id, name, sport, total_weeks, current_week, status, race_name, race_date, start_date, source ('manual'/'import'), raw_text |
@@ -157,7 +158,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Commands: `npm test` (run once), `npm run test:watch` (watch mode), `npm run test -- --coverage` for coverage
 - Setup: `src/test/setup.ts` — loads jest-dom matchers and mocks canvas
 - Supabase mock: `src/test/mocks/supabase.ts` — `makeQueryBuilder()` returns a chainable Proxy (`.select().eq().order()` etc.) that resolves at `.single()` / `.maybeSingle()` or when awaited directly; `mockFrom` is the vi.fn() to configure per-test
-- 26 test files, each co-located in `__tests__/` beside the file under test
+- 27 test files, each co-located in `__tests__/` beside the file under test
 - Edge function helpers tested in `src/test/edge-helpers/` (cors, aiBriefing, stravaSync)
 - Do not mock the Supabase client at the module level across all tests — set up `mockFrom.mockReturnValue(chain)` per test for precise control
 
