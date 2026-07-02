@@ -21,10 +21,9 @@ export function Plans() {
 
       if (data) {
         setPlans(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data as any[]).map(p => ({
+          data.map(p => ({
             ...p,
-            total_sessions: (p.training_sessions?.[0]?.count as number) ?? 0,
+            total_sessions: p.training_sessions?.[0]?.count ?? 0,
             training_sessions: undefined,
           })) as TrainingPlan[]
         )

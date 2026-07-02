@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { COLORS, SPORT_COLORS } from '../../lib/colors'
-import type { TrainingPlan } from '../../types'
+import type { TrainingPlan, SessionSport } from '../../types'
+import type { Tables } from '../../types/database.types'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -10,7 +11,7 @@ const SPORT_LABELS: Record<string, string> = {
   sc: 'S&C', brick: 'Brick', other: 'Other',
 }
 
-const SPORT_TABS = [
+const SPORT_TABS: Array<{ key: SessionSport | 'all'; label: string }> = [
   { key: 'all',   label: 'All' },
   { key: 'swim',  label: 'Swim' },
   { key: 'bike',  label: 'Bike' },
@@ -22,13 +23,34 @@ const SPORT_TABS = [
 interface TrainingSession {
   id: string
   week_number: number
-  sport: string
+  sport: SessionSport
   title: string
   scheduled_date: string | null
   duration_min: number | null
   target_metric: string | null
   notes: string | null
   status: string
+}
+
+type TrainingSessionRow = Pick<
+  Tables<'training_sessions'>,
+  'id' | 'week_number' | 'sport' | 'title' | 'scheduled_date' | 'duration_min' | 'target_metric' | 'notes' | 'status'
+>
+
+// training_sessions.sport has a DB check constraint (see supabase-schema.sql) so this narrowing
+// is backed by the schema, unlike the other sport/type casts in this file.
+function mapTrainingSessionRow(row: TrainingSessionRow): TrainingSession {
+  return {
+    id: row.id,
+    week_number: row.week_number,
+    sport: row.sport as SessionSport,
+    title: row.title,
+    scheduled_date: row.scheduled_date,
+    duration_min: row.duration_min,
+    target_metric: row.target_metric,
+    notes: row.notes,
+    status: row.status ?? 'pending',
+  }
 }
 
 function formatDuration(min: number | null): string {
@@ -82,9 +104,9 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
       .eq('plan_id', planId)
       .order('week_number', { ascending: true })
       .then(({ data }) => {
-        const rows = (data || []).filter(
-          s => !(s.sport === 'other' && !s.title && !s.duration_min)
-        ) as TrainingSession[]
+        const rows = (data || [])
+          .filter(s => !(s.sport === 'other' && !s.title && !s.duration_min))
+          .map(mapTrainingSessionRow)
         setSessions(rows)
         const weeks = [...new Set(rows.map(s => s.week_number))].sort((a, b) => a - b)
         // Open first week by default

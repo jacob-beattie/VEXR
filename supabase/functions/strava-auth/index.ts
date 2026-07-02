@@ -1,12 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_AUTH_RATE_LIMIT = 5
 
-type SupabaseClient = ReturnType<typeof createClient>
+type SupabaseClient = ReturnType<typeof createClient<Database>>
 
 async function checkRateLimit(
   supabase: SupabaseClient,
@@ -44,7 +45,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -68,9 +69,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 2. Parse request body ──────────────────────────────────────────────
-    const body = await req.json()
-    const { code } = body
-    console.log('[strava-auth] received code:', code ? `${String(code).slice(0, 6)}…` : 'MISSING')
+    const body: unknown = await req.json()
+    const code = typeof body === 'object' && body !== null && typeof (body as Record<string, unknown>).code === 'string'
+      ? (body as Record<string, unknown>).code as string
+      : null
+    console.log('[strava-auth] received code:', code ? `${code.slice(0, 6)}…` : 'MISSING')
     if (!code) throw new Error('Missing authorization code')
 
     // ── 3. Read secrets ────────────────────────────────────────────────────

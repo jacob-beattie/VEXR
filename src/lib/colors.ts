@@ -1,3 +1,5 @@
+import type { WorkoutType, SessionSport } from '../types'
+
 export const COLORS = {
   bg: "#f4f6f9",
   surface: "#ffffff",
@@ -16,7 +18,7 @@ export const COLORS = {
   danger: "#ef4444",
 }
 
-export const SPORT_COLORS: Record<string, string> = {
+export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {
   swim:     COLORS.accent,
   ride:     COLORS.purple,
   bike:     COLORS.purple,

@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { validateParsedPlan } from '../_shared/validatePlan.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
@@ -25,21 +27,71 @@ function resolveDate(startDate: string, week: number, dayOfWeek: string): string
   return resolved.toISOString().split('T')[0]
 }
 
-interface RawSession {
-  week: number
-  day_of_week: string
-  time_of_day: string
-  sport: string
-  title: string
-  description: string
-  duration_minutes: number | null
-  target_metric: string
-  zone_label: string
-  phase: string
-  notes: string
+interface AthleteProfile {
+  ctl: number
+  ftp?: number
+  thresholdPace?: string
+  css?: string
+  primarySport: string
 }
 
-type SupabaseClient = ReturnType<typeof createClient>
+interface GeneratePlanRequest {
+  sport: string
+  raceDistance: string
+  raceDate: string
+  startDate: string
+  preferredDays?: string[]
+  level?: string
+  goalTime?: string
+  athleteProfile: AthleteProfile
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+// Narrows the raw request body field-by-field instead of a blind `as` cast — this is the
+// network trust boundary, so a wrong-typed field (e.g. athleteProfile.ctl sent as a string)
+// must fail here rather than silently flow into the Claude prompt string interpolation below.
+function parseRequestBody(body: unknown): GeneratePlanRequest | null {
+  if (!isRecord(body)) return null
+  if (typeof body.sport !== 'string') return null
+  if (typeof body.raceDistance !== 'string') return null
+  if (typeof body.raceDate !== 'string') return null
+  if (typeof body.startDate !== 'string') return null
+
+  const preferredDays = Array.isArray(body.preferredDays) && body.preferredDays.every(d => typeof d === 'string')
+    ? body.preferredDays as string[]
+    : undefined
+  const level = typeof body.level === 'string' ? body.level : undefined
+  const goalTime = typeof body.goalTime === 'string' ? body.goalTime : undefined
+
+  if (!isRecord(body.athleteProfile)) return null
+  const ap = body.athleteProfile
+  if (typeof ap.ctl !== 'number') return null
+  if (typeof ap.primarySport !== 'string') return null
+
+  const athleteProfile: AthleteProfile = {
+    ctl: ap.ctl,
+    primarySport: ap.primarySport,
+    ftp: typeof ap.ftp === 'number' ? ap.ftp : undefined,
+    thresholdPace: typeof ap.thresholdPace === 'string' ? ap.thresholdPace : undefined,
+    css: typeof ap.css === 'string' ? ap.css : undefined,
+  }
+
+  return {
+    sport: body.sport,
+    raceDistance: body.raceDistance,
+    raceDate: body.raceDate,
+    startDate: body.startDate,
+    preferredDays,
+    level,
+    goalTime,
+    athleteProfile,
+  }
+}
+
+type SupabaseClient = ReturnType<typeof createClient<Database>>
 
 async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
@@ -69,7 +121,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -91,23 +143,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────────
-    const body = await req.json()
-    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = body as {
-      sport: string
-      raceDistance: string
-      raceDate: string
-      startDate: string
-      preferredDays?: string[]
-      level?: string
-      goalTime?: string
-      athleteProfile: {
-        ctl: number
-        ftp?: number
-        thresholdPace?: string
-        css?: string
-        primarySport: string
-      }
+    const rawBody: unknown = await req.json()
+    const parsedBody = parseRequestBody(rawBody)
+    if (!parsedBody) {
+      return new Response(JSON.stringify({ error: 'Missing or invalid required fields' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
+    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = parsedBody
 
     if (!sport || !raceDistance || !raceDate || !startDate) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -259,9 +302,9 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
       .replace(/\s*```\s*$/, '')
       .trim()
 
-    let parsed: { plan_name: string; total_weeks: number; races: Array<{ name: string; date: string }>; sessions: RawSession[] }
+    let rawParsed: unknown
     try {
-      parsed = JSON.parse(jsonStr)
+      rawParsed = JSON.parse(jsonStr)
     } catch {
       console.error('[generate-plan] JSON parse failed. Raw:', rawText.slice(0, 500))
       return new Response(JSON.stringify({ error: 'parse_failed' }), {
@@ -269,7 +312,15 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
       })
     }
 
-    const rawSessions: RawSession[] = parsed.sessions ?? []
+    const parsed = validateParsedPlan(rawParsed)
+    if (!parsed) {
+      console.error('[generate-plan] Parsed JSON failed shape validation. Raw:', rawText.slice(0, 500))
+      return new Response(JSON.stringify({ error: 'parse_failed' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
     const resolvedSessions = rawSessions.map(s => ({

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { COLORS } from '../lib/colors'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
+import type { Tables } from '../types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,30 @@ const DEFAULT_TARGETS: NutritionTargets = {
   protein_target: 175,
   carbs_target: 320,
   fat_target: 85,
+}
+
+function mapNutritionTargetsRow(row: Tables<'nutrition_targets'>): NutritionTargets {
+  return {
+    calorie_target: row.calorie_target ?? DEFAULT_TARGETS.calorie_target,
+    protein_target: row.protein_target ?? DEFAULT_TARGETS.protein_target,
+    carbs_target: row.carbs_target ?? DEFAULT_TARGETS.carbs_target,
+    fat_target: row.fat_target ?? DEFAULT_TARGETS.fat_target,
+  }
+}
+
+// nutrition_logs.meal has no DB check constraint, so the column is real `string` at the
+// schema level — narrowing to MealKey here is only as safe as the insert path (handleAddFood
+// below) staying disciplined about only writing the four valid meal keys.
+function mapNutritionLogRow(row: Tables<'nutrition_logs'>): FoodEntry & { meal: MealKey } {
+  return {
+    id: row.id,
+    food_name: row.food_name,
+    calories: row.calories,
+    protein: row.protein,
+    carbs: row.carbs,
+    fat: row.fat,
+    meal: row.meal as MealKey,
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -683,7 +708,7 @@ export function Nutrition() {
         supabase.from('nutrition_custom_foods').select('*').eq('user_id', user.id).order('created_at'),
         supabase.from('food_database').select('*').order('name'),
       ])
-      if (targetsRes.data) setTargets(targetsRes.data)
+      if (targetsRes.data) setTargets(mapNutritionTargetsRow(targetsRes.data))
       if (customRes.data) {
         setCustomFoods(customRes.data.map(r => ({ name: r.name, cal: r.calories, protein: r.protein, carbs: r.carbs, fat: r.fat, source: 'custom' as const })))
       }
@@ -706,7 +731,7 @@ export function Nutrition() {
         supabase.from('hydration_logs').select('liters').eq('user_id', user.id).eq('date', dateKey).maybeSingle(),
       ])
 
-      const rows = (logsRes.data ?? []) as (FoodEntry & { meal: MealKey })[]
+      const rows = (logsRes.data ?? []).map(mapNutritionLogRow)
       const newMeals: Meals = { breakfast: [], lunch: [], dinner: [], snacks: [] }
       for (const r of rows) {
         if (r.meal in newMeals) newMeals[r.meal].push(r)
@@ -726,7 +751,7 @@ export function Nutrition() {
       .insert({ user_id: user.id, date: dateKey, meal, food_name: food.name, calories: food.cal, protein: food.protein, carbs: food.carbs, fat: food.fat })
       .select()
       .single()
-    if (!error && data) setMeals(m => ({ ...m, [meal]: [...m[meal], data as FoodEntry] }))
+    if (!error && data) setMeals(m => ({ ...m, [meal]: [...m[meal], mapNutritionLogRow(data)] }))
   }
 
   const handleRemoveFood = async (id: string) => {

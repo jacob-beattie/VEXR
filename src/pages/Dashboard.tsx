@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import type { Workout } from '../types'
+import type { Tables } from '../types/database.types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -365,6 +366,15 @@ function AICoachTeaser({ onClick }: { onClick: () => void }) {
 
 interface Goal { id: string; text: string; completed: boolean; created_at: string }
 
+function mapGoalRow(row: Tables<'goals'>): Goal {
+  return {
+    id: row.id,
+    text: row.text,
+    completed: row.completed ?? false,
+    created_at: row.created_at ?? '',
+  }
+}
+
 function SeasonGoalsPanel() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [inputText, setInputText] = useState('')
@@ -376,7 +386,7 @@ function SeasonGoalsPanel() {
       .from('goals')
       .select('*')
       .order('created_at', { ascending: true })
-      .then(({ data }) => { if (data) setGoals(data); setLoadingGoals(false) })
+      .then(({ data }) => { if (data) setGoals(data.map(mapGoalRow)); setLoadingGoals(false) })
   }, [])
 
   const addGoal = async () => {
@@ -386,7 +396,7 @@ function SeasonGoalsPanel() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
     const { data, error } = await supabase.from('goals').insert({ text, user_id: user.id }).select().single()
-    if (!error && data) { setGoals(prev => [...prev, data]); setInputText('') }
+    if (!error && data) { setGoals(prev => [...prev, mapGoalRow(data)]); setInputText('') }
     setSaving(false)
   }
 
@@ -518,7 +528,15 @@ function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void }) {
         setTotals(rows.reduce((s, r) => ({ cal: s.cal + r.calories, protein: s.protein + r.protein, carbs: s.carbs + r.carbs, fat: s.fat + r.fat }), { cal: 0, protein: 0, carbs: 0, fat: 0 }))
         setHasData(true)
       }
-      if (targetsRes.data) setTargets(targetsRes.data)
+      if (targetsRes.data) {
+        const t = targetsRes.data
+        setTargets({
+          calorie_target: t.calorie_target ?? DEFAULT_TARGETS.calorie_target,
+          protein_target: t.protein_target ?? DEFAULT_TARGETS.protein_target,
+          carbs_target: t.carbs_target ?? DEFAULT_TARGETS.carbs_target,
+          fat_target: t.fat_target ?? DEFAULT_TARGETS.fat_target,
+        })
+      }
       setLoaded(true)
     }
     fetch()

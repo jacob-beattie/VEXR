@@ -48,7 +48,7 @@ The project has a Supabase MCP server configured in `.mcp.json` (project ref: `f
 ```
 src/
   lib/           — supabase client, color constants, calculateMetrics (PMC engine)
-  types/         — all TypeScript interfaces (index.ts)
+  types/         — all TypeScript interfaces (index.ts); database.types.ts (generated Supabase types, regenerate via mcp__supabase__generate_typescript_types)
   hooks/         — useAuth, useIsMobile
   contexts/      — ProfileContext, WorkoutsContext, StravaContext
   pages/         — Dashboard, Calendar, Analytics, AICoach, Plans, Library, Nutrition, Login, Signup, Onboarding, ResetPassword, Landing
@@ -71,6 +71,8 @@ src/
     edge-helpers/           — unit tests for edge function shared logic (cors, aiBriefing, stravaSync)
 supabase/functions/
   _shared/cors.ts           — shared CORS headers helper imported by all edge functions
+  _shared/validatePlan.ts   — runtime shape validation for Claude's plan JSON (used by parse-plan and generate-plan)
+  _shared/database.types.ts — copy of src/types/database.types.ts for Deno imports; keep both in sync when regenerating
   ai-briefing/              — weekly AI briefing + race predictor narrative (claude-sonnet-4-6)
   generate-plan/            — AI training plan generation from free-text prompt (claude-sonnet-4-6)
   parse-plan/               — PDF/HTML/text plan parsing for import pipeline (claude-sonnet-4-6)
@@ -112,6 +114,7 @@ Profile is auto-created on signup via `handle_new_user` trigger.
 - `AppShell` renders Sidebar + TopBar + Routes + modals; gets `profile`/`setProfile` from `useProfile()`, not props
 - Real-time sync via Supabase channel on the workouts table
 - Edge functions use raw `fetch` with explicit `Authorization: Bearer <jwt>` + `apikey` headers (not `supabase.functions.invoke`). All functions use `verify_jwt = false` in `config.toml` because Supabase's runtime verifier only supports HS256 and this project uses ES256 JWTs. Auth is enforced manually: each function checks for a `Bearer` token immediately (returns 401 if missing), then calls `supabase.auth.getUser()` to validate the token against Supabase's auth server (which does support ES256). This is the correct secure pattern for ES256 projects.
+- `src/lib/supabase.ts` and every edge function's `createClient` call are typed with `createClient<Database>(...)` using the generated `database.types.ts`, so `.from()` queries are checked against the real schema. Hand-written app types (`Profile`, `Workout`, etc. in `src/types/index.ts`) narrow nullable/string DB columns into non-null values and literal unions — each fetch site converts the raw generated row into the app type via a small `mapXRow()` function (e.g. `mapWorkoutRow` in `WorkoutsContext.tsx`) rather than casting with `as`. Regenerate `database.types.ts` after schema changes via `mcp__supabase__generate_typescript_types` and copy it to `supabase/functions/_shared/database.types.ts`.
 
 ## CTL/ATL/TSB Calculation
 
@@ -155,6 +158,7 @@ Exponential weighted moving average (TrainingPeaks PMC model):
 - Typography: Inter (400–900) + DM Mono loaded via Google Fonts in `index.html`; `TopBar` title updated to `fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em'` — matches Nutrition page title style across all non-dashboard pages.
 - Drag-and-drop calendar rescheduling: planned workouts are draggable in both month and week views (desktop only) via `@dnd-kit/core`. `DndContext` lives in `CalendarGrid`; `DraggableWeekCard` and `DraggableMonthItem` use `useDraggable` (disabled when `!workout.planned`); day cells/columns use `useDroppable`. Ghost `DragOverlay` follows cursor. Drop calls `updateWorkout(id, { date: newDate })`. 8px activation constraint preserves click behaviour. Mobile layout is unchanged.
 - Production hardening: `src/components/ErrorBoundary.tsx` (class component) wraps the root render in `main.tsx` — catches unhandled render errors and shows a reload prompt instead of a blank screen. Password reset flow added to `Login.tsx` — "Forgot password?" toggles an inline form that calls `supabase.auth.resetPasswordForEmail` with `redirectTo: /reset-password`; `src/pages/ResetPassword.tsx` handles the reset link (validates session via `supabase.auth.getSession`, calls `supabase.auth.updateUser`). `Plans.tsx` and `Library.tsx` now have `loading` and `error` states. Edge functions: `strava-auth` and `strava-sync` have per-user rate limiting (5/hr and 3/hr) using the `api_rate_limits` table. All Anthropic API `fetch` calls have 30s `AbortController` timeouts. `generate-plan` max_tokens reduced from 16000 → 8000. `public/robots.txt` — landing page shipped at `/` (light-theme portfolio showcase, `src/pages/Landing.tsx`), so update robots.txt before public launch if SEO is desired.
+- TypeScript hardening: `tsconfig.app.json`/`tsconfig.node.json` now set `"strict": true` (zero code changes needed — the codebase already behaved as if strict were on). Generated Supabase types (`src/types/database.types.ts`, regenerated via `mcp__supabase__generate_typescript_types`, copied to `supabase/functions/_shared/database.types.ts` for edge functions) are wired into every `createClient<Database>(...)` call, replacing blind `data as Profile`/`as Workout[]`-style casts with `mapXRow()` functions that convert real generated rows into the app types. `parse-plan`/`generate-plan` validate Claude's JSON output against an explicit shape (`supabase/functions/_shared/validatePlan.ts`) instead of trusting `JSON.parse()` blindly. `SPORT_COLORS` in `src/lib/colors.ts` is now `Record<WorkoutType | SessionSport, string>` instead of `Record<string, string>`.
 
 ## Testing
 
@@ -238,3 +242,4 @@ Apply these continuously while writing or modifying code — not just when expli
 - Form inputs: background COLORS.surface or COLORS.bg, border COLORS.border, borderRadius 8
 - All SQL (table definitions, RLS policies, seed data, migrations) goes in `supabase-schema.sql` at the repo root — never in component files or inline comments
 - Dropdown menus that escape `overflow: hidden` containers must use `position: fixed` positioned via `getBoundingClientRect()`. Outside-click handlers must exclude both the trigger element AND the dropdown div (use two refs) to avoid race conditions between `mousedown` and `click`.
+- `tsconfig.app.json`/`tsconfig.node.json` have `"strict": true` — no new code should need `any`; if a Supabase column has no DB check constraint (e.g. `workouts.type`, `nutrition_logs.meal`), narrowing a generated row's `string` field to the app's literal union still needs an `as` cast at the `mapXRow()` boundary — that's expected and should stay scoped to one line, not spread through the codebase.

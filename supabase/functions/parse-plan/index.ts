@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { validateParsedPlan } from '../_shared/validatePlan.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
@@ -24,21 +26,36 @@ function resolveDate(startDate: string, week: number, dayOfWeek: string): string
   return resolved.toISOString().split('T')[0]
 }
 
-interface RawSession {
-  week: number
-  day_of_week: string
-  time_of_day: string
-  sport: string
-  title: string
-  description: string
-  duration_minutes: number | null
-  target_metric: string
-  zone_label: string
-  phase: string
-  notes: string
+interface ParsePlanRequest {
+  content: string
+  contentType: string
+  startDate?: string
+  raceDate?: string
+  planName?: string
 }
 
-type SupabaseClient = ReturnType<typeof createClient>
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+// Narrows the raw request body field-by-field instead of a blind `as` cast — this is the
+// network trust boundary, so a wrong-typed field must fail here rather than reach the Claude
+// prompt or resolveDate() unchecked.
+function parseRequestBody(body: unknown): ParsePlanRequest | null {
+  if (!isRecord(body)) return null
+  if (typeof body.content !== 'string') return null
+  if (typeof body.contentType !== 'string') return null
+
+  return {
+    content: body.content,
+    contentType: body.contentType,
+    startDate: typeof body.startDate === 'string' ? body.startDate : undefined,
+    raceDate: typeof body.raceDate === 'string' ? body.raceDate : undefined,
+    planName: typeof body.planName === 'string' ? body.planName : undefined,
+  }
+}
+
+type SupabaseClient = ReturnType<typeof createClient<Database>>
 
 async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
@@ -68,7 +85,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -90,16 +107,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────────
-    const body = await req.json()
-    const { content, contentType, startDate, raceDate, planName } = body as {
-      content: string
-      contentType: string
-      startDate: string
-      raceDate: string
-      planName?: string
+    const rawBody: unknown = await req.json()
+    const parsedBody = parseRequestBody(rawBody)
+    if (!parsedBody) {
+      return new Response(JSON.stringify({ error: 'Missing content' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
+    const { content, contentType, startDate, raceDate, planName } = parsedBody
 
-    if (!content || typeof content !== 'string') {
+    if (!content) {
       return new Response(JSON.stringify({ error: 'Missing content' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -209,9 +226,9 @@ ${content}`
       .replace(/\s*```\s*$/, '')
       .trim()
 
-    let parsed: { plan_name: string; total_weeks: number; races: Array<{ name: string; date: string }>; sessions: RawSession[] }
+    let rawParsed: unknown
     try {
-      parsed = JSON.parse(jsonStr)
+      rawParsed = JSON.parse(jsonStr)
     } catch {
       console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
       return new Response(JSON.stringify({ error: 'parse_failed' }), {
@@ -219,7 +236,15 @@ ${content}`
       })
     }
 
-    const rawSessions: RawSession[] = parsed.sessions ?? []
+    const parsed = validateParsedPlan(rawParsed)
+    if (!parsed) {
+      console.error('[parse-plan] Parsed JSON failed shape validation. Raw text:', rawText.slice(0, 500))
+      return new Response(JSON.stringify({ error: 'parse_failed' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
     const resolvedSessions = rawSessions.map(s => ({

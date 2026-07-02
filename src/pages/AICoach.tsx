@@ -6,6 +6,7 @@ import { useProfile } from '../contexts/ProfileContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { calculatePMC } from '../lib/calculateMetrics'
 import { RacePredictor } from '../components/ai/RacePredictor'
+import type { Tables } from '../types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,14 @@ interface BriefingRecord {
   id: string
   briefing: string
   generated_at: string
+}
+
+function mapBriefingRow(row: Pick<Tables<'ai_briefings'>, 'id' | 'briefing' | 'generated_at'>): BriefingRecord {
+  return {
+    id: row.id,
+    briefing: row.briefing,
+    generated_at: row.generated_at ?? '',
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -171,7 +180,7 @@ export function AICoach() {
       .select('id, briefing, generated_at')
       .order('generated_at', { ascending: false })
       .limit(9)
-    setBriefings((data ?? []) as BriefingRecord[])
+    setBriefings((data ?? []).map(mapBriefingRow))
     setLoadingBriefings(false)
   }, [])
 

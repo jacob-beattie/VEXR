@@ -1,8 +1,46 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Workout } from '../types'
+import type { Workout, WorkoutType, WorkoutBlock } from '../types'
+import type { Tables, Json } from '../types/database.types'
 import { calculatePMC } from '../lib/calculateMetrics'
+
+type WorkoutRow = Tables<'workouts'>
+
+// workouts.type has no DB check constraint, so the column is real `string` at the schema
+// level — narrowing to WorkoutType here is only as safe as every write path (this context's
+// addWorkout/updateWorkout, plus strava-sync) staying disciplined about only writing valid values.
+function mapWorkoutRow(row: WorkoutRow): Workout {
+  return {
+    id: row.id,
+    user_id: row.user_id ?? '',
+    title: row.title,
+    type: row.type as WorkoutType,
+    date: row.date,
+    duration_minutes: row.duration_minutes ?? 0,
+    tss: row.tss ?? 0,
+    zone: row.zone ?? undefined,
+    notes: row.notes ?? undefined,
+    planned: row.planned ?? false,
+    structure: row.structure as unknown as WorkoutBlock[] | null,
+    strava_activity_id: row.strava_activity_id,
+    heart_rate_avg: row.heart_rate_avg,
+    heart_rate_max: row.heart_rate_max,
+    distance_meters: row.distance_meters,
+    calories: row.calories,
+    elevation_gain: row.elevation_gain,
+    avg_power: row.avg_power,
+    avg_pace: row.avg_pace,
+    created_at: row.created_at ?? '',
+  }
+}
+
+// WorkoutBlock[] has no index signature so it isn't structurally assignable to Json — the
+// shape is JSON-serializable at runtime, this just bridges the two type representations.
+function serializeStructure(structure: WorkoutBlock[] | null | undefined): Json | null | undefined {
+  if (structure === undefined) return undefined
+  return structure as unknown as Json
+}
 
 interface FitnessMetrics {
   ctl: number
@@ -44,7 +82,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setWorkouts((data ?? []) as Workout[])
+    setWorkouts((data ?? []).map(mapWorkoutRow))
     setLoading(false)
   }, [])
 
@@ -75,14 +113,21 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const addWorkout = async (workout: Omit<Workout, 'id' | 'user_id' | 'created_at'>) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
-    const { error } = await supabase.from('workouts').insert({ ...workout, user_id: user.id })
+    const { error } = await supabase.from('workouts').insert({
+      ...workout,
+      structure: serializeStructure(workout.structure),
+      user_id: user.id,
+    })
     if (error) throw error
     // Don't wait for realtime — refetch immediately so UI updates right away
     await fetchWorkouts()
   }
 
   const updateWorkout = async (id: string, updates: Partial<Workout>) => {
-    const { error } = await supabase.from('workouts').update(updates).eq('id', id)
+    const { error } = await supabase.from('workouts').update({
+      ...updates,
+      structure: serializeStructure(updates.structure),
+    }).eq('id', id)
     if (error) throw error
     await fetchWorkouts()
   }

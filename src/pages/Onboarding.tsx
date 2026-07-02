@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
 import { useIsMobile } from '../hooks/useIsMobile'
+import type { TablesUpdate } from '../types/database.types'
 
 const SPORTS = ['triathlon', 'cycling', 'running', 'swimming'] as const
 const SPORT_LABELS: Record<string, string> = {
@@ -190,7 +191,7 @@ export function Onboarding() {
     setSaving(true)
     setError('')
     try {
-      const updates: Record<string, unknown> = {}
+      const updates: TablesUpdate<'profiles'> = {}
       if (ftp) updates.ftp = parseInt(ftp, 10)
       if (runPace) updates.run_pace = runPace
       if (css) updates.css = css

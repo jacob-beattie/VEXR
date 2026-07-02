@@ -288,6 +288,7 @@ function StructuredBuilder({ blocks, setBlocks, workoutType, ftp, threshPace, cs
     if (fromIdx === toIdx) return
     const arr = [...blocks]
     const [item] = arr.splice(fromIdx, 1)
+    if (!item) return
     arr.splice(toIdx, 0, item)
     setBlocks(arr)
   }

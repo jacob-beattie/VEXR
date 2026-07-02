@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
 import type { Profile, FitnessBenchmark } from '../types'
+import type { Tables } from '../types/database.types'
 import { Button } from './ui/Button'
 import { useStrava } from '../contexts/StravaContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -23,6 +24,19 @@ const CYCLING_ZONE_DEFS = [
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// fitness_benchmarks.metric has no DB check constraint, so the column is real `string` at
+// the schema level — narrowing to the app's literal union is only as safe as the write path
+// (this modal only ever writes 'ftp'/'pace'/'css') staying disciplined.
+function mapFitnessBenchmarkRow(row: Tables<'fitness_benchmarks'>): FitnessBenchmark {
+  return {
+    id: row.id,
+    user_id: row.user_id ?? '',
+    metric: row.metric as FitnessBenchmark['metric'],
+    value: row.value,
+    recorded_at: row.recorded_at ?? '',
+  }
+}
 
 function calcCyclingZones(ftp: number) {
   return CYCLING_ZONE_DEFS.map(z => ({
@@ -224,7 +238,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: true })
 
-    if (bData) setBenchmarks(bData as FitnessBenchmark[])
+    if (bData) setBenchmarks(bData.map(mapFitnessBenchmarkRow))
 
 
 
