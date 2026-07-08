@@ -26,14 +26,10 @@ describe('parseAllowedOrigins', () => {
     expect(result).not.toContain('https://staging.vexr.app/')
   })
 
-  it('always appends localhost entries when a prod origin is set', () => {
+  it('does not append localhost entries — localhost is matched by pattern in isOriginAllowed instead', () => {
     const result = parseAllowedOrigins('https://www.vexr.app')
-    expect(result).toContain('http://localhost:5173')
-    expect(result).toContain('http://localhost:3000')
-  })
-
-  it('does not append localhost entries when env var is unset', () => {
-    expect(parseAllowedOrigins(undefined)).not.toContain('http://localhost:5173')
+    expect(result).not.toContain('http://localhost:5173')
+    expect(result).not.toContain('http://localhost:3000')
   })
 })
 
@@ -76,5 +72,16 @@ describe('getCorsHeaders', () => {
   it('always includes Access-Control-Allow-Headers', () => {
     const headers = getCorsHeaders('https://www.vexr.app', ['https://www.vexr.app'])
     expect(headers['Access-Control-Allow-Headers']).toBe(ALLOW_HEADERS)
+  })
+
+  it('allows any localhost/127.0.0.1 port, not just the hardcoded 5173/3000 — Vite bumps ports when one is taken', () => {
+    expect(getCorsHeaders('http://localhost:5174', [])['Access-Control-Allow-Origin']).toBe('http://localhost:5174')
+    expect(getCorsHeaders('http://localhost:4000', [])['Access-Control-Allow-Origin']).toBe('http://localhost:4000')
+    expect(getCorsHeaders('http://127.0.0.1:5173', [])['Access-Control-Allow-Origin']).toBe('http://127.0.0.1:5173')
+  })
+
+  it('still fails closed for a non-loopback host even with a port', () => {
+    const headers = getCorsHeaders('http://evil.com:5173', [])
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined()
   })
 })

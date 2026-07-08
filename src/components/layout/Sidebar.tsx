@@ -24,7 +24,7 @@ const navItems = [
 ]
 
 export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = false, isOpen = false, onClose }: SidebarProps) {
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
   const location = useLocation()
@@ -117,9 +117,9 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
               : initials}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{profile?.name || 'Athlete'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{profileLoading ? 'Loading…' : (profile?.name || 'Athlete')}</div>
             <div style={{ fontSize: 10, color: COLORS.muted, textTransform: 'capitalize' }}>
-              {profile?.sport || 'triathlon'}
+              {profileLoading ? '' : (profile?.sport || 'triathlon')}
             </div>
           </div>
         </div>

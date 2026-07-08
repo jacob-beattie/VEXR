@@ -87,7 +87,8 @@ export function StravaProvider({ children }: { children: ReactNode }) {
         await refetchWorkouts()
         showToast(`${count} new workout${count === 1 ? '' : 's'} imported from Strava`)
       }
-    } catch {
+    } catch (err) {
+      showToast(err instanceof Error ? `Strava sync failed: ${err.message}` : 'Strava sync failed')
     } finally {
       setSyncing(false)
     }

@@ -180,7 +180,6 @@ Deno.serve(async (req: Request) => {
     const baseWeeks = Math.round(totalWeeks * 0.55)
     const buildWeeks = Math.round(totalWeeks * 0.3)
     const peakEnd = baseWeeks + buildWeeks
-    const taperWeeks = Math.max(1, totalWeeks - peakEnd)
 
     // ── Build prompt ──────────────────────────────────────────────────────────
     const fitnessLines: string[] = [`CTL: ${athleteProfile.ctl}`]

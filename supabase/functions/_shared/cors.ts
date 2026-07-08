@@ -1,16 +1,15 @@
-const LOCAL_ORIGINS = ['http://localhost:5173', 'http://localhost:3000']
+// Matches any port so a Vite dev server that bumps to 5174+ (because 5173 was already taken)
+// doesn't get silently locked out — still scoped to localhost/127.0.0.1 only.
+const LOCAL_ORIGIN_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/
 
 export function parseAllowedOrigins(envValue: string | undefined): string[] {
   if (!envValue) return []
-  return [
-    ...envValue.split(',').map(s => s.trim().replace(/\/$/, '')),
-    ...LOCAL_ORIGINS,
-  ]
+  return envValue.split(',').map(s => s.trim().replace(/\/$/, ''))
 }
 
 function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
   if (allowedOrigins.includes(origin)) return true
-  if (LOCAL_ORIGINS.includes(origin)) return true
+  if (LOCAL_ORIGIN_RE.test(origin)) return true
   // Allow all Vercel preview deployments (auth is still enforced by JWT)
   if (/^https:\/\/[^.]+\.vercel\.app$/.test(origin)) return true
   return false

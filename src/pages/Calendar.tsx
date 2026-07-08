@@ -7,6 +7,7 @@ import { DayBottomSheet } from '../components/calendar/DayBottomSheet'
 import { LogWorkoutModal } from '../components/LogWorkoutModal'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
+import { COLORS } from '../lib/colors'
 import type { Workout } from '../types'
 
 function getMondayOfWeek(d: Date): Date {
@@ -19,7 +20,7 @@ function getMondayOfWeek(d: Date): Date {
 }
 
 export function Calendar() {
-  const { workouts, addWorkout, updateWorkout, deleteWorkout } = useWorkouts()
+  const { workouts, loading, error, refetchWorkouts, addWorkout, updateWorkout, deleteWorkout } = useWorkouts()
   const isMobile = useIsMobile()
   const now = new Date()
 
@@ -103,8 +104,35 @@ export function Calendar() {
 
   const summaryWeekStart = view === 'week' ? weekStart : getMondayOfWeek(now)
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: COLORS.muted }}>
+        Loading…
+      </div>
+    )
+  }
+
   return (
     <>
+      {error && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 12,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{error}</span>
+          <button
+            onClick={() => refetchWorkouts()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <WeeklySummary workouts={workouts} weekStart={summaryWeekStart} />
         <CalendarGrid

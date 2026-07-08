@@ -115,7 +115,7 @@ function SyncToast({ isMobile }: { isMobile: boolean }) {
 // Inner shell — rendered inside all providers
 function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User }) {
   const { addWorkout } = useWorkouts()
-  const { profile, setProfile } = useProfile()
+  const { profile, setProfile, error: profileError, refetchProfile } = useProfile()
   const [showModal, setShowModal] = useState(false)
   const [logWorkoutDate, setLogWorkoutDate] = useState<string | undefined>()
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -216,6 +216,26 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             onMenuClick={() => setSidebarOpen(true)}
             isMobile={isMobile}
           />
+        )}
+
+        {profileError && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+            padding: '10px 16px', marginBottom: 16,
+          }}>
+            <span style={{ fontSize: 13, color: COLORS.orange }}>{profileError}</span>
+            <button
+              onClick={() => refetchProfile()}
+              style={{
+                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+              }}
+            >
+              Retry
+            </button>
+          </div>
         )}
 
         <Suspense fallback={null}>

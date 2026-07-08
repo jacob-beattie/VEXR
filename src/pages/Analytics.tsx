@@ -10,7 +10,7 @@ interface AnalyticsProps {
 
 export function Analytics({ onOpenProfile }: AnalyticsProps) {
   const [weeks, setWeeks] = useState<number | null>(12)
-  const { workouts, getFitnessHistory, getWeeklyLoadHistory, loading } = useWorkouts()
+  const { workouts, getFitnessHistory, getWeeklyLoadHistory, loading, error, refetchWorkouts } = useWorkouts()
   const { profile } = useProfile()
 
   const effectiveWeeks = (() => {
@@ -30,15 +30,36 @@ export function Analytics({ onOpenProfile }: AnalyticsProps) {
   }
 
   return (
-    <AnalyticsPage
-      workouts={workouts}
-      fitnessHistory={getFitnessHistory(effectiveWeeks)}
-      weeklyHistory={getWeeklyLoadHistory(effectiveWeeks)}
-      weeks={weeks}
-      effectiveWeeks={effectiveWeeks}
-      onWeeksChange={setWeeks}
-      onOpenProfile={onOpenProfile}
-      profile={profile}
-    />
+    <>
+      {error && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{error}</span>
+          <button
+            onClick={() => refetchWorkouts()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      <AnalyticsPage
+        workouts={workouts}
+        fitnessHistory={getFitnessHistory(effectiveWeeks)}
+        weeklyHistory={getWeeklyLoadHistory(effectiveWeeks)}
+        weeks={weeks}
+        effectiveWeeks={effectiveWeeks}
+        onWeeksChange={setWeeks}
+        onOpenProfile={onOpenProfile}
+        profile={profile}
+      />
+    </>
   )
 }

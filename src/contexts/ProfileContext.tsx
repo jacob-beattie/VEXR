@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
@@ -6,7 +6,10 @@ import type { Tables } from '../types/database.types'
 
 interface ProfileContextValue {
   profile: Profile | null
+  loading: boolean
+  error: string | null
   setProfile: (p: Profile) => void
+  refetchProfile: () => Promise<void>
 }
 
 // profiles.name/sport/ftp/run_pace/css are nullable in the DB (unset until onboarding
@@ -32,15 +35,35 @@ const ProfileContext = createContext<ProfileContextValue | null>(null)
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const fetchIdRef = useRef(0)
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (data) setProfile(mapProfileRow(data))
+  const fetchProfile = useCallback(async () => {
+    const reqId = ++fetchIdRef.current
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      // A newer fetch already resolved (or started) — this response is stale, ignore it.
+      if (reqId !== fetchIdRef.current) return
+      setProfile(null)
+      setLoading(false)
+      return
+    }
+    const { data, error: fetchError } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (reqId !== fetchIdRef.current) return
+
+    if (fetchError) {
+      setError('Failed to load profile. Please refresh.')
+      setLoading(false)
+      return
     }
 
+    setError(null)
+    if (data) setProfile(mapProfileRow(data))
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
     fetchProfile()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -49,10 +72,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [fetchProfile])
+
+  const value = useMemo<ProfileContextValue>(() => ({
+    profile, loading, error, setProfile, refetchProfile: fetchProfile,
+  }), [profile, loading, error, fetchProfile])
 
   return (
-    <ProfileContext.Provider value={{ profile, setProfile }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   )
