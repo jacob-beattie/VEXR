@@ -1,6 +1,11 @@
 import type { WorkoutType } from '../../types'
 import { SPORT_COLORS } from '../../lib/colors'
 
+// workoutTypes is consumed by ~12 components across calendar/dashboard/library.
+// Splitting it into its own file would touch every one of those importers for
+// a fast-refresh nicety only — not worth it on a solo project. Scoped disable
+// instead of a file-structure change.
+// eslint-disable-next-line react-refresh/only-export-components
 export const workoutTypes: Record<WorkoutType, { color: string; bg: string; border: string; label: string; icon: string; shadowColor: string; darkBorder: string }> = {
   run:      { color: SPORT_COLORS.run,      bg: '#f0fdf4', border: '#bbf7d0', label: 'Run',      icon: '🏃', shadowColor: '#16a34a1a', darkBorder: '#86efac' },
   ride:     { color: SPORT_COLORS.ride,     bg: '#faf5ff', border: '#ddd6fe', label: 'Ride',     icon: '🚴', shadowColor: '#7c3aed1a', darkBorder: '#c4b5fd' },

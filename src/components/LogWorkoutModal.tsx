@@ -446,7 +446,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
 
   const structuredTss = useMemo(() =>
     computeStructuredTSS(blocks, form.type, threshPace),
-    [blocks, form.type, ftp, threshPace, css]
+    [blocks, form.type, threshPace]
   )
 
   const structuredDuration = useMemo(() => computeStructuredDuration(blocks), [blocks])

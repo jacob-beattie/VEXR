@@ -113,6 +113,10 @@ export function StravaProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Splitting useStrava into its own file would touch every one of its
+// importers across the app for a fast-refresh nicety only — not worth it on
+// a solo project. Scoped disable instead of a file-structure change.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStrava() {
   const ctx = useContext(StravaContext)
   if (!ctx) throw new Error('useStrava must be used within StravaProvider')

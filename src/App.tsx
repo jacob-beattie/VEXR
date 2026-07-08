@@ -124,6 +124,21 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
   const location = useLocation()
   const isMobile = useIsMobile()
 
+  // Close the mobile sidebar whenever the route changes or the mobile/desktop
+  // breakpoint flips. This is derived state (reacting to values that change
+  // during render — pathname, isMobile — not synchronizing with an external
+  // system), so per https://react.dev/learn/you-might-not-need-an-effect
+  // ("Adjusting some state when a prop changes") it's adjusted directly during
+  // render — guarded by comparing against the last-seen values — instead of in
+  // a useEffect. This avoids an extra commit/render pass and the
+  // react-hooks/set-state-in-effect lint error.
+  const [lastCloseKey, setLastCloseKey] = useState(`${location.pathname}|${isMobile}`)
+  const closeKey = `${location.pathname}|${isMobile}`
+  if (closeKey !== lastCloseKey) {
+    setLastCloseKey(closeKey)
+    if (isMobile) setSidebarOpen(false)
+  }
+
   // Custom events from Dashboard (and other pages) to open modals
   useEffect(() => {
     const handleOpenLog = (e: Event) => {
@@ -152,11 +167,6 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
       navigate('/onboarding', { replace: true })
     }
   }, [profile, navigate])
-
-  // Close sidebar whenever route changes on mobile
-  useEffect(() => {
-    if (isMobile) setSidebarOpen(false)
-  }, [location.pathname, isMobile])
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {

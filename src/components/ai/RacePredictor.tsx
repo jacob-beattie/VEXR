@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { COLORS } from '../../lib/colors'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -293,10 +293,17 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
   const css = profile.css || ''
   const lowCtl = ctl < 10
 
-  const runRows = runPace ? calcRunRows(runPace, ctl) : []
-  const bikeRows = ftp ? calcBikeRows(ftp, ctl) : []
-  const swimRows = css ? calcSwimRows(css) : []
-  const triRows = (ftp && css && runPace) ? calcTriRows(ftp, css, runPace, ctl) : null
+  // Each wrapped in its own useMemo (rather than a single derived useMemo covering
+  // all four) so the memoized array/null identity is stable across renders where
+  // its own inputs haven't changed — otherwise a new [] each render would make
+  // generateNarrative's useCallback below think its deps changed every time.
+  const runRows = useMemo(() => runPace ? calcRunRows(runPace, ctl) : [], [runPace, ctl])
+  const bikeRows = useMemo(() => ftp ? calcBikeRows(ftp, ctl) : [], [ftp, ctl])
+  const swimRows = useMemo(() => css ? calcSwimRows(css) : [], [css])
+  const triRows = useMemo(
+    () => (ftp && css && runPace) ? calcTriRows(ftp, css, runPace, ctl) : null,
+    [ftp, css, runPace, ctl]
+  )
 
   // Narrative cache key
   const cacheKey = `vexr_race_predictor_${profile.id}`

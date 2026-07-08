@@ -136,12 +136,12 @@ describe('ProfileContext — setProfile', () => {
     const chain = makeFromChain(mockProfile)
     mockFrom.mockReturnValue(chain)
 
-    let setProfileFn!: (p: Profile) => void
+    const receivedSetProfile: ((p: Profile) => void)[] = []
     const received: (Profile | null)[] = []
 
     function Consumer() {
       const { profile, setProfile } = useProfile()
-      setProfileFn = setProfile
+      receivedSetProfile.push(setProfile)
       received.push(profile)
       return null
     }
@@ -155,7 +155,7 @@ describe('ProfileContext — setProfile', () => {
     await waitFor(() => expect(received).toContainEqual(mockProfile))
 
     const updated = { ...mockProfile, ftp: 300 }
-    act(() => setProfileFn(updated))
+    act(() => receivedSetProfile[receivedSetProfile.length - 1](updated))
     await waitFor(() => expect(received[received.length - 1]).toEqual(updated))
   })
 })

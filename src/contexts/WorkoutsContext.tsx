@@ -150,7 +150,14 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Fetch immediately (session should already be set by ProtectedLayout)
+    // Fetch immediately (session should already be set by ProtectedLayout).
+    // Same category as ProfileContext's fetch-on-mount effect: this
+    // synchronizes with an external system (Supabase), so the setState call
+    // once the fetch resolves is the correct, idiomatic pattern per
+    // react.dev's own "Fetching data" example — there's no render-time-only
+    // alternative. Disabled with explanation rather than restructured
+    // around the newer, stricter compiler lint rule.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchWorkouts()
 
     // Also re-fetch on any auth state change — handles the case where the
@@ -392,6 +399,10 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Splitting useWorkouts into its own file would touch every one of its
+// importers across the app for a fast-refresh nicety only — not worth it on
+// a solo project. Scoped disable instead of a file-structure change.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkouts() {
   const ctx = useContext(WorkoutsContext)
   if (!ctx) throw new Error('useWorkouts must be used within WorkoutsProvider')

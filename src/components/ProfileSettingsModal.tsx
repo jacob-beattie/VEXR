@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
@@ -225,11 +225,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const [viewingAvatar, setViewingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoadingData(true)
 
     const { data: bData } = await supabase
@@ -240,10 +236,12 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
 
     if (bData) setBenchmarks(bData.map(mapFitnessBenchmarkRow))
 
-
-
     setLoadingData(false)
-  }
+  }, [user.id])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function handleAvatarUpload(file: File) {
     setUploadingAvatar(true)

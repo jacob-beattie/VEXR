@@ -9,7 +9,6 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const RATE_WINDOW_MS = 60 * 60 * 1000
 const BRIEFING_RATE_LIMIT = 5
 const PREDICTOR_RATE_LIMIT = 10
 

@@ -13,12 +13,20 @@ export function Analytics({ onOpenProfile }: AnalyticsProps) {
   const { workouts, getFitnessHistory, getWeeklyLoadHistory, loading, error, refetchWorkouts } = useWorkouts()
   const { profile } = useProfile()
 
+  // Date.now() is impure and can't be called directly during render (it would
+  // return a different value on every render, including React's double-render
+  // purity check). A useState lazy initializer is guaranteed by React to run
+  // exactly once per mount, so it's the correct way to capture "now" here —
+  // "weeks since earliest workout" only needs to be pinned once when the page
+  // is opened, not live-recomputed on every render.
+  const [mountTime] = useState(() => Date.now())
+
   const effectiveWeeks = (() => {
     if (weeks !== null) return weeks
     const actual = workouts.filter(w => !w.planned)
     if (actual.length === 0) return 52
     const earliest = actual.slice().sort((a, b) => a.date.localeCompare(b.date))[0]
-    return Math.ceil((Date.now() - new Date(earliest.date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+    return Math.ceil((mountTime - new Date(earliest.date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
   })()
 
   if (loading) {

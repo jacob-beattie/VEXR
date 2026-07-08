@@ -64,6 +64,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // fetchProfile is a genuine "synchronize with an external system" effect
+    // (fetch profile row from Supabase on mount / auth change) — exactly the
+    // pattern react.dev recommends useEffect for. Calling setState once the
+    // fetch resolves is the correct, unavoidable way to bring that external
+    // data into React state; there's no render-time-only alternative here
+    // (unlike App.tsx's sidebar-close effect, which was pure derived UI
+    // state and got a real refactor instead). Rather than restructure this
+    // shared auth-adjacent context around the new stricter compiler lint
+    // rule, disable it here with this explanation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -85,6 +95,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Splitting useProfile into its own file would touch every one of its
+// importers across the app for a fast-refresh nicety only — not worth it on
+// a solo project. Scoped disable instead of a file-structure change.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useProfile() {
   const ctx = useContext(ProfileContext)
   if (!ctx) throw new Error('useProfile must be used within ProfileProvider')
