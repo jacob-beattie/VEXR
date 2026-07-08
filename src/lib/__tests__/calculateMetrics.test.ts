@@ -128,4 +128,68 @@ describe('calculatePMC', () => {
     expect(current.ctl).toBeLessThan(1)
     expect(current.atl).toBe(0)
   })
+
+  // Exact values below are computed independently from the documented EWMA
+  // formula (CTL_K = 1 - e^(-1/42), ATL_K = 1 - e^(-1/7), applied day-by-day
+  // from ctl=atl=0), not re-derived from the function under test — this is
+  // the same style as a known-correct reference implementation, so it would
+  // actually catch a broken formula (wrong time constant, swapped CTL/ATL,
+  // off-by-one day iteration) rather than just a broken copy of the formula.
+  it('single workout produces the exact hand-computed CTL/ATL/TSB on day one', () => {
+    const workouts = [makeWorkout({ date: '2024-01-01', tss: 100 })]
+    const today = new Date('2024-01-01T00:00:00')
+    const windowStart = new Date('2024-01-01T00:00:00')
+    const { current } = calculatePMC(workouts, windowStart, today)
+
+    // ctl = 0 + (1 - e^(-1/42)) * 100 = 2.3528... -> rounds to 2
+    // atl = 0 + (1 - e^(-1/7))  * 100 = 13.3122... -> rounds to 13
+    // tsb = round(2.3528 - 13.3122) = round(-10.9594) = -11
+    expect(current).toEqual({ ctl: 2, atl: 13, tsb: -11 })
+  })
+
+  it('a mid-history gap decays CTL/ATL to the exact hand-computed values at the next workout', () => {
+    // Workout on day 0 (tss 100), 9 rest days, workout on day 10 (tss 50).
+    // Verified independently by iterating the same day-by-day EWMA formula
+    // outside calculatePMC (not by re-running calculatePMC itself).
+    const workouts = [
+      makeWorkout({ date: '2024-01-01', tss: 100 }),
+      makeWorkout({ date: '2024-01-11', tss: 50 }),
+    ]
+    const today = new Date('2024-01-11T00:00:00')
+    const windowStart = new Date('2024-01-01T00:00:00')
+    const { current } = calculatePMC(workouts, windowStart, today)
+
+    expect(current).toEqual({ ctl: 3, atl: 10, tsb: -7 })
+  })
+
+  it('current fitness values do not depend on how far back the history window starts', () => {
+    // `windowStart` only trims the returned `history` array — CTL/ATL always
+    // warm up from the true earliest workout regardless of what window the
+    // caller asked to see. A regression that let windowStart affect warmup
+    // would silently understate fitness for any "last 4 weeks" chart.
+    const workouts = [
+      makeWorkout({ date: '2023-11-01', tss: 90 }),
+      makeWorkout({ date: '2023-12-01', tss: 110 }),
+      makeWorkout({ date: '2024-01-01', tss: 100 }),
+    ]
+    const today = new Date('2024-01-15T00:00:00')
+
+    const fullHistory = calculatePMC(workouts, new Date('2023-11-01T00:00:00'), today)
+    const trimmedWindow = calculatePMC(workouts, new Date('2024-01-01T00:00:00'), today)
+
+    expect(trimmedWindow.current).toEqual(fullHistory.current)
+    expect(trimmedWindow.history.length).toBeLessThan(fullHistory.history.length)
+  })
+
+  it('clamps the history window to the first workout when windowStart is earlier than any data', () => {
+    const workouts = [makeWorkout({ date: '2024-01-15', tss: 80 })]
+    const today = new Date('2024-01-20T00:00:00')
+    // Asking for history starting a full year before the first workout
+    const windowStart = new Date('2023-01-01T00:00:00')
+    const { history } = calculatePMC(workouts, windowStart, today)
+
+    // No fabricated pre-data days — the array starts exactly at the first workout.
+    expect(history[0].date).toBe('2024-01-15')
+    expect(history.length).toBe(6)
+  })
 })

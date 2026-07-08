@@ -158,7 +158,7 @@ npm test          # run all tests once
 npm run test:watch  # watch mode
 ```
 
-264 tests across 26 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable Proxy that replicates the query builder API without hitting the network.
+370 tests across 31 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
 
 ---
 

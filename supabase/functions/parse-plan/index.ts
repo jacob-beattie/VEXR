@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { validateParsedPlan } from '../_shared/validatePlan.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { resolveSessionDates, flagConflicts } from '../_shared/planScheduling.ts'
+import { validateParsePlanRequest } from '../_shared/parsePlanValidation.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -10,51 +12,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const VALID_CONTENT_TYPES = ['pdf', 'html', 'text'] as const
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 60 * 60 * 1000
-
-const DAY_OFFSETS: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-}
-
-function resolveDate(startDate: string, week: number, dayOfWeek: string): string {
-  const start = new Date(startDate + 'T00:00:00Z')
-  const weekOffset = (week - 1) * 7
-  const dayOffset = DAY_OFFSETS[dayOfWeek] ?? 0
-  const resolved = new Date(start.getTime() + (weekOffset + dayOffset) * 86400000)
-  return resolved.toISOString().split('T')[0]
-}
-
-interface ParsePlanRequest {
-  content: string
-  contentType: string
-  startDate?: string
-  raceDate?: string
-  planName?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-// Narrows the raw request body field-by-field instead of a blind `as` cast — this is the
-// network trust boundary, so a wrong-typed field must fail here rather than reach the Claude
-// prompt or resolveDate() unchecked.
-function parseRequestBody(body: unknown): ParsePlanRequest | null {
-  if (!isRecord(body)) return null
-  if (typeof body.content !== 'string') return null
-  if (typeof body.contentType !== 'string') return null
-
-  return {
-    content: body.content,
-    contentType: body.contentType,
-    startDate: typeof body.startDate === 'string' ? body.startDate : undefined,
-    raceDate: typeof body.raceDate === 'string' ? body.raceDate : undefined,
-    planName: typeof body.planName === 'string' ? body.planName : undefined,
-  }
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
@@ -98,39 +57,13 @@ Deno.serve(async (req: Request) => {
 
     // ── Parse + validate body ─────────────────────────────────────────────────
     const rawBody: unknown = await req.json()
-    const parsedBody = parseRequestBody(rawBody)
-    if (!parsedBody) {
-      return new Response(JSON.stringify({ error: 'Missing content' }), {
+    const validation = validateParsePlanRequest(rawBody)
+    if (!validation.ok) {
+      return new Response(JSON.stringify({ error: validation.error }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    const { content, contentType, startDate, raceDate, planName } = parsedBody
-
-    if (!content) {
-      return new Response(JSON.stringify({ error: 'Missing content' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (content.length > 80000) {
-      return new Response(JSON.stringify({ error: 'content_too_large' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (!(VALID_CONTENT_TYPES as readonly string[]).includes(contentType)) {
-      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (startDate && isNaN(Date.parse(startDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid start date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (raceDate && isNaN(Date.parse(raceDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid race date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const { content, contentType, startDate, raceDate, planName } = validation.value
 
     // ── Call Claude ───────────────────────────────────────────────────────────
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -237,13 +170,7 @@ ${content}`
     const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
-    const resolvedSessions = rawSessions.map(s => ({
-      ...s,
-      scheduled_date: startDate && s.day_of_week
-        ? resolveDate(startDate, s.week, s.day_of_week)
-        : null,
-      has_conflict: false,
-    }))
+    let resolvedSessions = resolveSessionDates(rawSessions, startDate)
 
     // ── Conflict detection ────────────────────────────────────────────────────
     const datesToCheck = resolvedSessions
@@ -258,12 +185,7 @@ ${content}`
         .in('date', datesToCheck)
 
       if (conflictingWorkouts && conflictingWorkouts.length > 0) {
-        const conflictSet = new Set(conflictingWorkouts.map((w: { date: string }) => w.date))
-        for (const s of resolvedSessions) {
-          if (s.scheduled_date && conflictSet.has(s.scheduled_date)) {
-            s.has_conflict = true
-          }
-        }
+        resolvedSessions = flagConflicts(resolvedSessions, conflictingWorkouts.map((w: { date: string }) => w.date))
       }
     }
 

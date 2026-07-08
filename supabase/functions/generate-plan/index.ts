@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { validateParsedPlan } from '../_shared/validatePlan.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { resolveSessionDates, flagConflicts, computeTotalWeeks, computePlanPhases } from '../_shared/planScheduling.ts'
+import { validateGeneratePlanRequest } from '../_shared/generatePlanValidation.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -10,87 +12,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const VALID_SPORTS = ['triathlon', 'run', 'bike', 'swim'] as const
-const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 60 * 60 * 1000
-
-const DAY_OFFSETS: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-}
-
-function resolveDate(startDate: string, week: number, dayOfWeek: string): string {
-  const start = new Date(startDate + 'T00:00:00Z')
-  const weekOffset = (week - 1) * 7
-  const dayOffset = DAY_OFFSETS[dayOfWeek] ?? 0
-  const resolved = new Date(start.getTime() + (weekOffset + dayOffset) * 86400000)
-  return resolved.toISOString().split('T')[0]
-}
-
-interface AthleteProfile {
-  ctl: number
-  ftp?: number
-  thresholdPace?: string
-  css?: string
-  primarySport: string
-}
-
-interface GeneratePlanRequest {
-  sport: string
-  raceDistance: string
-  raceDate: string
-  startDate: string
-  preferredDays?: string[]
-  level?: string
-  goalTime?: string
-  athleteProfile: AthleteProfile
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-// Narrows the raw request body field-by-field instead of a blind `as` cast — this is the
-// network trust boundary, so a wrong-typed field (e.g. athleteProfile.ctl sent as a string)
-// must fail here rather than silently flow into the Claude prompt string interpolation below.
-function parseRequestBody(body: unknown): GeneratePlanRequest | null {
-  if (!isRecord(body)) return null
-  if (typeof body.sport !== 'string') return null
-  if (typeof body.raceDistance !== 'string') return null
-  if (typeof body.raceDate !== 'string') return null
-  if (typeof body.startDate !== 'string') return null
-
-  const preferredDays = Array.isArray(body.preferredDays) && body.preferredDays.every(d => typeof d === 'string')
-    ? body.preferredDays as string[]
-    : undefined
-  const level = typeof body.level === 'string' ? body.level : undefined
-  const goalTime = typeof body.goalTime === 'string' ? body.goalTime : undefined
-
-  if (!isRecord(body.athleteProfile)) return null
-  const ap = body.athleteProfile
-  if (typeof ap.ctl !== 'number') return null
-  if (typeof ap.primarySport !== 'string') return null
-
-  const athleteProfile: AthleteProfile = {
-    ctl: ap.ctl,
-    primarySport: ap.primarySport,
-    ftp: typeof ap.ftp === 'number' ? ap.ftp : undefined,
-    thresholdPace: typeof ap.thresholdPace === 'string' ? ap.thresholdPace : undefined,
-    css: typeof ap.css === 'string' ? ap.css : undefined,
-  }
-
-  return {
-    sport: body.sport,
-    raceDistance: body.raceDistance,
-    raceDate: body.raceDate,
-    startDate: body.startDate,
-    preferredDays,
-    level,
-    goalTime,
-    athleteProfile,
-  }
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
@@ -134,52 +57,16 @@ Deno.serve(async (req: Request) => {
 
     // ── Parse + validate body ─────────────────────────────────────────────────
     const rawBody: unknown = await req.json()
-    const parsedBody = parseRequestBody(rawBody)
-    if (!parsedBody) {
-      return new Response(JSON.stringify({ error: 'Missing or invalid required fields' }), {
+    const validation = validateGeneratePlanRequest(rawBody)
+    if (!validation.ok) {
+      return new Response(JSON.stringify({ error: validation.error }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = parsedBody
+    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = validation.value
 
-    if (!sport || !raceDistance || !raceDate || !startDate) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (!(VALID_SPORTS as readonly string[]).includes(sport)) {
-      return new Response(JSON.stringify({ error: 'Invalid sport' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (typeof raceDistance !== 'string' || raceDistance.length === 0 || raceDistance.length > 100) {
-      return new Response(JSON.stringify({ error: 'Invalid race distance' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (level !== undefined && !(VALID_LEVELS as readonly string[]).includes(level)) {
-      return new Response(JSON.stringify({ error: 'Invalid level' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    const startMs = Date.parse(startDate)
-    const raceMs = Date.parse(raceDate)
-    if (isNaN(startMs) || isNaN(raceMs)) {
-      return new Response(JSON.stringify({ error: 'Invalid date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (raceMs <= startMs) {
-      return new Response(JSON.stringify({ error: 'Race date must be after start date' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const totalWeeks = Math.max(1, Math.round((raceMs - startMs) / (7 * 86400000)))
-
-    const baseWeeks = Math.round(totalWeeks * 0.55)
-    const buildWeeks = Math.round(totalWeeks * 0.3)
-    const peakEnd = baseWeeks + buildWeeks
+    const totalWeeks = computeTotalWeeks(startDate, raceDate)
+    const { baseWeeks, peakEnd } = computePlanPhases(totalWeeks)
 
     // ── Build prompt ──────────────────────────────────────────────────────────
     const fitnessLines: string[] = [`CTL: ${athleteProfile.ctl}`]
@@ -312,11 +199,7 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
     const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
-    const resolvedSessions = rawSessions.map(s => ({
-      ...s,
-      scheduled_date: s.day_of_week ? resolveDate(startDate, s.week, s.day_of_week) : null,
-      has_conflict: false,
-    }))
+    let resolvedSessions = resolveSessionDates(rawSessions, startDate)
 
     // ── Conflict detection ────────────────────────────────────────────────────
     const datesToCheck = resolvedSessions
@@ -331,12 +214,7 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
         .in('date', datesToCheck)
 
       if (conflictingWorkouts && conflictingWorkouts.length > 0) {
-        const conflictSet = new Set(conflictingWorkouts.map((w: { date: string }) => w.date))
-        for (const s of resolvedSessions) {
-          if (s.scheduled_date && conflictSet.has(s.scheduled_date)) {
-            s.has_conflict = true
-          }
-        }
+        resolvedSessions = flagConflicts(resolvedSessions, conflictingWorkouts.map((w: { date: string }) => w.date))
       }
     }
 

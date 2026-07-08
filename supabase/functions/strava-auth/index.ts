@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { extractAuthCode, buildAthleteName } from '../_shared/stravaAuth.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -55,9 +56,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 2. Parse request body ──────────────────────────────────────────────
     const body: unknown = await req.json()
-    const code = typeof body === 'object' && body !== null && typeof (body as Record<string, unknown>).code === 'string'
-      ? (body as Record<string, unknown>).code as string
-      : null
+    const code = extractAuthCode(body)
     console.log('[strava-auth] received code:', code ? `${code.slice(0, 6)}…` : 'MISSING')
     if (!code) {
       return new Response(JSON.stringify({ error: 'Missing authorization code' }), {
@@ -101,8 +100,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 5. Upsert connection ───────────────────────────────────────────────
-    const athleteName = [tokens.athlete?.firstname, tokens.athlete?.lastname]
-      .filter(Boolean).join(' ') || null
+    const athleteName = buildAthleteName(tokens.athlete)
 
     console.log('[strava-auth] upserting connection for athlete:', tokens.athlete?.id, athleteName)
 
