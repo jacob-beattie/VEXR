@@ -16,6 +16,54 @@ const PREDICTOR_RATE_LIMIT = 10
 const CTL_K = 1 - Math.exp(-1 / 42)
 const ATL_K = 1 - Math.exp(-1 / 7)
 
+const PROFILE_SPORTS = ['triathlon', 'cycling', 'running', 'swimming'] as const
+
+interface RacePredictorBody {
+  ctl: number
+  ftp?: number
+  runPace?: string
+  css?: string
+  sport: string
+  predictions: { running: string; cycling: string; swimming: string; triathlon: string }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+// Narrows the race-predictor request body field-by-field instead of a blind `as` cast — these
+// values are interpolated directly into the Claude prompt below, so a wrong-typed or oversized
+// field must fail here rather than flow into prompt construction unchecked.
+function parseRaceBody(body: unknown): RacePredictorBody | null {
+  if (!isRecord(body)) return null
+  if (typeof body.ctl !== 'number' || !Number.isFinite(body.ctl) || body.ctl < 0 || body.ctl > 500) return null
+  if (typeof body.sport !== 'string' || !(PROFILE_SPORTS as readonly string[]).includes(body.sport)) return null
+  if (body.ftp !== undefined && (typeof body.ftp !== 'number' || !Number.isFinite(body.ftp) || body.ftp < 0 || body.ftp > 2000)) return null
+  if (body.runPace !== undefined && (typeof body.runPace !== 'string' || body.runPace.length > 20)) return null
+  if (body.css !== undefined && (typeof body.css !== 'string' || body.css.length > 20)) return null
+
+  if (!isRecord(body.predictions)) return null
+  const p = body.predictions
+  const predictionFields = ['running', 'cycling', 'swimming', 'triathlon'] as const
+  for (const field of predictionFields) {
+    if (typeof p[field] !== 'string' || (p[field] as string).length > 300) return null
+  }
+
+  return {
+    ctl: body.ctl,
+    sport: body.sport,
+    ftp: typeof body.ftp === 'number' ? body.ftp : undefined,
+    runPace: typeof body.runPace === 'string' ? body.runPace : undefined,
+    css: typeof body.css === 'string' ? body.css : undefined,
+    predictions: {
+      running: p.running as string,
+      cycling: p.cycling as string,
+      swimming: p.swimming as string,
+      triathlon: p.triathlon as string,
+    },
+  }
+}
+
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -60,23 +108,30 @@ function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: 
   }
 }
 
-type SupabaseClient = ReturnType<typeof createClient<Database>>
+// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
+// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
+// constrain them. This is the one deliberate service-role usage in this function; it only ever
+// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
+// `userId` here always comes from the verified token, never from client input.
+const rateLimitClient = createClient<Database>(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+)
 
 async function checkRateLimit(
-  supabase: SupabaseClient,
   userId: string,
   functionName: string,
   limit: number,
 ): Promise<boolean> {
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
+  const { count } = await rateLimitClient
     .from('api_rate_limits')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('function_name', functionName)
     .gte('called_at', windowStart)
   if ((count ?? 0) >= limit) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
+  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
   return true
 }
 
@@ -122,18 +177,20 @@ Deno.serve(async (req: Request) => {
 
     // ── Race predictor mode ──────────────────────────────────────────────────
     if (mode === 'race_predictor') {
-      const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing-predictor', PREDICTOR_RATE_LIMIT)
+      const allowed = await checkRateLimit(user.id, 'ai-briefing-predictor', PREDICTOR_RATE_LIMIT)
       if (!allowed) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing predictions.' }), {
           status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
-      const { ctl, ftp, runPace, css, sport, predictions } = raceBody as {
-        ctl: number; ftp: number; runPace: string; css: string
-        sport: string
-        predictions: { running: string; cycling: string; swimming: string; triathlon: string }
+      const parsedRaceBody = parseRaceBody(raceBody)
+      if (!parsedRaceBody) {
+        return new Response(JSON.stringify({ error: 'Missing or invalid required fields' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
       }
+      const { ctl, ftp, runPace, css, sport, predictions } = parsedRaceBody
 
       const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
       if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
@@ -208,7 +265,7 @@ Comment on what the predictions reveal about their current fitness, highlight on
     }
 
     // ── Rate limit briefing API calls (cache misses + force refreshes) ────────
-    const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing', BRIEFING_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'ai-briefing', BRIEFING_RATE_LIMIT)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing your briefing.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

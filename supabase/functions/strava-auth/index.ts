@@ -7,23 +7,30 @@ const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_AUTH_RATE_LIMIT = 5
 
-type SupabaseClient = ReturnType<typeof createClient<Database>>
+// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
+// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
+// constrain them. This is the one deliberate service-role usage in this function; it only ever
+// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
+// `userId` here always comes from the verified token, never from client input.
+const rateLimitClient = createClient<Database>(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+)
 
 async function checkRateLimit(
-  supabase: SupabaseClient,
   userId: string,
   functionName: string,
   limit: number,
 ): Promise<boolean> {
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
+  const { count } = await rateLimitClient
     .from('api_rate_limits')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('function_name', functionName)
     .gte('called_at', windowStart)
   if ((count ?? 0) >= limit) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
+  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
   return true
 }
 
@@ -60,7 +67,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const allowed = await checkRateLimit(supabase, user.id, 'strava-auth', STRAVA_AUTH_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'strava-auth', STRAVA_AUTH_RATE_LIMIT)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again later.' }), {
         status: 429,

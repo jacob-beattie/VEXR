@@ -91,18 +91,26 @@ function parseRequestBody(body: unknown): GeneratePlanRequest | null {
   }
 }
 
-type SupabaseClient = ReturnType<typeof createClient<Database>>
+// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
+// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
+// constrain them. This is the one deliberate service-role usage in this function; it only ever
+// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
+// `userId` here always comes from the verified token, never from client input.
+const rateLimitClient = createClient<Database>(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+)
 
-async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
+async function checkRateLimit(userId: string): Promise<boolean> {
   const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
+  const { count } = await rateLimitClient
     .from('api_rate_limits')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('function_name', 'generate-plan')
     .gte('called_at', windowStart)
   if ((count ?? 0) >= RATE_LIMIT) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'generate-plan' })
+  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: 'generate-plan' })
   return true
 }
 
@@ -135,7 +143,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Rate limit ────────────────────────────────────────────────────────────
-    const allowed = await checkRateLimit(supabase, user.id)
+    const allowed = await checkRateLimit(user.id)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can generate up to 5 plans per hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

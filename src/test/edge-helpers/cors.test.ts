@@ -40,9 +40,15 @@ describe('parseAllowedOrigins', () => {
 describe('getCorsHeaders', () => {
   const ALLOW_HEADERS = 'authorization, x-client-info, apikey, content-type'
 
-  it('returns wildcard when allowedOrigins is empty (local dev)', () => {
+  it('allows localhost even when allowedOrigins is empty (unset secret, local dev)', () => {
     const headers = getCorsHeaders('http://localhost:5173', [])
-    expect(headers['Access-Control-Allow-Origin']).toBe('*')
+    expect(headers['Access-Control-Allow-Origin']).toBe('http://localhost:5173')
+    expect(headers['Access-Control-Allow-Headers']).toBe(ALLOW_HEADERS)
+  })
+
+  it('fails closed (omits the header) for a non-localhost origin when allowedOrigins is empty', () => {
+    const headers = getCorsHeaders('https://www.vexr.app', [])
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined()
     expect(headers['Access-Control-Allow-Headers']).toBe(ALLOW_HEADERS)
   })
 
@@ -54,10 +60,10 @@ describe('getCorsHeaders', () => {
       .toBe('http://localhost:5173')
   })
 
-  it('falls back to the first allowed origin for unknown origins', () => {
+  it('fails closed (omits the header) for an unknown origin, rather than falling back to an allowed one', () => {
     const origins = ['https://www.vexr.app', 'http://localhost:5173']
     const headers = getCorsHeaders('https://evil.com', origins)
-    expect(headers['Access-Control-Allow-Origin']).toBe('https://www.vexr.app')
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined()
   })
 
   it('does not echo a trailing-slash origin — stripped by parseAllowedOrigins', () => {

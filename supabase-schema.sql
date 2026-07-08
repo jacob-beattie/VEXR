@@ -283,8 +283,10 @@ create table if not exists api_rate_limits (
 );
 create index if not exists idx_api_rate_limits on api_rate_limits(user_id, function_name, called_at);
 alter table api_rate_limits enable row level security;
-create policy "Users can manage own rate limits" on api_rate_limits
-  for all using ((select auth.uid()) = user_id);
+-- No policies: this is a rate-limit ledger, not user-owned data — the whole point is that it
+-- constrains the user, so they must not be able to read/insert/update/delete it directly via the
+-- anon-key client (RLS enabled + zero policies = deny-all for anon/authenticated). Edge functions
+-- read/write it via a scoped service-role client instead (see checkRateLimit() in each function).
 
 -- ── Performance indexes ───────────────────────────────────────────────────────
 -- Composite (user_id, date) covers both user-only and date-range queries
