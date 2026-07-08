@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -7,38 +8,14 @@ const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_AUTH_RATE_LIMIT = 5
 
-// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
-// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
-// constrain them. This is the one deliberate service-role usage in this function; it only ever
-// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
-// `userId` here always comes from the verified token, never from client input.
-const rateLimitClient = createClient<Database>(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-async function checkRateLimit(
-  userId: string,
-  functionName: string,
-  limit: number,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await rateLimitClient
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', functionName)
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= limit) return false
-  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
-  return true
-}
-
 Deno.serve(async (req: Request) => {
   const corsHeaders = corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
 
   try {
     // ── 1. Authenticate the Vexr user via their JWT ────────────────────────
@@ -66,8 +43,9 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
-    const allowed = await checkRateLimit(user.id, 'strava-auth', STRAVA_AUTH_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'strava-auth', STRAVA_AUTH_RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again later.' }), {
         status: 429,
@@ -81,7 +59,11 @@ Deno.serve(async (req: Request) => {
       ? (body as Record<string, unknown>).code as string
       : null
     console.log('[strava-auth] received code:', code ? `${code.slice(0, 6)}…` : 'MISSING')
-    if (!code) throw new Error('Missing authorization code')
+    if (!code) {
+      return new Response(JSON.stringify({ error: 'Missing authorization code' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     // ── 3. Read secrets ────────────────────────────────────────────────────
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
@@ -150,10 +132,10 @@ Deno.serve(async (req: Request) => {
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[strava-auth] error:', message)
+    console.error(`[strava-auth] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
     return new Response(
-      JSON.stringify({ error: message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: 'Strava connection failed. Please try again.', requestId }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

@@ -286,7 +286,48 @@ alter table api_rate_limits enable row level security;
 -- No policies: this is a rate-limit ledger, not user-owned data — the whole point is that it
 -- constrains the user, so they must not be able to read/insert/update/delete it directly via the
 -- anon-key client (RLS enabled + zero policies = deny-all for anon/authenticated). Edge functions
--- read/write it via a scoped service-role client instead (see checkRateLimit() in each function).
+-- read/write it via a scoped service-role client instead (see checkRateLimit() in
+-- supabase/functions/_shared/rateLimit.ts).
+
+-- Atomic check-and-increment, called via RPC from checkRateLimit(). A plain select-count-then-
+-- insert from JS is two round trips with no transaction, so concurrent requests from the same
+-- user could all read the same under-limit count before any of them inserted, letting all of
+-- them through. This function does the check and insert inside one statement/transaction,
+-- serialized by a per-(user_id, function_name) advisory lock, so only one caller wins the race.
+create or replace function check_and_increment_rate_limit(
+  p_user_id uuid,
+  p_function_name text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_window_start timestamptz := now() - (p_window_seconds || ' seconds')::interval;
+  v_count integer;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text || ':' || p_function_name));
+
+  select count(*) into v_count
+  from api_rate_limits
+  where user_id = p_user_id
+    and function_name = p_function_name
+    and called_at >= v_window_start;
+
+  if v_count >= p_limit then
+    return false;
+  end if;
+
+  insert into api_rate_limits (user_id, function_name) values (p_user_id, p_function_name);
+  return true;
+end;
+$$;
+
+revoke all on function check_and_increment_rate_limit(uuid, text, integer, integer) from public;
+grant execute on function check_and_increment_rate_limit(uuid, text, integer, integer) to service_role;
 
 -- ── Performance indexes ───────────────────────────────────────────────────────
 -- Composite (user_id, date) covers both user-only and date-range queries

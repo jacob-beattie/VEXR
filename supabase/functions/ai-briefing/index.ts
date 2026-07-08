@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -108,38 +109,14 @@ function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: 
   }
 }
 
-// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
-// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
-// constrain them. This is the one deliberate service-role usage in this function; it only ever
-// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
-// `userId` here always comes from the verified token, never from client input.
-const rateLimitClient = createClient<Database>(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-async function checkRateLimit(
-  userId: string,
-  functionName: string,
-  limit: number,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await rateLimitClient
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', functionName)
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= limit) return false
-  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
-  return true
-}
-
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -163,6 +140,7 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
     // Parse body
     let force = false
@@ -417,10 +395,18 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[ai-briefing] error:', message)
+    console.error(`[ai-briefing] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      return new Response(
+        JSON.stringify({ error: 'The AI coach took too long to respond. Please try again.', requestId }),
+        { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: 'An internal error occurred. Please try again.', requestId }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

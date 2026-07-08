@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { validateParsedPlan } from '../_shared/validatePlan.ts'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -55,34 +56,14 @@ function parseRequestBody(body: unknown): ParsePlanRequest | null {
   }
 }
 
-// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
-// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
-// constrain them. This is the one deliberate service-role usage in this function; it only ever
-// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
-// `userId` here always comes from the verified token, never from client input.
-const rateLimitClient = createClient<Database>(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-async function checkRateLimit(userId: string): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await rateLimitClient
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', 'parse-plan')
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= RATE_LIMIT) return false
-  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: 'parse-plan' })
-  return true
-}
-
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
 
   try {
     // ── Auth ──────────────────────────────────────────────────────────────────
@@ -105,9 +86,10 @@ Deno.serve(async (req: Request) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
     // ── Rate limit ────────────────────────────────────────────────────────────
-    const allowed = await checkRateLimit(user.id)
+    const allowed = await checkRateLimit(user.id, 'parse-plan', RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can import up to 5 plans per hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -301,9 +283,17 @@ ${content}`
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[parse-plan] error:', message)
+    console.error(`[parse-plan] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      return new Response(
+        JSON.stringify({ error: 'Plan parsing took too long. Please try again.', requestId }),
+        { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.', requestId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }

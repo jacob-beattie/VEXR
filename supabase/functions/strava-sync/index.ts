@@ -1,38 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_SYNC_RATE_LIMIT = 3
-
-// api_rate_limits has no RLS policies (deny-all for anon/authenticated) since it's a rate-limit
-// ledger, not user-owned data — a user must not be able to read/insert/delete rows that exist to
-// constrain them. This is the one deliberate service-role usage in this function; it only ever
-// touches api_rate_limits, and only after the caller's JWT has already been verified above, so
-// `userId` here always comes from the verified token, never from client input.
-const rateLimitClient = createClient<Database>(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
-
-async function checkRateLimit(
-  userId: string,
-  functionName: string,
-  limit: number,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await rateLimitClient
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', functionName)
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= limit) return false
-  await rateLimitClient.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
-  return true
-}
 
 // Map Strava sport_type → Vexr workout type
 function mapStravaType(sportType: string): string {
@@ -109,6 +83,9 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
+
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -132,8 +109,9 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
-    const allowed = await checkRateLimit(user.id, 'strava-sync', STRAVA_SYNC_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'strava-sync', STRAVA_SYNC_RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429,
@@ -309,7 +287,15 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('[strava-sync] inserting', inserts.length, 'workouts')
-    const { error: insertError } = await supabase.from('workouts').insert(inserts)
+    // upsert + ignoreDuplicates instead of insert: two concurrent syncs (e.g. two open tabs) can
+    // both read the same "existing" set before either has written, so a plain insert can hit the
+    // strava_activity_id unique constraint on a row the other request just committed — and since
+    // insert() is a single statement, that failure would fail the *entire* batch, not just the
+    // colliding row. Upserting with ignoreDuplicates skips the colliding rows instead and lets
+    // every genuinely-new activity in the batch land.
+    const { error: insertError } = await supabase
+      .from('workouts')
+      .upsert(inserts, { onConflict: 'strava_activity_id', ignoreDuplicates: true })
     if (insertError) throw insertError
     console.log('[strava-sync] insert success')
 
@@ -321,10 +307,10 @@ Deno.serve(async (req: Request) => {
     const message = err instanceof Error
       ? err.message
       : (err && typeof err === 'object' ? JSON.stringify(err) : String(err))
-    console.error('[strava-sync] error:', message)
+    console.error(`[strava-sync] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
     return new Response(
-      JSON.stringify({ error: message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: 'Sync failed. Please try again.', requestId }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })
