@@ -88,6 +88,25 @@ interface WorkoutsContextValue {
   getDailyWeekLoad: () => DailyLoadEntry[]
   getFitnessHistory: (weeks?: number) => FitnessHistoryEntry[]
   getUpcomingWorkouts: (days?: number) => Workout[]
+  /** True once a caller has upgraded the session to an unbounded fetch via `requestFullHistory`. */
+  hasFullHistory: boolean
+  /** YYYY-MM-DD cutoff of the default fetch window — dates before this aren't loaded until `requestFullHistory` runs. */
+  historyWindowStart: string
+  /** Upgrades `workouts` to the user's entire history (no date floor). Idempotent; stays unbounded for the rest of the session. */
+  requestFullHistory: () => Promise<void>
+}
+
+// Default fetch only covers a trailing window instead of the user's entire history — see
+// fetchWorkouts below. ~24 months comfortably covers CTL/ATL warmup (the EWMA converges within
+// ~250 days) and every default Dashboard/Calendar/Analytics view; callers that genuinely need
+// older data (Analytics "All" range, Calendar navigated to an older month) opt in via
+// requestFullHistory rather than paying the full-history cost on every load/mutation/realtime event.
+const HISTORY_WINDOW_DAYS = 730
+
+function windowCutoffDateKey(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - HISTORY_WINDOW_DAYS)
+  return localDateKey(d)
 }
 
 const WorkoutsContext = createContext<WorkoutsContextValue | null>(null)
@@ -139,15 +158,16 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasFullHistory, setHasFullHistory] = useState(false)
   const fetchIdRef = useRef(0)
+  const fullHistoryRef = useRef(false)
   const cacheRef = useRef<DerivedCache>(makeEmptyCache([]))
 
   const fetchWorkouts = useCallback(async () => {
     const reqId = ++fetchIdRef.current
-    const { data, error: fetchError } = await supabase
-      .from('workouts')
-      .select('*')
-      .order('date', { ascending: false })
+    const base = supabase.from('workouts').select('*')
+    const scoped = fullHistoryRef.current ? base : base.gte('date', windowCutoffDateKey())
+    const { data, error: fetchError } = await scoped.order('date', { ascending: false })
 
     // A newer fetch already resolved (or started) — this response is stale, ignore it.
     if (reqId !== fetchIdRef.current) return
@@ -226,6 +246,13 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const deleteWorkout = useCallback(async (id: string) => {
     const { error: deleteError } = await supabase.from('workouts').delete().eq('id', id)
     if (deleteError) throw deleteError
+    await fetchWorkouts()
+  }, [fetchWorkouts])
+
+  const requestFullHistory = useCallback(async () => {
+    if (fullHistoryRef.current) return
+    fullHistoryRef.current = true
+    setHasFullHistory(true)
     await fetchWorkouts()
   }, [fetchWorkouts])
 
@@ -404,6 +431,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     calculateFitnessMetrics,
     getWeeklyLoadHistory, getDailyWeekLoad,
     getFitnessHistory, getUpcomingWorkouts,
+    hasFullHistory, historyWindowStart: windowCutoffDateKey(), requestFullHistory,
   }), [
     workouts, loading, error, fetchWorkouts,
     addWorkout, updateWorkout, deleteWorkout,
@@ -411,6 +439,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     calculateFitnessMetrics,
     getWeeklyLoadHistory, getDailyWeekLoad,
     getFitnessHistory, getUpcomingWorkouts,
+    hasFullHistory, requestFullHistory,
   ])
 
   return (

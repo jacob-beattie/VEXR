@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
@@ -26,6 +26,20 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
     })
   )
 
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const fitnessDate = new Date(weekEnd < today ? weekEnd : today)
+  fitnessDate.setHours(0, 0, 0, 0)
+  const fitnessDateKey = fitnessDate.getTime()
+  // Calendar re-renders this on every unrelated state change (modal open/close, day
+  // selection) with the same `workouts` reference and week — memoize so calculatePMC's full
+  // day-loop over the whole history only reruns when the inputs actually change. Computed
+  // (and hooked) before the early-return below so hook call order stays unconditional.
+  const { current: fitness } = useMemo(
+    () => calculatePMC(workouts, fitnessDate, fitnessDate),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workouts, fitnessDateKey]
+  )
+
   const weekWorkouts = workouts.filter(w => weekKeys.has(w.date.split('T')[0]))
   const completed = weekWorkouts.filter(w => !w.planned)
   const planned = weekWorkouts.filter(w => w.planned)
@@ -49,10 +63,6 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
     }
   }).filter(s => s.count > 0)
 
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const fitnessDate = new Date(weekEnd < today ? weekEnd : today)
-  fitnessDate.setHours(0, 0, 0, 0)
-  const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
 
   const tsbColor = fitness.tsb > 0 ? COLORS.green : fitness.tsb > -10 ? COLORS.orange : COLORS.danger

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
 import { AnalyticsPage } from '../components/analytics/AnalyticsPage'
@@ -10,8 +10,20 @@ interface AnalyticsProps {
 
 export function Analytics({ onOpenProfile }: AnalyticsProps) {
   const [weeks, setWeeks] = useState<number | null>(12)
-  const { workouts, getFitnessHistory, getWeeklyLoadHistory, loading, error, refetchWorkouts } = useWorkouts()
+  const {
+    workouts, getFitnessHistory, getWeeklyLoadHistory, loading, error, refetchWorkouts,
+    hasFullHistory, requestFullHistory,
+  } = useWorkouts()
   const { profile } = useProfile()
+
+  // The default WorkoutsContext fetch only covers a trailing window (see
+  // WorkoutsContext.historyWindowStart); "All" needs the user's actual full history for
+  // best performances, power/pace curves, and the fitness history chart to be correct.
+  useEffect(() => {
+    if (weeks === null && !hasFullHistory) {
+      requestFullHistory()
+    }
+  }, [weeks, hasFullHistory, requestFullHistory])
 
   // Date.now() is impure and can't be called directly during render (it would
   // return a different value on every render, including React's double-render

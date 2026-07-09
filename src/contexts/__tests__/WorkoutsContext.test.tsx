@@ -15,19 +15,41 @@ import type { Workout } from '../../types'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
+// WorkoutsContext's default fetch only covers a trailing ~24-month window (see
+// HISTORY_WINDOW_DAYS), so fixture dates need to move with "today" rather than being pinned to
+// a fixed calendar date, or they'll silently fall outside the window and never load.
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return dateKey(d)
+}
+
+// Day pinned to 15 to sidestep month-length overflow (e.g. subtracting a month from the 31st).
+function monthsAgo(n: number): Date {
+  const d = new Date()
+  d.setDate(15)
+  d.setMonth(d.getMonth() - n)
+  return d
+}
+
 function makeWorkout(overrides: Partial<Workout> = {}): Workout {
+  const date = daysAgo(30)
   return {
     id: Math.random().toString(36).slice(2),
     user_id: 'user-1',
     title: 'Test ride',
     type: 'ride',
-    date: '2024-06-15',
+    date,
     duration_minutes: 60,
     tss: 80,
     zone: '',
     notes: '',
     planned: false,
-    created_at: '2024-06-15T10:00:00Z',
+    created_at: `${date}T10:00:00Z`,
     ...overrides,
   }
 }
@@ -72,6 +94,7 @@ describe('WorkoutsContext — initial fetch', () => {
     // ownership outcome.
     mockFrom.mockImplementationOnce(() => ({
       select: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
       order: vi.fn(() => Promise.resolve({ data: null, error: new Error('DB error') })),
     }) as never)
 
@@ -218,36 +241,38 @@ describe('WorkoutsContext — deleteWorkout', () => {
 
 describe('WorkoutsContext — getWorkoutsForMonth', () => {
   it('returns only workouts in the specified month', async () => {
-    const inMonth = makeWorkout({ date: '2024-06-15' })
-    const outMonth = makeWorkout({ date: '2024-07-01' })
+    const target = monthsAgo(2)
+    const nextMonth = monthsAgo(1)
+    const inMonth = makeWorkout({ date: dateKey(target) })
+    const outMonth = makeWorkout({ date: dateKey(nextMonth) })
     seedMockTable('workouts', [inMonth, outMonth])
 
     let ctx!: ReturnType<typeof useWorkouts>
     render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
     await waitFor(() => expect(ctx.workouts.length).toBe(2))
 
-    const result = ctx.getWorkoutsForMonth(2024, 5) // month is 0-indexed
+    const result = ctx.getWorkoutsForMonth(target.getFullYear(), target.getMonth())
     expect(result).toEqual([inMonth])
   })
 
   it('returns empty array when no workouts match', async () => {
-    seedMockTable('workouts', [makeWorkout({ date: '2024-01-01' })])
+    const seeded = monthsAgo(3)
+    const queried = monthsAgo(2)
+    seedMockTable('workouts', [makeWorkout({ date: dateKey(seeded) })])
 
     let ctx!: ReturnType<typeof useWorkouts>
     render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
     await waitFor(() => expect(ctx.workouts.length).toBe(1))
 
-    expect(ctx.getWorkoutsForMonth(2024, 5)).toEqual([])
+    expect(ctx.getWorkoutsForMonth(queried.getFullYear(), queried.getMonth())).toEqual([])
   })
 })
 
 describe('WorkoutsContext — getTodaysWorkouts', () => {
   it('returns only workouts dated today', async () => {
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    const todayWorkout = makeWorkout({ date: todayStr })
-    const oldWorkout = makeWorkout({ date: '2020-01-01' })
-    seedMockTable('workouts', [todayWorkout, oldWorkout])
+    const todayWorkout = makeWorkout({ date: dateKey(new Date()) })
+    const otherDayWorkout = makeWorkout({ date: daysAgo(5) })
+    seedMockTable('workouts', [todayWorkout, otherDayWorkout])
 
     let ctx!: ReturnType<typeof useWorkouts>
     render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
@@ -261,12 +286,12 @@ describe('WorkoutsContext — getUpcomingWorkouts', () => {
   it('returns only future planned workouts within the window', async () => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
+    const tomorrowStr = dateKey(tomorrow)
 
     const planned = makeWorkout({ date: tomorrowStr, planned: true })
     const completed = makeWorkout({ date: tomorrowStr, planned: false })
-    const old = makeWorkout({ date: '2020-01-01', planned: true })
-    seedMockTable('workouts', [planned, completed, old])
+    const past = makeWorkout({ date: daysAgo(5), planned: true })
+    seedMockTable('workouts', [planned, completed, past])
 
     let ctx!: ReturnType<typeof useWorkouts>
     render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
@@ -277,13 +302,43 @@ describe('WorkoutsContext — getUpcomingWorkouts', () => {
   })
 
   it('returns empty when no upcoming planned workouts', async () => {
-    seedMockTable('workouts', [makeWorkout({ date: '2020-01-01', planned: true })])
+    seedMockTable('workouts', [makeWorkout({ date: daysAgo(5), planned: true })])
 
     let ctx!: ReturnType<typeof useWorkouts>
     render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
     await waitFor(() => expect(ctx.workouts.length).toBe(1))
 
     expect(ctx.getUpcomingWorkouts(14)).toEqual([])
+  })
+})
+
+describe('WorkoutsContext — history window pagination', () => {
+  it('excludes workouts older than the default fetch window', async () => {
+    const recent = makeWorkout({ date: daysAgo(30) })
+    const ancient = makeWorkout({ date: daysAgo(900) }) // ~2.5 years back, outside the ~24-month window
+    seedMockTable('workouts', [recent, ancient])
+
+    let ctx!: ReturnType<typeof useWorkouts>
+    render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
+    await waitFor(() => expect(ctx.loading).toBe(false))
+
+    expect(ctx.workouts.map(w => w.id)).toEqual([recent.id])
+    expect(ctx.hasFullHistory).toBe(false)
+  })
+
+  it('requestFullHistory loads workouts outside the default window', async () => {
+    const recent = makeWorkout({ date: daysAgo(30) })
+    const ancient = makeWorkout({ date: daysAgo(900) })
+    seedMockTable('workouts', [recent, ancient])
+
+    let ctx!: ReturnType<typeof useWorkouts>
+    render(<Wrapper><Consumer fn={(c) => { ctx = c }} /></Wrapper>)
+    await waitFor(() => expect(ctx.workouts.length).toBe(1))
+
+    await act(async () => { await ctx.requestFullHistory() })
+
+    expect(ctx.workouts.map(w => w.id).sort()).toEqual([ancient.id, recent.id].sort())
+    expect(ctx.hasFullHistory).toBe(true)
   })
 })
 

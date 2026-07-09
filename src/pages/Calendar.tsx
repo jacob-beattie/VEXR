@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { CalendarGrid } from '../components/calendar/CalendarGrid'
@@ -20,7 +20,10 @@ function getMondayOfWeek(d: Date): Date {
 }
 
 export function Calendar() {
-  const { workouts, loading, error, refetchWorkouts, addWorkout, updateWorkout, deleteWorkout } = useWorkouts()
+  const {
+    workouts, loading, error, refetchWorkouts, addWorkout, updateWorkout, deleteWorkout,
+    hasFullHistory, historyWindowStart, requestFullHistory,
+  } = useWorkouts()
   const isMobile = useIsMobile()
   const now = new Date()
 
@@ -103,6 +106,18 @@ export function Calendar() {
     : undefined
 
   const summaryWeekStart = view === 'week' ? weekStart : getMondayOfWeek(now)
+
+  // WorkoutsContext only loads a trailing window by default (see historyWindowStart). If the
+  // user navigates the calendar to a month/week older than that window, upgrade to full history
+  // so older periods don't silently render as empty.
+  useEffect(() => {
+    if (hasFullHistory) return
+    const visibleStart = view === 'month' ? new Date(year, month, 1) : weekStart
+    const visibleStartKey = `${visibleStart.getFullYear()}-${String(visibleStart.getMonth() + 1).padStart(2, '0')}-${String(visibleStart.getDate()).padStart(2, '0')}`
+    if (visibleStartKey < historyWindowStart) {
+      requestFullHistory()
+    }
+  }, [view, year, month, weekStart, hasFullHistory, historyWindowStart, requestFullHistory])
 
   if (loading) {
     return (

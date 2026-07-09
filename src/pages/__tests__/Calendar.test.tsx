@@ -84,6 +84,9 @@ vi.mock('../../contexts/WorkoutsContext', () => ({
     getDailyWeekLoad: () => [],
     getFitnessHistory: () => [],
     getUpcomingWorkouts: () => [],
+    hasFullHistory: true,
+    historyWindowStart: '1970-01-01',
+    requestFullHistory: vi.fn(),
   }),
 }))
 

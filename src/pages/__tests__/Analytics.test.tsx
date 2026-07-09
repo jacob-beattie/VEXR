@@ -58,6 +58,8 @@ vi.mock('../../contexts/WorkoutsContext', () => ({
     loading: false,
     getFitnessHistory: vi.fn(() => [{ week: '15 Jan', fitness: 40, fatigue: 50, form: -10 }]),
     getWeeklyLoadHistory: vi.fn(() => [{ week: '15 Jan', tss: 100, planned: 0 }]),
+    hasFullHistory: true,
+    requestFullHistory: vi.fn(),
   }),
 }))
 
