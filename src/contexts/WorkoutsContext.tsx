@@ -7,6 +7,25 @@ import { calculatePMC } from '../lib/calculateMetrics'
 
 type WorkoutRow = Tables<'workouts'>
 
+// TypeScript's generated-type checks only hold at compile time — they can't catch a live
+// schema drift (a column renamed in a migration but database.types.ts not regenerated, or a
+// row written by a manual execute_sql/edge function that doesn't match the expected shape).
+// calculateFitnessMetrics/getFitnessHistory (the canonical PMC engine) run on every workout in
+// state on every render, so a malformed `duration_minutes`/`tss` here would silently produce
+// NaN throughout the dashboard/analytics/calendar rather than a clear error — validate the
+// couple of fields those derived getters depend on before mapping.
+function isValidWorkoutRow(row: unknown): row is WorkoutRow {
+  if (!row || typeof row !== 'object') return false
+  const r = row as Record<string, unknown>
+  return typeof r.id === 'string'
+    && typeof r.title === 'string'
+    && typeof r.type === 'string'
+    && typeof r.date === 'string'
+    && (r.duration_minutes === null || typeof r.duration_minutes === 'number')
+    && (r.tss === null || typeof r.tss === 'number')
+    && (r.planned === null || typeof r.planned === 'boolean')
+}
+
 // workouts.type has no DB check constraint, so the column is real `string` at the schema
 // level — narrowing to WorkoutType here is only as safe as every write path (this context's
 // addWorkout/updateWorkout, plus strava-sync) staying disciplined about only writing valid values.
@@ -144,8 +163,15 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const rows = data ?? []
+    if (rows.some(r => !isValidWorkoutRow(r))) {
+      setError('Received unexpected workout data. Please refresh or contact support.')
+      setLoading(false)
+      return
+    }
+
     setError(null)
-    setWorkouts((data ?? []).map(mapWorkoutRow))
+    setWorkouts(rows.map(mapWorkoutRow))
     setLoading(false)
   }, [])
 

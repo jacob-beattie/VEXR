@@ -12,6 +12,24 @@ interface ProfileContextValue {
   refetchProfile: () => Promise<void>
 }
 
+// TypeScript's `as`/generated-type checks only hold at compile time — they can't catch a live
+// schema drift (a column renamed in a migration but database.types.ts not regenerated, or a
+// row written by a manual execute_sql that doesn't match the expected shape). Validate the
+// couple of fields every consumer of useProfile() depends on being the right primitive type
+// before mapping, so drift produces a clear error instead of a silent undefined-property bug
+// downstream (e.g. `profile.ftp` being a string flowing silently into TSS math).
+function isValidProfileRow(row: unknown): row is Tables<'profiles'> {
+  if (!row || typeof row !== 'object') return false
+  const r = row as Record<string, unknown>
+  return typeof r.id === 'string'
+    && (r.name === null || typeof r.name === 'string')
+    && (r.sport === null || typeof r.sport === 'string')
+    && (r.ftp === null || typeof r.ftp === 'number')
+    && (r.run_pace === null || typeof r.run_pace === 'string')
+    && (r.css === null || typeof r.css === 'string')
+    && (r.max_hr === null || typeof r.max_hr === 'number')
+}
+
 // profiles.name/sport/ftp/run_pace/css are nullable in the DB (unset until onboarding
 // completes) but the app type assumes they're always present post-onboarding — default the
 // gap here rather than letting `undefined`/`null` leak into every consumer of useProfile().
@@ -54,6 +72,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     if (fetchError) {
       setError('Failed to load profile. Please refresh.')
+      setLoading(false)
+      return
+    }
+
+    if (data && !isValidProfileRow(data)) {
+      setError('Received unexpected profile data. Please refresh or contact support.')
       setLoading(false)
       return
     }

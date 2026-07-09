@@ -185,20 +185,28 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         ? triRows.map(r => `${r.name}: ${fmtTime(r.totalSec)}`).join(', ')
         : 'No tri data'
 
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-briefing`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        },
-        body: JSON.stringify({
-          mode: 'race_predictor',
-          ctl, ftp, runPace, css,
-          sport: profile.sport,
-          predictions: { running: runSummary, cycling: bikeSummary, swimming: swimSummary, triathlon: triSummary },
-        }),
-      })
+      // Separate try/catch around just the fetch: a network failure (offline/DNS/CORS)
+      // is a different problem than the AI service responding with an error, and should
+      // read as "check your connection" rather than reusing the AI-specific message below.
+      let res: Response
+      try {
+        res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-briefing`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          },
+          body: JSON.stringify({
+            mode: 'race_predictor',
+            ctl, ftp, runPace, css,
+            sport: profile.sport,
+            predictions: { running: runSummary, cycling: bikeSummary, swimming: swimSummary, triathlon: triSummary },
+          }),
+        })
+      } catch {
+        throw new Error('Something went wrong. Check your connection and try again.')
+      }
 
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to generate analysis')

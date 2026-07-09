@@ -47,7 +47,7 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 - 📱 **Mobile First** — fully responsive, bottom nav, touch-friendly modals
 - 🌙 **Dark Mode** — always dark, optimised for athlete use
 - ⚡ **Real-time Sync** — Supabase realtime keeps all views in sync instantly
-- 🔒 **Production Hardening** — React error boundary, password reset flow, per-user rate limiting on Strava and AI edge functions, 30s fetch timeouts on all Claude API calls
+- 🔒 **Production Hardening** — React error boundaries (root + AI Coach route), password reset flow, per-user rate limiting on Strava and AI edge functions (with automatic refund if the Claude call itself fails), 30s fetch timeouts on all Claude API calls, page-level error/retry states across Nutrition, Dashboard widgets, and Profile Settings
 - 🛡️ **Type Safety** — TypeScript strict mode, generated Supabase types wired into every query, runtime-validated AI plan JSON
 
 ---

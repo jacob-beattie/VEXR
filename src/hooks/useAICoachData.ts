@@ -50,6 +50,7 @@ export function useAICoachData() {
 
   const [briefings, setBriefings] = useState<BriefingRecord[]>([])
   const [loadingBriefings, setLoadingBriefings] = useState(true)
+  const [briefingsError, setBriefingsError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
 
@@ -86,11 +87,17 @@ export function useAICoachData() {
   // ── Data fetching ────────────────────────────────────────────────────────────
   const fetchBriefings = useCallback(async () => {
     setLoadingBriefings(true)
-    const { data } = await supabase
+    setBriefingsError(null)
+    const { data, error } = await supabase
       .from('ai_briefings')
       .select('id, briefing, generated_at')
       .order('generated_at', { ascending: false })
       .limit(9)
+    if (error) {
+      setBriefingsError('Failed to load briefing history. Please try again.')
+      setLoadingBriefings(false)
+      return
+    }
     setBriefings((data ?? []).map(mapBriefingRow))
     setLoadingBriefings(false)
   }, [])
@@ -106,17 +113,29 @@ export function useAICoachData() {
       if (!session) throw new Error('Not authenticated')
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-      const res = await fetch(`${supabaseUrl}/functions/v1/ai-briefing`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        },
-        body: JSON.stringify({ force }),
-      })
+
+      // The fetch itself (DNS/offline/CORS) is a distinct failure mode from the AI
+      // coach responding with an error — a network outage shouldn't be reported to the
+      // user with the same message as "Claude is rate-limited/slow", since one means
+      // "check your connection" and the other means "wait and retry".
+      let res: Response
+      try {
+        res = await fetch(`${supabaseUrl}/functions/v1/ai-briefing`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          },
+          body: JSON.stringify({ force }),
+        })
+      } catch {
+        throw new Error('Something went wrong. Check your connection and try again.')
+      }
 
       const json = await res.json()
+      // Non-2xx responses carry a specific reason from the edge function (rate limited,
+      // AI service timeout, etc.) — surface that message as-is rather than a generic one.
       if (!res.ok) throw new Error(json.error || 'Failed to generate briefing')
       await fetchBriefings()
     } catch (err) {
@@ -140,7 +159,8 @@ export function useAICoachData() {
     daysUntilRace, phase,
     compliance, completedThisWeekCount, totalWeekSessions,
     thisWeekTSS, lastWeekTSS,
-    briefings, loadingBriefings, generating, genError, generate,
+    briefings, loadingBriefings, briefingsError, refetchBriefings: fetchBriefings,
+    generating, genError, generate,
     current, isCurrentFresh, history,
   }
 }

@@ -10,6 +10,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
 import { ProfileSettingsModal } from './components/ProfileSettingsModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { User } from '@supabase/supabase-js'
 
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
@@ -30,6 +31,41 @@ function PageLoader() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 14, fontFamily: "'Inter', sans-serif" }}>
       Loading…
+    </div>
+  )
+}
+
+// Scoped fallback for the AI Coach route boundary — the page leans on an external API
+// (Claude) plus real arithmetic (race predictor math) on live fitness data, so it's the
+// most likely single page to throw a render exception from unexpected input shapes. A
+// local boundary here means that failure degrades to this card instead of the whole app.
+function AICoachErrorFallback() {
+  return (
+    <div style={{
+      background: COLORS.card,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 14,
+      padding: '32px 28px',
+      textAlign: 'center',
+      maxWidth: 480,
+      margin: '40px auto',
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 12 }}>⚠</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>
+        AI Coach hit a snag
+      </div>
+      <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20, lineHeight: 1.5 }}>
+        Something went wrong loading this page. The rest of Vexr is unaffected — try reloading just this page.
+      </div>
+      <button
+        onClick={() => window.location.reload()}
+        style={{
+          background: COLORS.accent, color: '#000', border: 'none', borderRadius: 8,
+          padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        Reload page
+      </button>
     </div>
   )
 }
@@ -253,7 +289,11 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
-            <Route path="/ai-coach" element={<AICoach />} />
+            <Route path="/ai-coach" element={
+              <ErrorBoundary fallback={<AICoachErrorFallback />}>
+                <AICoach />
+              </ErrorBoundary>
+            } />
             <Route path="/plans" element={<Plans />} />
             <Route path="/library" element={<Library />} />
             <Route path="/nutrition" element={<Nutrition />} />

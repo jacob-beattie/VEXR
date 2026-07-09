@@ -218,6 +218,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [loadingData, setLoadingData] = useState(true)
+  const [dataError, setDataError] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url ?? null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -227,14 +228,19 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
 
   const loadData = useCallback(async () => {
     setLoadingData(true)
+    setDataError(false)
 
-    const { data: bData } = await supabase
+    const { data: bData, error: bError } = await supabase
       .from('fitness_benchmarks')
       .select('*')
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: true })
 
-    if (bData) setBenchmarks(bData.map(mapFitnessBenchmarkRow))
+    if (bError) {
+      setDataError(true)
+    } else if (bData) {
+      setBenchmarks(bData.map(mapFitnessBenchmarkRow))
+    }
 
     setLoadingData(false)
   }, [user.id])
@@ -689,6 +695,16 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           <div style={sectionLabelStyle}>Benchmark History</div>
           {loadingData ? (
             <div style={{ color: COLORS.muted, fontSize: 13, padding: '16px 0' }}>Loading…</div>
+          ) : dataError ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, color: COLORS.orange, fontSize: 13, padding: '16px 0' }}>
+              <span>Failed to load benchmark history.</span>
+              <button
+                onClick={loadData}
+                style={{ background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6, color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 16 }}>
               <BenchmarkSparkline

@@ -3,7 +3,7 @@ import { COLORS } from '../../lib/colors'
 import { useGoals } from '../../hooks/useGoals'
 
 export function SeasonGoalsPanel() {
-  const { goals, loading: loadingGoals, saving, addGoal, toggleGoal, deleteGoal } = useGoals()
+  const { goals, loading: loadingGoals, error, saving, mutationError, addGoal, toggleGoal, deleteGoal, refetch } = useGoals()
   const [inputText, setInputText] = useState('')
 
   const handleAdd = async () => {
@@ -57,6 +57,16 @@ export function SeasonGoalsPanel() {
 
       {loadingGoals ? (
         <div style={{ color: COLORS.muted, fontSize: 12, padding: '4px 0' }}>Loading…</div>
+      ) : error ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: COLORS.orange, fontSize: 12, padding: '4px 0' }}>
+          <span>Failed to load goals.</span>
+          <button
+            onClick={refetch}
+            style={{ background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6, color: COLORS.orange, fontSize: 11, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Retry
+          </button>
+        </div>
       ) : goals.length === 0 ? (
         <div style={{ color: COLORS.muted, fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No goals yet — set your first!</div>
       ) : (
@@ -99,6 +109,12 @@ export function SeasonGoalsPanel() {
               >×</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {mutationError && (
+        <div style={{ marginTop: 10, fontSize: 11, color: COLORS.orange, padding: '6px 10px', background: COLORS.orange + '10', borderRadius: 6 }}>
+          {mutationError}
         </div>
       )}
     </div>

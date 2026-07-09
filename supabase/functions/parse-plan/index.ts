@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { validateParsedPlan } from '../_shared/validatePlan.ts'
-import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { resolveSessionDates, flagConflicts } from '../_shared/planScheduling.ts'
 import { validateParsePlanRequest } from '../_shared/parsePlanValidation.ts'
 import type { Database } from '../_shared/database.types.ts'
@@ -116,56 +116,80 @@ Content type: ${contentType}
 Plan text:
 ${content}`
 
-    const parseController = new AbortController()
-    const parseTimeout = setTimeout(() => parseController.abort(), 30000)
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: parseController.signal,
-    })
-    clearTimeout(parseTimeout)
+    // Calls Claude and turns its output into a validated plan. If the call fails outright,
+    // times out, or produces output that can't be turned into a usable plan, refunds the
+    // rate-limit slot checkRateLimit already reserved — none of those outcomes gave the
+    // athlete a usable import, so they shouldn't cost part of their hourly quota. Returns a
+    // Response directly for the parse-failure case (preserving the existing 400 behaviour) so
+    // the caller can tell "give up, respond now" apart from "here's a usable plan" without a
+    // variable that's nullable across the try/catch boundary. A failure further down in the
+    // handler (conflict-detection DB read) happens after Claude already produced a usable
+    // plan, so it deliberately isn't covered by this function and won't refund.
+    async function parsePlanFromClaude(): Promise<{ parsed: NonNullable<ReturnType<typeof validateParsedPlan>> } | Response> {
+      try {
+        const parseController = new AbortController()
+        const parseTimeout = setTimeout(() => parseController.abort(), 30000)
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 8192,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal: parseController.signal,
+        })
+        clearTimeout(parseTimeout)
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text()
-      console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-      throw new Error('AI service error')
+        if (!aiRes.ok) {
+          const errBody = await aiRes.text()
+          console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+          throw new Error('AI service error')
+        }
+
+        const aiData = await aiRes.json()
+        const rawText: string = aiData.content?.[0]?.text?.trim() ?? ''
+
+        // ── Strip markdown wrappers ───────────────────────────────────────────
+        const jsonStr = rawText
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```\s*$/, '')
+          .trim()
+
+        let rawParsed: unknown
+        try {
+          rawParsed = JSON.parse(jsonStr)
+        } catch {
+          console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'parse-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const parsed = validateParsedPlan(rawParsed)
+        if (!parsed) {
+          console.error('[parse-plan] Parsed JSON failed shape validation. Raw text:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'parse-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return { parsed }
+      } catch (claudeErr) {
+        await releaseRateLimit(user.id, 'parse-plan')
+        throw claudeErr
+      }
     }
 
-    const aiData = await aiRes.json()
-    const rawText = aiData.content?.[0]?.text?.trim() ?? ''
-
-    // ── Strip markdown wrappers ───────────────────────────────────────────────
-    const jsonStr = rawText
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/, '')
-      .trim()
-
-    let rawParsed: unknown
-    try {
-      rawParsed = JSON.parse(jsonStr)
-    } catch {
-      console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
-      return new Response(JSON.stringify({ error: 'parse_failed' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const parsed = validateParsedPlan(rawParsed)
-    if (!parsed) {
-      console.error('[parse-plan] Parsed JSON failed shape validation. Raw text:', rawText.slice(0, 500))
-      return new Response(JSON.stringify({ error: 'parse_failed' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const claudeResult = await parsePlanFromClaude()
+    if (claudeResult instanceof Response) return claudeResult
+    const { parsed } = claudeResult
 
     const rawSessions = parsed.sessions
 

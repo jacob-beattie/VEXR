@@ -10,6 +10,7 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
   const [targets, setTargets] = useState(DEFAULT_TARGETS)
   const [hasData, setHasData] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     const today = localDateKey(new Date())
@@ -20,6 +21,11 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
         supabase.from('nutrition_logs').select('calories,protein,carbs,fat').eq('user_id', user.id).eq('date', today),
         supabase.from('nutrition_targets').select('*').eq('user_id', user.id).maybeSingle(),
       ])
+      if (logsRes.error || targetsRes.error) {
+        setError(true)
+        setLoaded(true)
+        return
+      }
       const rows = logsRes.data ?? []
       if (rows.length > 0) {
         setTotals(rows.reduce((s, r) => ({ cal: s.cal + r.calories, protein: s.protein + r.protein, carbs: s.carbs + r.carbs, fat: s.fat + r.fat }), { cal: 0, protein: 0, carbs: 0, fat: 0 }))
@@ -65,6 +71,10 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
 
       {!loaded ? (
         <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 12 }}>Loading…</div>
+      ) : error ? (
+        <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.orange, fontSize: 12, textAlign: 'center', padding: '0 12px' }}>
+          Couldn't load today's nutrition data.
+        </div>
       ) : !hasData ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '8px 0 4px' }}>
           <div style={{ position: 'relative', width: 120, height: 120 }}>

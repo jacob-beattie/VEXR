@@ -112,7 +112,7 @@ export function AICoach() {
     daysUntilRace, phase,
     compliance, completedThisWeekCount, totalWeekSessions,
     thisWeekTSS, lastWeekTSS,
-    loadingBriefings, generating, genError, generate,
+    loadingBriefings, briefingsError, refetchBriefings, generating, genError, generate,
     current, isCurrentFresh, history,
   } = useAICoachData()
 
@@ -148,6 +148,26 @@ export function AICoach() {
           <span style={{ fontSize: 13, color: COLORS.orange }}>{workoutsError}</span>
           <button
             onClick={() => refetchWorkouts()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {briefingsError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{briefingsError}</span>
+          <button
+            onClick={() => refetchBriefings()}
             style={{
               background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
               color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',

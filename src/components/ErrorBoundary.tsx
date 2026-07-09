@@ -3,6 +3,9 @@ import { COLORS } from '../lib/colors'
 
 interface Props {
   children: ReactNode
+  // Compact, in-layout fallback for a boundary scoped to one feature/route (sidebar/topbar
+  // stay mounted around it) — omit to get the full-viewport fallback used at the app root.
+  fallback?: ReactNode
 }
 
 interface State {
@@ -22,6 +25,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback
+
       return (
         <div style={{
           minHeight: '100vh',

@@ -36,3 +36,23 @@ export async function checkRateLimit(
   }
   return data === true
 }
+
+// Refunds the slot checkRateLimit() just reserved, for callers where the rate-limited action
+// (a Claude API call) was let through but then failed to produce a usable result — network
+// error, timeout, non-2xx from Anthropic, or malformed/unparseable output. Without this, an
+// Anthropic-side outage or a bad response burns through the user's hourly quota on every
+// failed attempt, so recovery is blocked by Vexr's own rate limit on top of whatever they
+// already waited through. Deletes the single most-recent reservation for this (user_id,
+// function_name) pair (serialized by the same advisory lock check_and_increment uses) rather
+// than tracking a specific row id, so checkRateLimit's existing boolean-only return shape and
+// callers don't need to change. Only ever called after a Claude call that checkRateLimit itself
+// already approved, so there's always a matching row to remove.
+export async function releaseRateLimit(userId: string, functionName: string): Promise<void> {
+  const { error } = await rateLimitClient.rpc('release_rate_limit_slot', {
+    p_user_id: userId,
+    p_function_name: functionName,
+  })
+  if (error) {
+    console.error(`[rate-limit] release_rate_limit_slot RPC failed for ${functionName}:`, error.message)
+  }
+}

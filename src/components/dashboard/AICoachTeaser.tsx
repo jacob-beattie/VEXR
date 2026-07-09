@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 export function AICoachTeaser({ onClick }: { onClick: () => void }) {
   const [preview, setPreview] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     supabase
@@ -13,8 +14,12 @@ export function AICoachTeaser({ onClick }: { onClick: () => void }) {
       .order('generated_at', { ascending: false })
       .limit(1)
       .single()
-      .then(({ data }) => {
-        if (data?.briefing) {
+      .then(({ data, error: fetchError }) => {
+        // PGRST116 = no rows found, which is expected for a user with no briefing yet —
+        // not a failure worth surfacing. Any other error means the fetch itself failed.
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          setError(true)
+        } else if (data?.briefing) {
           const idx = data.briefing.search(/[.!?](\s|$)/)
           const sentence = idx > 0 ? data.briefing.slice(0, idx + 1) : data.briefing
           setPreview(sentence.length > 150 ? sentence.slice(0, 150) + '…' : sentence)
@@ -45,7 +50,11 @@ export function AICoachTeaser({ onClick }: { onClick: () => void }) {
           AI Coach
         </span>
       </div>
-      {checked && !preview && (
+      {error ? (
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.orange, lineHeight: 1.6 }}>
+          Couldn't load your latest briefing preview.
+        </p>
+      ) : checked && !preview && (
         <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.muted, lineHeight: 1.6 }}>
           Get a personalised weekly briefing based on your current fitness and training load.
         </p>

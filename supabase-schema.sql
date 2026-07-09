@@ -326,8 +326,54 @@ begin
 end;
 $$;
 
+-- `revoke ... from public` alone is NOT sufficient on this project: Supabase's default
+-- privileges grant EXECUTE on every new public-schema function directly to `anon` and
+-- `authenticated` (not via the PUBLIC pseudo-role), so both roles could otherwise call this
+-- SECURITY DEFINER function directly via PostgREST (/rest/v1/rpc/check_and_increment_rate_limit)
+-- and bypass RLS to insert arbitrary api_rate_limits rows for any user_id — confirmed via
+-- `set role anon; select check_and_increment_rate_limit(...)` succeeding before the explicit
+-- revoke below was added. Must revoke from anon/authenticated explicitly, not just public.
 revoke all on function check_and_increment_rate_limit(uuid, text, integer, integer) from public;
+revoke execute on function check_and_increment_rate_limit(uuid, text, integer, integer) from anon, authenticated;
 grant execute on function check_and_increment_rate_limit(uuid, text, integer, integer) to service_role;
+
+-- Refunds a rate-limit reservation checkRateLimit() made when the underlying Claude call
+-- subsequently failed to produce a usable result (network error, timeout, non-2xx, or
+-- malformed output) — called from releaseRateLimit() in supabase/functions/_shared/rateLimit.ts.
+-- Without this, an Anthropic-side failure still burns one of the user's hourly requests,
+-- compounding an outage with Vexr's own rate limit. Deletes the single most-recent reservation
+-- for this (user_id, function_name) pair, serialized by the same advisory lock
+-- check_and_increment_rate_limit uses, so a concurrent legitimate insert can't be deleted out
+-- from under it mid-check.
+create or replace function release_rate_limit_slot(
+  p_user_id uuid,
+  p_function_name text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text || ':' || p_function_name));
+
+  delete from api_rate_limits
+  where id = (
+    select id from api_rate_limits
+    where user_id = p_user_id
+      and function_name = p_function_name
+    order by called_at desc
+    limit 1
+  );
+end;
+$$;
+
+-- Same anon/authenticated-default-privilege gap as check_and_increment_rate_limit above — a
+-- caller reachable via PostgREST could otherwise delete arbitrary users' rate-limit rows
+-- directly (including their own, defeating the rate limit entirely). Revoke explicitly.
+revoke all on function release_rate_limit_slot(uuid, text) from public;
+revoke execute on function release_rate_limit_slot(uuid, text) from anon, authenticated;
+grant execute on function release_rate_limit_slot(uuid, text) to service_role;
 
 -- ── Performance indexes ───────────────────────────────────────────────────────
 -- Composite (user_id, date) covers both user-only and date-range queries

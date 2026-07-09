@@ -287,11 +287,13 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
   const wt = workoutTypes[mode === 'edit' ? form.type : workout.type]
 
   const handleDelete = async () => {
+    setError('')
     setDeleting(true)
     try {
       await onDelete(workout.id)
       onClose()
-    } catch {
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete workout')
       setDeleting(false)
     }
   }
@@ -531,6 +533,12 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                   {deleting ? 'Deleting…' : 'Delete'}
                 </Button>
               </div>
+
+              {error && (
+                <div style={{ marginTop: 12, color: COLORS.orange, fontSize: 13, padding: '8px 12px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                  {error}
+                </div>
+              )}
             </>
           )}
 

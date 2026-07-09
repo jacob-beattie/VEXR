@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
-import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -186,38 +186,46 @@ Triathlon: ${predictions?.triathlon || 'No data'}
 
 Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
 
-      const predictorController = new AbortController()
-      const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
-      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          messages: [{ role: 'user', content: racePrompt }],
-        }),
-        signal: predictorController.signal,
-      })
-      clearTimeout(predictorTimeout)
+      // Wrapped separately from the outer handler try/catch: if the Claude call itself
+      // fails to produce a usable narrative, refund the rate-limit slot checkRateLimit
+      // just reserved before rethrowing to the outer catch for the actual error response.
+      try {
+        const predictorController = new AbortController()
+        const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: racePrompt }],
+          }),
+          signal: predictorController.signal,
+        })
+        clearTimeout(predictorTimeout)
 
-      if (!aiRes.ok) {
-        const errBody = await aiRes.text()
-        console.error('[ai-briefing] Anthropic error (predictor):', aiRes.status, errBody.slice(0, 200))
-        throw new Error('AI service error')
+        if (!aiRes.ok) {
+          const errBody = await aiRes.text()
+          console.error('[ai-briefing] Anthropic error (predictor):', aiRes.status, errBody.slice(0, 200))
+          throw new Error('AI service error')
+        }
+
+        const aiData = await aiRes.json()
+        const narrative = aiData.content?.[0]?.text?.trim()
+        if (!narrative) throw new Error('Empty response from AI service')
+
+        return new Response(
+          JSON.stringify({ narrative }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      } catch (claudeErr) {
+        await releaseRateLimit(user.id, 'ai-briefing-predictor')
+        throw claudeErr
       }
-
-      const aiData = await aiRes.json()
-      const narrative = aiData.content?.[0]?.text?.trim()
-      if (!narrative) throw new Error('Empty response from AI service')
-
-      return new Response(
-        JSON.stringify({ narrative }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
     }
 
     // Check for a cached briefing from the last 24 hours (unless force)
@@ -339,33 +347,44 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
-    const briefingController = new AbortController()
-    const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: briefingController.signal,
-    })
-    clearTimeout(briefingTimeout)
+    // Wrapped separately from the outer handler try/catch: only a failure to get a usable
+    // briefing out of Claude should refund the rate-limit slot. A later failure (saving to
+    // ai_briefings, pruning) happens after Claude already succeeded, so it must not refund —
+    // the Anthropic API cost was already incurred.
+    let briefing = ''
+    try {
+      const briefingController = new AbortController()
+      const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
+      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        signal: briefingController.signal,
+      })
+      clearTimeout(briefingTimeout)
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text()
-      console.error('[ai-briefing] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-      throw new Error('AI service error')
+      if (!aiRes.ok) {
+        const errBody = await aiRes.text()
+        console.error('[ai-briefing] Anthropic error:', aiRes.status, errBody.slice(0, 200))
+        throw new Error('AI service error')
+      }
+
+      const aiData = await aiRes.json()
+      const text = aiData.content?.[0]?.text?.trim()
+      if (!text) throw new Error('Empty response from AI service')
+      briefing = text
+    } catch (claudeErr) {
+      await releaseRateLimit(user.id, 'ai-briefing')
+      throw claudeErr
     }
-
-    const aiData = await aiRes.json()
-    const briefing = aiData.content?.[0]?.text?.trim()
-    if (!briefing) throw new Error('Empty response from AI service')
 
     // Insert new briefing (accumulate history)
     const { data: saved, error: saveError } = await supabase
