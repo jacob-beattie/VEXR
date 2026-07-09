@@ -424,5 +424,8 @@ alter table profiles add column if not exists avatar_url text;
 --   for insert with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
 -- create policy "Users can update their own avatar" on storage.objects
 --   for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
--- create policy "Avatars are publicly readable" on storage.objects
---   for select using (bucket_id = 'avatars');
+-- No SELECT policy: the bucket is public, so GET-by-known-filename already works via the
+-- public object URL (/storage/v1/object/public/avatars/<name>), which bypasses RLS entirely.
+-- A broad `for select using (bucket_id = 'avatars')` policy is not needed for that and only
+-- adds the ability to list/enumerate every filename in the bucket via the Storage API — removed
+-- per Supabase security advisor (public_bucket_allows_listing).
