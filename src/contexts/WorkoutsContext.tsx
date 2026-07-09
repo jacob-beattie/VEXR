@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import type { Workout, WorkoutType, WorkoutBlock } from '../types'
 import type { Tables, Json } from '../types/database.types'
 import { calculatePMC } from '../lib/calculateMetrics'
+import { localDateKey } from '../components/dashboard/utils'
 
 type WorkoutRow = Tables<'workouts'>
 
@@ -90,12 +91,6 @@ interface WorkoutsContextValue {
 }
 
 const WorkoutsContext = createContext<WorkoutsContextValue | null>(null)
-
-// toISOString() converts to UTC which breaks date matching for timezones
-// ahead of UTC (e.g. AEST). Always build keys from local date parts instead.
-function localDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 function formatDateLabel(d: Date) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })

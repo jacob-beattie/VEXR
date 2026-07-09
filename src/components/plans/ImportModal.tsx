@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { COLORS } from '../../lib/colors'
-import type { ParsedSession, SessionSport } from '../../types'
+import type { ParsedSession } from '../../types'
 import { ImportReviewScreen } from './ImportReviewScreen'
+import { mapEdgeSessions } from './shared'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -30,44 +31,6 @@ async function extractPdfText(file: File): Promise<string> {
 function extractHtmlText(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   return doc.body.innerText
-}
-
-function formatDisplayDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z')
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`
-}
-
-const VALID_SPORTS: SessionSport[] = ['swim', 'bike', 'run', 'sc', 'brick', 'other', 'rest']
-
-function toSessionSport(s: string): SessionSport {
-  return VALID_SPORTS.includes(s as SessionSport) ? (s as SessionSport) : 'other'
-}
-
-interface EdgeSession {
-  week: number
-  day_of_week: string
-  sport: string
-  title: string
-  duration_minutes: number | null
-  target_metric: string
-  scheduled_date: string | null
-  has_conflict: boolean
-}
-
-function mapEdgeSessions(raw: EdgeSession[]): ParsedSession[] {
-  return raw.map((s, i) => ({
-    id: i + 1,
-    week: s.week,
-    sport: toSessionSport(s.sport),
-    title: s.title,
-    date: s.scheduled_date ? formatDisplayDate(s.scheduled_date) : `Wk ${s.week} ${s.day_of_week ?? ''}`,
-    dur: s.duration_minutes != null ? `${s.duration_minutes} min` : '',
-    metric: s.target_metric ?? '',
-    conflict: s.has_conflict,
-    scheduledDate: s.scheduled_date ?? null,
-  }))
 }
 
 function getErrorMessage(code: string): string {

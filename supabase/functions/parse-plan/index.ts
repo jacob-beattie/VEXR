@@ -4,6 +4,7 @@ import { validateParsedPlan } from '../_shared/validatePlan.ts'
 import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { resolveSessionDates, flagConflicts } from '../_shared/planScheduling.ts'
 import { validateParsePlanRequest } from '../_shared/parsePlanValidation.ts'
+import { callClaude } from '../_shared/anthropic.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -66,9 +67,6 @@ Deno.serve(async (req: Request) => {
     const { content, contentType, startDate, raceDate, planName } = validation.value
 
     // ── Call Claude ───────────────────────────────────────────────────────────
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
     const prompt = `You are a training plan parser. Extract all training sessions from the plan text below and return ONLY valid JSON. No explanation, no markdown, no code blocks — just raw JSON.
 
 Return this exact structure:
@@ -127,32 +125,7 @@ ${content}`
     // plan, so it deliberately isn't covered by this function and won't refund.
     async function parsePlanFromClaude(): Promise<{ parsed: NonNullable<ReturnType<typeof validateParsedPlan>> } | Response> {
       try {
-        const parseController = new AbortController()
-        const parseTimeout = setTimeout(() => parseController.abort(), 30000)
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 8192,
-            messages: [{ role: 'user', content: prompt }],
-          }),
-          signal: parseController.signal,
-        })
-        clearTimeout(parseTimeout)
-
-        if (!aiRes.ok) {
-          const errBody = await aiRes.text()
-          console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-          throw new Error('AI service error')
-        }
-
-        const aiData = await aiRes.json()
-        const rawText: string = aiData.content?.[0]?.text?.trim() ?? ''
+        const rawText = await callClaude(prompt, 8192, 'parse-plan')
 
         // ── Strip markdown wrappers ───────────────────────────────────────────
         const jsonStr = rawText

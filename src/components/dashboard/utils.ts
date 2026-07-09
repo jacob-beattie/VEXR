@@ -1,8 +1,10 @@
+// toISOString() converts to UTC which breaks date matching for timezones ahead of UTC
+// (e.g. AEST) — always build keys from local date parts instead.
 export function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function formatDuration(minutes: number): string {
+export function formatDuration(minutes: number | null): string {
   if (!minutes) return '—'
   const h = Math.floor(minutes / 60)
   const m = minutes % 60

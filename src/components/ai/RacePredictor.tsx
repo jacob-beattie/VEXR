@@ -190,7 +190,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
       // read as "check your connection" rather than reusing the AI-specific message below.
       let res: Response
       try {
-        res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-briefing`, {
+        res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/race-predictor`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -198,7 +198,6 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
           },
           body: JSON.stringify({
-            mode: 'race_predictor',
             ctl, ftp, runPace, css,
             sport: profile.sport,
             predictions: { running: runSummary, cycling: bikeSummary, swimming: swimSummary, triathlon: triSummary },

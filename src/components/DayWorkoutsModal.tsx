@@ -1,5 +1,6 @@
 import { COLORS } from '../lib/colors'
 import { workoutTypes } from './ui/Badge'
+import { formatDuration } from './dashboard/utils'
 import type { Workout } from '../types'
 
 interface DayWorkoutsModalProps {
@@ -11,15 +12,6 @@ interface DayWorkoutsModalProps {
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '—'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
 
 export function DayWorkoutsModal({ date, workouts, onSelectWorkout, onAddWorkout, onClose }: DayWorkoutsModalProps) {
   const label = `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`

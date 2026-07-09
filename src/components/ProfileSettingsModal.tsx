@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
+import { paceToSeconds, secsToPaceStr } from '../lib/tss'
+import { calcHRZoneBoundaries } from '../lib/zones'
 import type { Profile, FitnessBenchmark } from '../types'
 import type { Tables } from '../types/database.types'
 import { Button } from './ui/Button'
@@ -47,53 +49,37 @@ function calcCyclingZones(ftp: number) {
   }))
 }
 
+const HR_ZONE_NAMES = ['Recovery', 'Aerobic', 'Tempo', 'Threshold', 'Max']
+
 function calcHRZones(maxHrVal: number) {
-  const z1Max = Math.round(maxHrVal * 0.65)
-  const z2Max = Math.round(maxHrVal * 0.75)
-  const z3Max = Math.round(maxHrVal * 0.82)
-  const z4Max = Math.round(maxHrVal * 0.89)
-  return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: '0',              max_value: String(z1Max) },
-    { zone_number: 2, zone_name: 'Aerobic',    min_value: String(z1Max + 1), max_value: String(z2Max) },
-    { zone_number: 3, zone_name: 'Tempo',      min_value: String(z2Max + 1), max_value: String(z3Max) },
-    { zone_number: 4, zone_name: 'Threshold',  min_value: String(z3Max + 1), max_value: String(z4Max) },
-    { zone_number: 5, zone_name: 'Max',        min_value: String(z4Max + 1), max_value: '' },
-  ]
-}
-
-function paceToSeconds(pace: string): number | null {
-  if (!pace || !pace.includes(':')) return null
-  const [min, sec] = pace.split(':').map(Number)
-  if (isNaN(min) || isNaN(sec)) return null
-  return min * 60 + sec
-}
-
-function secondsToPace(seconds: number): string {
-  const min = Math.floor(seconds / 60)
-  const sec = Math.round(seconds % 60)
-  return `${min}:${String(sec).padStart(2, '0')}`
+  return calcHRZoneBoundaries(maxHrVal).map((b, i) => ({
+    zone_number: i + 1,
+    zone_name: HR_ZONE_NAMES[i],
+    min_value: String(b.min),
+    max_value: b.max !== null ? String(b.max) : '',
+  }))
 }
 
 function calcRunningZones(runPace: string) {
-  const T = paceToSeconds(runPace)
+  const T = paceToSeconds(runPace) || null
   if (!T) return null
   return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.25), max_value: '' },
-    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.10), max_value: secondsToPace(T * 1.25) },
-    { zone_number: 3, zone_name: 'Tempo',     min_value: secondsToPace(T * 1.02), max_value: secondsToPace(T * 1.10) },
-    { zone_number: 4, zone_name: 'Threshold', min_value: secondsToPace(T * 0.97), max_value: secondsToPace(T * 1.02) },
-    { zone_number: 5, zone_name: 'VO2 Max',   min_value: '',                      max_value: secondsToPace(T * 0.97) },
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secsToPaceStr(T * 1.25), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secsToPaceStr(T * 1.10), max_value: secsToPaceStr(T * 1.25) },
+    { zone_number: 3, zone_name: 'Tempo',     min_value: secsToPaceStr(T * 1.02), max_value: secsToPaceStr(T * 1.10) },
+    { zone_number: 4, zone_name: 'Threshold', min_value: secsToPaceStr(T * 0.97), max_value: secsToPaceStr(T * 1.02) },
+    { zone_number: 5, zone_name: 'VO2 Max',   min_value: '',                      max_value: secsToPaceStr(T * 0.97) },
   ]
 }
 
 function calcSwimmingZones(css: string) {
-  const T = paceToSeconds(css)
+  const T = paceToSeconds(css) || null
   if (!T) return null
   return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.20), max_value: '' },
-    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.05), max_value: secondsToPace(T * 1.20) },
-    { zone_number: 3, zone_name: 'Threshold', min_value: secondsToPace(T * 0.95), max_value: secondsToPace(T * 1.05) },
-    { zone_number: 4, zone_name: 'Speed',     min_value: '',                      max_value: secondsToPace(T * 0.95) },
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secsToPaceStr(T * 1.20), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secsToPaceStr(T * 1.05), max_value: secsToPaceStr(T * 1.20) },
+    { zone_number: 3, zone_name: 'Threshold', min_value: secsToPaceStr(T * 0.95), max_value: secsToPaceStr(T * 1.05) },
+    { zone_number: 4, zone_name: 'Speed',     min_value: '',                      max_value: secsToPaceStr(T * 0.95) },
   ]
 }
 
@@ -387,7 +373,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     .filter(b => b.metric === 'pace')
     .map(b => ({
       date: new Date(b.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      value: paceToSeconds(b.value) ?? 0,
+      value: paceToSeconds(b.value),
       paceLabel: b.value,
     }))
 
@@ -395,7 +381,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     .filter(b => b.metric === 'css')
     .map(b => ({
       date: new Date(b.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      value: paceToSeconds(b.value) ?? 0,
+      value: paceToSeconds(b.value),
       paceLabel: b.value,
     }))
 

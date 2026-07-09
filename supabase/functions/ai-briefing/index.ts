@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
+import { calculatePMC } from '../_shared/calculatePMC.ts'
+import { callClaude } from '../_shared/anthropic.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
@@ -10,103 +12,6 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 const BRIEFING_RATE_LIMIT = 5
-const PREDICTOR_RATE_LIMIT = 10
-
-// ─── PMC constants (mirrors src/lib/calculateMetrics.ts) ─────────────────────
-const CTL_K = 1 - Math.exp(-1 / 42)
-const ATL_K = 1 - Math.exp(-1 / 7)
-
-const PROFILE_SPORTS = ['triathlon', 'cycling', 'running', 'swimming'] as const
-
-interface RacePredictorBody {
-  ctl: number
-  ftp?: number
-  runPace?: string
-  css?: string
-  sport: string
-  predictions: { running: string; cycling: string; swimming: string; triathlon: string }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-// Narrows the race-predictor request body field-by-field instead of a blind `as` cast — these
-// values are interpolated directly into the Claude prompt below, so a wrong-typed or oversized
-// field must fail here rather than flow into prompt construction unchecked.
-function parseRaceBody(body: unknown): RacePredictorBody | null {
-  if (!isRecord(body)) return null
-  if (typeof body.ctl !== 'number' || !Number.isFinite(body.ctl) || body.ctl < 0 || body.ctl > 500) return null
-  if (typeof body.sport !== 'string' || !(PROFILE_SPORTS as readonly string[]).includes(body.sport)) return null
-  if (body.ftp !== undefined && (typeof body.ftp !== 'number' || !Number.isFinite(body.ftp) || body.ftp < 0 || body.ftp > 2000)) return null
-  if (body.runPace !== undefined && (typeof body.runPace !== 'string' || body.runPace.length > 20)) return null
-  if (body.css !== undefined && (typeof body.css !== 'string' || body.css.length > 20)) return null
-
-  if (!isRecord(body.predictions)) return null
-  const p = body.predictions
-  const predictionFields = ['running', 'cycling', 'swimming', 'triathlon'] as const
-  for (const field of predictionFields) {
-    if (typeof p[field] !== 'string' || (p[field] as string).length > 300) return null
-  }
-
-  return {
-    ctl: body.ctl,
-    sport: body.sport,
-    ftp: typeof body.ftp === 'number' ? body.ftp : undefined,
-    runPace: typeof body.runPace === 'string' ? body.runPace : undefined,
-    css: typeof body.css === 'string' ? body.css : undefined,
-    predictions: {
-      running: p.running as string,
-      cycling: p.cycling as string,
-      swimming: p.swimming as string,
-      triathlon: p.triathlon as string,
-    },
-  }
-}
-
-function localDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-interface Workout {
-  date: string
-  tss: number | null
-  planned: boolean
-  type: string
-  title: string
-  duration_minutes: number | null
-}
-
-function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: number; tsb: number } {
-  const tssByDay: Record<string, number> = {}
-  for (const w of workouts) {
-    if (w.planned) continue
-    const key = w.date.split('T')[0]
-    tssByDay[key] = (tssByDay[key] || 0) + (w.tss || 0)
-  }
-
-  const allDates = Object.keys(tssByDay).sort()
-  if (allDates.length === 0) return { ctl: 0, atl: 0, tsb: 0 }
-
-  const warmupStart = new Date(allDates[0] + 'T00:00:00')
-  let ctl = 0
-  let atl = 0
-  const totalDays = Math.round((today.getTime() - warmupStart.getTime()) / 86400000)
-
-  for (let i = 0; i <= totalDays; i++) {
-    const d = new Date(warmupStart.getTime() + i * 86400000)
-    const key = localDateKey(d)
-    const tss = tssByDay[key] || 0
-    ctl = ctl + CTL_K * (tss - ctl)
-    atl = atl + ATL_K * (tss - atl)
-  }
-
-  return {
-    ctl: Math.round(ctl),
-    atl: Math.round(atl),
-    tsb: Math.round(ctl - atl),
-  }
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
@@ -143,90 +48,10 @@ Deno.serve(async (req: Request) => {
 
     // Parse body
     let force = false
-    let mode = 'briefing'
-    let raceBody: Record<string, unknown> = {}
     try {
       const body = await req.json()
       force = body?.force === true
-      mode = body?.mode ?? 'briefing'
-      raceBody = body ?? {}
     } catch { /* no body or non-JSON — fine */ }
-
-    // ── Race predictor mode ──────────────────────────────────────────────────
-    if (mode === 'race_predictor') {
-      const allowed = await checkRateLimit(user.id, 'ai-briefing-predictor', PREDICTOR_RATE_LIMIT)
-      if (!allowed) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing predictions.' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const parsedRaceBody = parseRaceBody(raceBody)
-      if (!parsedRaceBody) {
-        return new Response(JSON.stringify({ error: 'Missing or invalid required fields' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-      const { ctl, ftp, runPace, css, sport, predictions } = parsedRaceBody
-
-      const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-      if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
-      const racePrompt = `You are an expert endurance coach. Based on an athlete's predicted race finish times and current fitness metrics, write a short personalised analysis (3–4 sentences). Be direct, specific, and encouraging. Use plain text only — no markdown, no bullets. Address the athlete as "you".
-
-Athlete primary sport: ${sport}
-Current CTL (fitness): ${ctl}
-${ftp ? `FTP: ${ftp}W` : ''}${runPace ? ` | Run threshold pace: ${runPace}/km` : ''}${css ? ` | CSS: ${css}/100m` : ''}
-
-Predicted finish times:
-Running: ${predictions?.running || 'No data'}
-Cycling: ${predictions?.cycling || 'No data'}
-Swimming: ${predictions?.swimming || 'No data'}
-Triathlon: ${predictions?.triathlon || 'No data'}
-
-Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
-
-      // Wrapped separately from the outer handler try/catch: if the Claude call itself
-      // fails to produce a usable narrative, refund the rate-limit slot checkRateLimit
-      // just reserved before rethrowing to the outer catch for the actual error response.
-      try {
-        const predictorController = new AbortController()
-        const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
-        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 300,
-            messages: [{ role: 'user', content: racePrompt }],
-          }),
-          signal: predictorController.signal,
-        })
-        clearTimeout(predictorTimeout)
-
-        if (!aiRes.ok) {
-          const errBody = await aiRes.text()
-          console.error('[ai-briefing] Anthropic error (predictor):', aiRes.status, errBody.slice(0, 200))
-          throw new Error('AI service error')
-        }
-
-        const aiData = await aiRes.json()
-        const narrative = aiData.content?.[0]?.text?.trim()
-        if (!narrative) throw new Error('Empty response from AI service')
-
-        return new Response(
-          JSON.stringify({ narrative }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        )
-      } catch (claudeErr) {
-        await releaseRateLimit(user.id, 'ai-briefing-predictor')
-        throw claudeErr
-      }
-    }
 
     // Check for a cached briefing from the last 24 hours (unless force)
     if (!force) {
@@ -279,7 +104,7 @@ Comment on what the predictions reveal about their current fitness, highlight on
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const { ctl, atl, tsb } = calculateCTLATL(workouts ?? [], today)
+    const { current: { ctl, atl, tsb } } = calculatePMC(workouts ?? [], today, today)
 
     // This week's TSS
     const dow = today.getDay()
@@ -344,43 +169,14 @@ Write a concise weekly briefing (4–6 sentences max). Cover:
 
 Be direct, data-driven, and encouraging. Use plain text — no markdown, no bullet points. Address the athlete directly as "you".`
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
     // Wrapped separately from the outer handler try/catch: only a failure to get a usable
     // briefing out of Claude should refund the rate-limit slot. A later failure (saving to
     // ai_briefings, pruning) happens after Claude already succeeded, so it must not refund —
     // the Anthropic API cost was already incurred.
     let briefing = ''
     try {
-      const briefingController = new AbortController()
-      const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
-      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-        signal: briefingController.signal,
-      })
-      clearTimeout(briefingTimeout)
-
-      if (!aiRes.ok) {
-        const errBody = await aiRes.text()
-        console.error('[ai-briefing] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-        throw new Error('AI service error')
-      }
-
-      const aiData = await aiRes.json()
-      const text = aiData.content?.[0]?.text?.trim()
-      if (!text) throw new Error('Empty response from AI service')
-      briefing = text
+      briefing = await callClaude(prompt, 500, 'ai-briefing')
+      if (!briefing) throw new Error('Empty response from AI service')
     } catch (claudeErr) {
       await releaseRateLimit(user.id, 'ai-briefing')
       throw claudeErr

@@ -4,21 +4,8 @@ import type { TrainingPlan, SessionSport } from '../../types'
 import type { Tables } from '../../types/database.types'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
-
-
-const SPORT_LABELS: Record<string, string> = {
-  swim: 'Swim', bike: 'Bike', run: 'Run',
-  sc: 'S&C', brick: 'Brick', other: 'Other',
-}
-
-const SPORT_TABS: Array<{ key: SessionSport | 'all'; label: string }> = [
-  { key: 'all',   label: 'All' },
-  { key: 'swim',  label: 'Swim' },
-  { key: 'bike',  label: 'Bike' },
-  { key: 'run',   label: 'Run' },
-  { key: 'sc',    label: 'S&C' },
-  { key: 'brick', label: 'Brick' },
-]
+import { SPORT_LABELS, SPORT_TABS } from './shared'
+import { formatDuration } from '../dashboard/utils'
 
 interface TrainingSession {
   id: string
@@ -51,14 +38,6 @@ function mapTrainingSessionRow(row: TrainingSessionRow): TrainingSession {
     notes: row.notes,
     status: row.status ?? 'pending',
   }
-}
-
-function formatDuration(min: number | null): string {
-  if (!min) return '—'
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return m ? `${h}h ${m}m` : `${h}h`
 }
 
 function formatDate(dateStr: string | null): string {

@@ -1,16 +1,11 @@
-import type { Workout } from '../types'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const CTL_K = 1 - Math.exp(-1 / 42)  // 42-day time constant (Fitness)
-const ATL_K = 1 - Math.exp(-1 / 7)   // 7-day time constant  (Fatigue)
-
-// Only the fields the PMC engine actually reads. Narrower than `Workout` so that a
-// partial row (e.g. an edge function's `select('date, tss, planned, ...')` query,
-// which doesn't fetch every Workout column) satisfies this type without a cast.
-type PMCWorkout = Pick<Workout, 'date' | 'tss' | 'planned'>
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Deno-side copy of the canonical PMC engine (src/lib/calculateMetrics.ts) — kept in sync by
+// hand, same convention this repo already uses for database.types.ts. A live cross-repo
+// relative import isn't used here because `deploy_edge_function` bundles each function from
+// an explicit `files` list with no repo filesystem access, so a path reaching outside
+// `supabase/functions/` would need its full dependency chain re-supplied on every deploy — a
+// pattern not exercised anywhere else in this project. If `calculatePMC`/`buildTssByDay` in
+// `src/lib/calculateMetrics.ts` ever change (warmup logic, rounding, CTL/ATL constants),
+// mirror the change here too.
 
 export interface DayMetrics {
   date: string   // YYYY-MM-DD
@@ -27,7 +22,16 @@ export interface FitnessSnapshot {
   tsb: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Only the fields the PMC engine reads — matches the narrowed `PMCWorkout` type on the
+// frontend copy, so a partial `select('date, tss, planned, ...')` row satisfies this directly.
+interface PMCWorkout {
+  date: string
+  tss: number | null
+  planned: boolean | null
+}
+
+const CTL_K = 1 - Math.exp(-1 / 42)  // 42-day time constant (Fitness)
+const ATL_K = 1 - Math.exp(-1 / 7)   // 7-day time constant  (Fatigue)
 
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

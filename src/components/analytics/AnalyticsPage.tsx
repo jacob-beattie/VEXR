@@ -6,6 +6,8 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { COLORS, SPORT_COLORS } from '../../lib/colors'
+import { calcHRZoneBoundaries } from '../../lib/zones'
+import { localDateKey } from '../dashboard/utils'
 import type { Workout, WorkoutType, Profile } from '../../types'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -51,25 +53,9 @@ const HR_ZONE_LABELS = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5']
 
 // Default boundaries using 220-35 and correct zone percentages
 const DEFAULT_MAX_HR = 185
-const DEFAULT_HR_BOUNDARIES: Array<{ min: number; max: number | null }> = (() => {
-  const z1Max = Math.round(DEFAULT_MAX_HR * 0.65)
-  const z2Max = Math.round(DEFAULT_MAX_HR * 0.75)
-  const z3Max = Math.round(DEFAULT_MAX_HR * 0.82)
-  const z4Max = Math.round(DEFAULT_MAX_HR * 0.89)
-  return [
-    { min: 0,         max: z1Max },
-    { min: z1Max + 1, max: z2Max },
-    { min: z2Max + 1, max: z3Max },
-    { min: z3Max + 1, max: z4Max },
-    { min: z4Max + 1, max: null },
-  ]
-})()
+const DEFAULT_HR_BOUNDARIES = calcHRZoneBoundaries(DEFAULT_MAX_HR)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function localDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 function formatDateLabel(d: Date) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -426,21 +412,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
   const powerCurveData = getPowerCurve(workouts, rangeStart, ftp)
   const paceCurveData = getPaceCurve(workouts, rangeStart)
   const hasCustomHrZones = !!(profile?.max_hr)
-  const activeBoundaries = (() => {
-    const maxHr = profile?.max_hr
-    if (!maxHr) return DEFAULT_HR_BOUNDARIES
-    const z1Max = Math.round(maxHr * 0.65)
-    const z2Max = Math.round(maxHr * 0.75)
-    const z3Max = Math.round(maxHr * 0.82)
-    const z4Max = Math.round(maxHr * 0.89)
-    return [
-      { min: 0,         max: z1Max },
-      { min: z1Max + 1, max: z2Max },
-      { min: z2Max + 1, max: z3Max },
-      { min: z3Max + 1, max: z4Max },
-      { min: z4Max + 1, max: null  },
-    ]
-  })()
+  const activeBoundaries = profile?.max_hr ? calcHRZoneBoundaries(profile.max_hr) : DEFAULT_HR_BOUNDARIES
   const { total: hrTotal, zones: hrZones } = getHRZones(workouts, rangeStart, activeBoundaries)
 
   const thresholdSpeedKmh = (() => {

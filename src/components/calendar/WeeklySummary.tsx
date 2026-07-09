@@ -4,23 +4,11 @@ import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
 import { calculatePMC } from '../../lib/calculateMetrics'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { localDateKey, formatDuration } from '../dashboard/utils'
 
 interface WeeklySummaryProps {
   workouts: Workout[]
   weekStart: Date
-}
-
-function localDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '0m'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
 }
 
 export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {

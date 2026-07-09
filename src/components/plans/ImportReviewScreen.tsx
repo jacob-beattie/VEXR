@@ -1,20 +1,7 @@
 import { useState, useCallback } from 'react'
 import { COLORS, SPORT_COLORS } from '../../lib/colors'
-import type { ParsedSession, SessionSport } from '../../types'
-
-const SPORT_LABELS: Record<string, string> = {
-  swim: 'Swim', bike: 'Bike', run: 'Run',
-  sc: 'S&C', brick: 'Brick', other: 'Other',
-}
-
-const SPORT_TABS: Array<{ key: SessionSport | 'all'; label: string }> = [
-  { key: 'all',   label: 'All' },
-  { key: 'swim',  label: 'Swim' },
-  { key: 'bike',  label: 'Bike' },
-  { key: 'run',   label: 'Run' },
-  { key: 'sc',    label: 'S&C' },
-  { key: 'brick', label: 'Brick' },
-]
+import type { ParsedSession } from '../../types'
+import { SPORT_LABELS, SPORT_TABS } from './shared'
 
 interface ImportReviewScreenProps {
   parsedSessions: ParsedSession[]

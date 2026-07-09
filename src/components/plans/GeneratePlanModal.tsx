@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { COLORS } from '../../lib/colors'
-import type { ParsedSession, SessionSport } from '../../types'
+import type { ParsedSession } from '../../types'
 import { ImportReviewScreen } from './ImportReviewScreen'
+import { mapEdgeSessions } from './shared'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useWorkouts } from '../../contexts/WorkoutsContext'
@@ -32,46 +33,6 @@ const GENERATE_MESSAGES = [
   'Scheduling sessions...',
   'Finalising your plan...',
 ]
-
-const VALID_SPORTS: SessionSport[] = ['swim', 'bike', 'run', 'sc', 'brick', 'other', 'rest']
-
-function toSessionSport(s: string): SessionSport {
-  return VALID_SPORTS.includes(s as SessionSport) ? (s as SessionSport) : 'other'
-}
-
-function formatDisplayDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z')
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`
-}
-
-interface EdgeSession {
-  week: number
-  day_of_week: string
-  sport: string
-  title: string
-  description: string
-  duration_minutes: number | null
-  target_metric: string
-  scheduled_date: string | null
-  has_conflict: boolean
-}
-
-function mapEdgeSessions(raw: EdgeSession[]): ParsedSession[] {
-  return raw.map((s, i) => ({
-    id: i + 1,
-    week: s.week,
-    sport: toSessionSport(s.sport),
-    title: s.title,
-    date: s.scheduled_date ? formatDisplayDate(s.scheduled_date) : `Wk ${s.week} ${s.day_of_week ?? ''}`,
-    dur: s.duration_minutes != null ? `${s.duration_minutes} min` : '',
-    metric: s.target_metric ?? '',
-    description: s.description ?? '',
-    conflict: s.has_conflict,
-    scheduledDate: s.scheduled_date ?? null,
-  }))
-}
 
 function nextMonday(): string {
   const d = new Date()

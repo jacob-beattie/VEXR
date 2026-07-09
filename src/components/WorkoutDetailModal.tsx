@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { COLORS } from '../lib/colors'
 import { workoutTypes } from './ui/Badge'
 import { Button } from './ui/Button'
+import { paceToSeconds, secsToPaceStr } from '../lib/tss'
+import { formatDuration } from './dashboard/utils'
 import type { Workout, WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { useProfile } from '../contexts/ProfileContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -140,17 +142,6 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   cooldown: 'Cooldown',
 }
 
-function paceToSeconds(pace: string): number {
-  const parts = pace.split(':')
-  if (parts.length !== 2) return 0
-  return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0)
-}
-
-function secsToPaceStr(secs: number): string {
-  if (!secs || secs <= 0) return ''
-  return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`
-}
-
 interface BlockDisplayProps {
   block: WorkoutBlock
   workoutType: WorkoutType
@@ -254,15 +245,6 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '—'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
 }
 
 export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: WorkoutDetailModalProps) {

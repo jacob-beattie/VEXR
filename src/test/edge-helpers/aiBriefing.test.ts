@@ -1,9 +1,12 @@
 /**
- * Tests for pure logic extracted from supabase/functions/ai-briefing/index.ts.
- * These functions are duplicated here (not imported) because the edge function uses
- * Deno globals. The tests validate the logic is correct and guard against regressions.
+ * Tests for pure logic used by supabase/functions/ai-briefing/index.ts.
+ * `pruneIds` mirrors briefing-pruning logic that's still inlined in the edge function
+ * (Deno-global-free, but not yet worth its own _shared module for two lines of logic).
+ * The CTL/ATL calculation is imported directly from `_shared/calculatePMC.ts`, which is
+ * itself Deno-global-free, rather than duplicated here.
  */
 import { describe, it, expect } from 'vitest'
+import { calculatePMC } from '../../../supabase/functions/_shared/calculatePMC'
 
 // ─── Pruning logic ────────────────────────────────────────────────────────────
 // The edge function keeps only the 9 most recent briefings: it fetches all ordered
@@ -14,50 +17,14 @@ function pruneIds(briefings: { id: string; generated_at: string }[], max = 9): s
   return briefings.slice(max).map(r => r.id)
 }
 
-// ─── CTL/ATL calculation (mirrors calculateMetrics.ts) ────────────────────────
-
-const CTL_K = 1 - Math.exp(-1 / 42)
-const ATL_K = 1 - Math.exp(-1 / 7)
-
 interface Workout {
   date: string
   tss: number | null
   planned: boolean
 }
 
-function localDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: number; tsb: number } {
-  const tssByDay: Record<string, number> = {}
-  for (const w of workouts) {
-    if (w.planned) continue
-    const key = w.date.split('T')[0]
-    tssByDay[key] = (tssByDay[key] || 0) + (w.tss || 0)
-  }
-
-  const allDates = Object.keys(tssByDay).sort()
-  if (allDates.length === 0) return { ctl: 0, atl: 0, tsb: 0 }
-
-  const warmupStart = new Date(allDates[0] + 'T00:00:00')
-  let ctl = 0
-  let atl = 0
-  const totalDays = Math.round((today.getTime() - warmupStart.getTime()) / 86400000)
-
-  for (let i = 0; i <= totalDays; i++) {
-    const d = new Date(warmupStart.getTime() + i * 86400000)
-    const key = localDateKey(d)
-    const tss = tssByDay[key] || 0
-    ctl = ctl + CTL_K * (tss - ctl)
-    atl = atl + ATL_K * (tss - atl)
-  }
-
-  return {
-    ctl: Math.round(ctl),
-    atl: Math.round(atl),
-    tsb: Math.round(ctl - atl),
-  }
+  return calculatePMC(workouts, today, today).current
 }
 
 // ─── Tests: pruneIds ──────────────────────────────────────────────────────────
