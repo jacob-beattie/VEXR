@@ -7,6 +7,24 @@ import { validateGeneratePlanRequest } from '../_shared/generatePlanValidation.t
 import { callClaude } from '../_shared/anthropic.ts'
 import type { Database } from '../_shared/database.types.ts'
 
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: GeneratePlanRequest (see _shared/generatePlanValidation.ts) —
+//   { sport, raceDistance, raceDate, startDate, preferredDays?: string[], level?, goalTime?,
+//     athleteProfile: { ctl, ftp?, thresholdPace?, css?, primarySport } }
+// Success 200: { plan_name, race_name, total_weeks, sessions: ResolvedSession[], conflict_count }
+//   - sessions have scheduled_date resolved from week/day_of_week and has_conflict flagged
+//     against the user's existing workouts (see _shared/planScheduling.ts)
+// Errors:
+//   401 { error: 'Missing authorization header' | 'Not authenticated' }
+//   429 { error: 'Rate limit exceeded...' }                     — >5 generations/hr
+//   400 { error: <validation message> }                         — bad request body (see
+//                                                                    validateGeneratePlanRequest)
+//   400 { error: 'parse_failed' }                                — Claude's output wasn't usable
+//                                                                    JSON matching the plan shape
+//   504 { error: 'Plan generation took too long...', requestId } — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId }    — any other failure
+
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 function getCorsHeaders(req: Request): Record<string, string> {

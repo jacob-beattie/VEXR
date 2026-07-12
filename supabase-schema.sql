@@ -31,24 +31,19 @@ create table workouts (
 );
 
 -- Strava OAuth connections (one row per user)
--- Run this if the table doesn't already exist:
--- create table strava_connections (
---   id uuid default gen_random_uuid() primary key,
---   user_id uuid references profiles(id) on delete cascade unique,
---   access_token text not null,
---   refresh_token text not null,
---   expires_at bigint not null,
---   athlete_id bigint not null,
---   athlete_name text,
---   updated_at timestamp with time zone default now()
--- );
+create table strava_connections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade unique,
+  access_token text not null,
+  refresh_token text not null,
+  expires_at bigint not null,
+  athlete_id bigint not null,
+  athlete_name text,
+  updated_at timestamp with time zone default now()
+);
 
--- Add athlete_name if the table exists but the column doesn't:
--- alter table strava_connections add column if not exists athlete_name text;
-
--- RLS for strava_connections:
--- alter table strava_connections enable row level security;
--- create policy "Users can manage own strava connection" on strava_connections for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+alter table strava_connections enable row level security;
+create policy "Users can manage own strava connection" on strava_connections for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Training Plans
 create table training_plans (
@@ -178,6 +173,13 @@ alter table training_sessions
     foreign key (plan_id)
     references training_plans(id)
     on delete cascade;
+
+-- Strava-synced workout fields: strava-sync writes these on every synced activity.
+alter table workouts add column if not exists distance_meters integer;
+alter table workouts add column if not exists calories        integer;
+alter table workouts add column if not exists elevation_gain  integer;
+alter table workouts add column if not exists avg_power       integer;
+alter table workouts add column if not exists avg_pace        text;
 
 -- ─── Nutrition ────────────────────────────────────────────────────────────────
 
@@ -414,16 +416,25 @@ alter table goals enable row level security;
 create policy "Users can manage own goals" on goals
   for all using ((select auth.uid()) = user_id);
 
+-- ── Onboarding & profile fields added out-of-band ─────────────────────────────
+-- Backported: applied directly via mcp__supabase__apply_migration and never reflected here —
+-- see CLAUDE.md's project rule that schema changes must also land in this file.
+alter table profiles add column if not exists onboarding_completed boolean default false;
+alter table profiles add column if not exists max_hr integer;
+
 -- ── Profile avatar ────────────────────────────────────────────────────────────
 alter table profiles add column if not exists avatar_url text;
 
--- Storage bucket for profile avatars (run once in Supabase dashboard or via migration)
--- insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
---   on conflict (id) do nothing;
--- create policy "Users can upload their own avatar" on storage.objects
---   for insert with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
--- create policy "Users can update their own avatar" on storage.objects
---   for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+-- Storage bucket for profile avatars
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+  on conflict (id) do nothing;
+-- Filenames are stored as "<user_id>.<ext>" (no folder prefix), so ownership is checked via
+-- split_part(name, '.', 1) rather than storage.foldername(name) (which splits on "/" and would
+-- never match a flat filename).
+create policy "Users can upload their own avatar" on storage.objects
+  for insert with check (bucket_id = 'avatars' and auth.uid()::text = split_part(name, '.', 1));
+create policy "Users can update their own avatar" on storage.objects
+  for update using (bucket_id = 'avatars' and auth.uid()::text = split_part(name, '.', 1));
 -- No SELECT policy: the bucket is public, so GET-by-known-filename already works via the
 -- public object URL (/storage/v1/object/public/avatars/<name>), which bypasses RLS entirely.
 -- A broad `for select using (bucket_id = 'avatars')` policy is not needed for that and only

@@ -4,6 +4,24 @@ import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { callClaude } from '../_shared/anthropic.ts'
 import type { Database } from '../_shared/database.types.ts'
 
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: RacePredictorBody —
+//   { ctl: number, ftp?: number, runPace?: string, css?: string,
+//     sport: 'triathlon'|'cycling'|'running'|'swimming',
+//     predictions: { running: string, cycling: string, swimming: string, triathlon: string } }
+//   - predictions are the client-computed finish-time strings from racePredictorMath.ts; this
+//     function only asks Claude to narrate them, it doesn't compute times itself
+// Success 200: { narrative: string }  — not persisted server-side; caller (RacePredictor.tsx)
+//   caches it in localStorage
+// Errors:
+//   401 { error: 'Unauthorized' }                    — missing/invalid bearer token
+//   429 { error: 'Rate limit exceeded...' }           — >10 narratives/hr (bucket name kept as
+//                                                         'ai-briefing-predictor' — see below)
+//   400 { error: 'Missing or invalid required fields' } — body failed field-by-field validation
+//   504 { error: 'The AI coach took too long...', requestId } — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId } — any other failure
+
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 function getCorsHeaders(req: Request): Record<string, string> {

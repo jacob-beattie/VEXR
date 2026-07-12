@@ -5,6 +5,21 @@ import { calculatePMC } from '../_shared/calculatePMC.ts'
 import { callClaude } from '../_shared/anthropic.ts'
 import type { Database } from '../_shared/database.types.ts'
 
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body (optional):  { force?: boolean }  — bypass the 24h cache and regenerate
+// Success 200:       { briefing: string, generated_at: string, cached: boolean }
+//   - Returns a cached briefing (cached: true) if one exists and is <24h old, unless force is set.
+//   - Otherwise calls Claude, saves the new briefing, prunes history to the 9 most recent.
+// Errors:
+//   401 { error: 'Unauthorized' }                                   — missing/invalid bearer token
+//   429 { error: 'Rate limit exceeded...' }                         — >5 fresh generations/hr
+//                                                                       (cache hits don't count)
+//   504 { error: 'The AI coach took too long...', requestId }       — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId }       — any other failure
+// Note: the race-predictor narrative used to be a `mode: 'race_predictor'` branch of this
+// function; it now lives in the separate `race-predictor` edge function.
+
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 function getCorsHeaders(req: Request): Record<string, string> {

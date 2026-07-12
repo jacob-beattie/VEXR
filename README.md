@@ -94,9 +94,13 @@ Create a `.env.local` file in the root:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 VITE_STRAVA_CLIENT_ID=your_strava_client_id
-VITE_STRAVA_CLIENT_SECRET=your_strava_client_secret
 VITE_STRAVA_REDIRECT_URI=http://localhost:5173/strava/callback
 ```
+
+Do **not** add a `VITE_STRAVA_CLIENT_SECRET` var here — any `VITE_`-prefixed variable gets bundled
+into client-side JS by Vite, which would ship the Strava client secret to the browser. The client
+secret is a server-side-only value; it's set as a Supabase Edge Function secret in step 4 below,
+never in `.env.local`.
 
 ### 3. Set up Supabase
 
@@ -125,9 +129,16 @@ This lets Claude run queries, apply migrations, check logs, and deploy edge func
 ### 4. Set up Supabase Edge Function secrets
 
 ```bash
+supabase secrets set STRAVA_CLIENT_ID=your_strava_client_id
 supabase secrets set STRAVA_CLIENT_SECRET=your_strava_client_secret
 supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
+
+`STRAVA_CLIENT_ID` is required — `strava-auth` throws at request time if it's unset. Optionally
+set `ALLOWED_ORIGIN` (comma-separated list of allowed origins) to lock down CORS for production;
+if unset, only `localhost`/`127.0.0.1` (any port) and `*.vercel.app` preview deployments are
+allowed. Bearer-JWT auth inside each function is the real security boundary either way — this
+only controls which browser origins can read the response.
 
 ### 5. Deploy Edge Functions
 
@@ -135,6 +146,7 @@ supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 supabase functions deploy strava-auth --no-verify-jwt
 supabase functions deploy strava-sync --no-verify-jwt
 supabase functions deploy ai-briefing --no-verify-jwt
+supabase functions deploy race-predictor --no-verify-jwt
 supabase functions deploy parse-plan --no-verify-jwt
 supabase functions deploy generate-plan --no-verify-jwt
 ```
@@ -158,7 +170,7 @@ npm test          # run all tests once
 npm run test:watch  # watch mode
 ```
 
-370 tests across 31 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
+372 tests across 31 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
 
 ---
 

@@ -3,6 +3,22 @@ import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_share
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import type { Database } from '../_shared/database.types.ts'
 
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: none
+// Success 200: { count: number }  — number of newly-inserted workouts (0 if the user has no
+//   Strava connection, or no new activities in the last 30 days beyond what's already synced)
+//   - Refreshes the Strava access token first if it expires within 5 minutes
+//   - Fetches activities from the last 30 days, dedupes by strava_activity_id via
+//     upsert(..., { ignoreDuplicates: true }) so concurrent syncs can't fail the whole batch
+//   - TSS is estimated per-activity: power-based IF² for rides with power data, pace-based IF²
+//     for runs/swims with distance, Strava's suffer_score as a fallback, else ~50 TSS/hour
+// Errors:
+//   401 { error: 'Unauthorized' }                          — missing/invalid bearer token
+//   429 { error: 'Rate limit exceeded. Try again in an hour.' } — >3 syncs/hr
+//   500 { error: 'Sync failed. Please try again.', requestId }  — token refresh, Strava API, or
+//     DB failure (generic message client-side; real cause only in server logs)
+
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 const RATE_WINDOW_MS = 60 * 60 * 1000
