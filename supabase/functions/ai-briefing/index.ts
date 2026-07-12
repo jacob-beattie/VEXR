@@ -9,9 +9,12 @@ import type { Database } from '../_shared/database.types.ts'
 // ── Contract ─────────────────────────────────────────────────────────────────
 // POST, Authorization: Bearer <supabase JWT>
 // Body (optional):  { force?: boolean }  — bypass the 24h cache and regenerate
-// Success 200:       { briefing: string, generated_at: string, cached: boolean }
+// Success 200:       { briefing: string, generated_at: string, cached: boolean, stale?: boolean }
 //   - Returns a cached briefing (cached: true) if one exists and is <24h old, unless force is set.
 //   - Otherwise calls Claude, saves the new briefing, prunes history to the 9 most recent.
+//   - If force:true and the Claude call fails, falls back to the most recent briefing on record
+//     (however old) with { cached: true, stale: true } instead of a hard error, since a slightly
+//     stale briefing is more useful than none when Claude is slow/down.
 // Errors:
 //   401 { error: 'Unauthorized' }                                   — missing/invalid bearer token
 //   429 { error: 'Rate limit exceeded...' }                         — >5 fresh generations/hr
@@ -195,6 +198,25 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
       if (!briefing) throw new Error('Empty response from AI service')
     } catch (claudeErr) {
       await releaseRateLimit(user.id, 'ai-briefing')
+
+      // force:true skips the 24h-cache read above, so on a Claude failure here we haven't
+      // looked for an existing briefing at all yet. Fall back to the most recent one on record
+      // (however old) rather than a hard error — a stale briefing is more useful than none.
+      const { data: fallback } = await supabase
+        .from('ai_briefings')
+        .select('briefing, generated_at')
+        .eq('user_id', user.id)
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (fallback) {
+        return new Response(
+          JSON.stringify({ briefing: fallback.briefing, generated_at: fallback.generated_at, cached: true, stale: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+
       throw claudeErr
     }
 

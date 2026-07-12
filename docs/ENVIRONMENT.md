@@ -27,8 +27,23 @@ below); a `VITE_`-prefixed version would ship it to every browser.
 
 ## Supabase / edge functions
 
-Set with `supabase secrets set VAR=value`, or via the Supabase dashboard (Edge Functions →
-Secrets). Never put these in a frontend `.env` file.
+**Deployed (live project):** set with `supabase secrets set VAR=value`, or via the Supabase
+dashboard (Edge Functions → Secrets). Never put these in a frontend `.env` file.
+
+**Local (`supabase start` / `supabase functions serve`):** the CLI auto-loads secrets for the
+local edge-runtime container from `supabase/functions/.env` if it exists — there's no dashboard
+for a local stack. This file is gitignored (matches the repo's `.env`/`.env.*` pattern) and is
+**not** created automatically; without it, every function that reads a required secret
+(`ANTHROPIC_API_KEY`, `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET`) throws and returns a 500 the
+first time it's called locally — which the frontend then shows as a generic "Something went
+wrong" message, since it doesn't distinguish "missing secret" from any other unexpected server
+error. To fix: create `supabase/functions/.env` with the required vars from the table below
+(values only, no `VITE_` prefix, no export/quoting needed — plain `KEY=value` lines), then
+restart the stack so the edge-runtime container picks them up (env vars load at container
+creation, not just start — a plain restart of an existing container isn't enough):
+```
+npm run dev:down && npm run dev:up
+```
 
 | Var | Required | Used in | Notes |
 |---|---|---|---|
