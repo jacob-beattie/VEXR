@@ -6,7 +6,6 @@
 -- workflow rules, and must still be hand-copied into supabase-schema.sql. Whenever
 -- supabase-schema.sql changes, copy the same diff into this file (or replace it wholesale) so a
 -- fresh `supabase db reset` keeps producing a local database that matches production.
-
 -- Users profile (extends Supabase auth.users)
 create table profiles (
   id uuid references auth.users on delete cascade primary key,
@@ -399,8 +398,6 @@ create index if not exists idx_training_zones_user_id    on training_zones(user_
 -- Composite (user_id, date) for nutrition_logs: date-scoped meal lookups
 create index if not exists idx_nutrition_logs_user_date  on nutrition_logs(user_id, date);
 create index if not exists idx_nutrition_custom_foods_user_id on nutrition_custom_foods(user_id);
-create index if not exists idx_ai_briefings_user_id on ai_briefings(user_id);
-create index if not exists idx_goals_user_id on goals(user_id);
 
 -- ── AI Briefings ──────────────────────────────────────────────────────────────
 create table if not exists ai_briefings (
@@ -412,6 +409,7 @@ create table if not exists ai_briefings (
 alter table ai_briefings enable row level security;
 create policy "Users can manage own briefings" on ai_briefings
   for all using ((select auth.uid()) = user_id);
+create index if not exists idx_ai_briefings_user_id on ai_briefings(user_id);
 
 -- ── Season Goals ──────────────────────────────────────────────────────────────
 create table if not exists goals (
@@ -424,6 +422,7 @@ create table if not exists goals (
 alter table goals enable row level security;
 create policy "Users can manage own goals" on goals
   for all using ((select auth.uid()) = user_id);
+create index if not exists idx_goals_user_id on goals(user_id);
 
 -- ── Onboarding & profile fields added out-of-band ─────────────────────────────
 -- Backported: applied directly via mcp__supabase__apply_migration and never reflected here —
