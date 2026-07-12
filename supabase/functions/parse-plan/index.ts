@@ -5,6 +5,7 @@ import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { resolveSessionDates, flagConflicts } from '../_shared/planScheduling.ts'
 import { validateParsePlanRequest } from '../_shared/parsePlanValidation.ts'
 import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -223,6 +224,7 @@ ${content}`
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[parse-plan] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'parse-plan' })
 
     if (err instanceof Error && err.name === 'AbortError') {
       return new Response(

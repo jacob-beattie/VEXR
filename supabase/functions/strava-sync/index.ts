@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { captureError } from '../_shared/errorTracking.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -324,6 +325,7 @@ Deno.serve(async (req: Request) => {
       ? err.message
       : (err && typeof err === 'object' ? JSON.stringify(err) : String(err))
     console.error(`[strava-sync] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'strava-sync' })
     return new Response(
       JSON.stringify({ error: 'Sync failed. Please try again.', requestId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import { extractAuthCode, buildAthleteName } from '../_shared/stravaAuth.ts'
+import { captureError } from '../_shared/errorTracking.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ Deno.serve(async (req: Request) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error(`[strava-auth] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'strava-auth' })
     return new Response(
       JSON.stringify({ error: 'Strava connection failed. Please try again.', requestId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

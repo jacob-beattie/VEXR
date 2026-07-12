@@ -5,6 +5,7 @@ import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { resolveSessionDates, flagConflicts, computeTotalWeeks, computePlanPhases } from '../_shared/planScheduling.ts'
 import { validateGeneratePlanRequest } from '../_shared/generatePlanValidation.ts'
 import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -250,6 +251,7 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[generate-plan] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'generate-plan' })
 
     if (err instanceof Error && err.name === 'AbortError') {
       return new Response(

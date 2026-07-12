@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
 import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
 import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 // ── Contract ─────────────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ Comment on what the predictions reveal about their current fitness, highlight on
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[race-predictor] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'race-predictor' })
 
     if (err instanceof Error && err.name === 'AbortError') {
       return new Response(
