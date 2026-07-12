@@ -119,7 +119,6 @@ Deno.serve(async (req: Request) => {
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('[strava-sync] user:', user?.id ?? 'NOT FOUND', authError?.message ?? '')
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -206,10 +205,8 @@ Deno.serve(async (req: Request) => {
       `https://www.strava.com/api/v3/athlete/activities?after=${afterSecs}&per_page=100`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     )
-    console.log('[strava-sync] Strava activities response status:', activitiesRes.status)
     if (!activitiesRes.ok) throw new Error(`Strava API error: ${activitiesRes.status}`)
     const activities = await activitiesRes.json() as Record<string, unknown>[]
-    console.log('[strava-sync] activities fetched:', activities.length)
 
     if (!activities.length) {
       return new Response(
@@ -303,7 +300,6 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    console.log('[strava-sync] inserting', inserts.length, 'workouts')
     // upsert + ignoreDuplicates instead of insert: two concurrent syncs (e.g. two open tabs) can
     // both read the same "existing" set before either has written, so a plain insert can hit the
     // strava_activity_id unique constraint on a row the other request just committed — and since
@@ -314,7 +310,6 @@ Deno.serve(async (req: Request) => {
       .from('workouts')
       .upsert(inserts, { onConflict: 'strava_activity_id', ignoreDuplicates: true })
     if (insertError) throw insertError
-    console.log('[strava-sync] insert success')
 
     return new Response(
       JSON.stringify({ count: inserts.length }),

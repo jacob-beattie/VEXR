@@ -8,6 +8,7 @@ import {
 import { COLORS, SPORT_COLORS } from '../../lib/colors'
 import { calcHRZoneBoundaries } from '../../lib/zones'
 import { localDateKey } from '../dashboard/utils'
+import { getWeekStart, getWeekEnd } from '../../lib/dateUtils'
 import type { Workout, WorkoutType, Profile } from '../../types'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -87,15 +88,11 @@ function parsePaceToSecs(pace: string | null | undefined): number | null {
 
 function getVolumeHistory(workouts: Workout[], weeks: number) {
   const now = new Date()
+  const currentWeekStart = getWeekStart(now)
   return Array.from({ length: weeks }, (_, i) => {
-    const weekStart = new Date(now)
-    const day = weekStart.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    weekStart.setDate(now.getDate() + diff - (weeks - 1 - i) * 7)
-    weekStart.setHours(0, 0, 0, 0)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 6)
-    weekEnd.setHours(23, 59, 59, 999)
+    const weekStart = new Date(currentWeekStart)
+    weekStart.setDate(currentWeekStart.getDate() - (weeks - 1 - i) * 7)
+    const weekEnd = getWeekEnd(weekStart)
 
     const ww = workouts.filter(w => {
       const d = new Date(w.date + 'T00:00:00')
@@ -193,11 +190,7 @@ function getBestPerformances(workouts: Workout[], rangeStart: Date) {
   const tssByWeek: Record<string, number> = {}
   completed.forEach(w => {
     const d = new Date(w.date + 'T00:00:00')
-    const day = d.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const mon = new Date(d)
-    mon.setDate(d.getDate() + diff)
-    const key = localDateKey(mon)
+    const key = localDateKey(getWeekStart(d))
     tssByWeek[key] = (tssByWeek[key] || 0) + (w.tss || 0)
   })
   const bestWeekTSS = Object.values(tssByWeek).length > 0

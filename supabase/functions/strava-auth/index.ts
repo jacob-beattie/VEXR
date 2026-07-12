@@ -36,7 +36,6 @@ Deno.serve(async (req: Request) => {
   try {
     // ── 1. Authenticate the Vexr user via their JWT ────────────────────────
     const authHeader = req.headers.get('Authorization')
-    console.log('[strava-auth] Authorization header present:', !!authHeader)
 
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -52,7 +51,6 @@ Deno.serve(async (req: Request) => {
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('[strava-auth] Vexr user:', user?.id ?? 'NOT FOUND', authError?.message ?? '')
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -72,7 +70,6 @@ Deno.serve(async (req: Request) => {
     // ── 2. Parse request body ──────────────────────────────────────────────
     const body: unknown = await req.json()
     const code = extractAuthCode(body)
-    console.log('[strava-auth] received code:', code ? `${code.slice(0, 6)}…` : 'MISSING')
     if (!code) {
       return new Response(JSON.stringify({ error: 'Missing authorization code' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -82,9 +79,6 @@ Deno.serve(async (req: Request) => {
     // ── 3. Read secrets ────────────────────────────────────────────────────
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
     const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')
-
-    console.log('[strava-auth] STRAVA_CLIENT_ID set:', !!clientId)
-    console.log('[strava-auth] STRAVA_CLIENT_SECRET set:', !!clientSecret)
 
     if (!clientId) throw new Error('STRAVA_CLIENT_ID secret is not set on this edge function')
     if (!clientSecret) throw new Error('STRAVA_CLIENT_SECRET secret is not set on this edge function')
@@ -97,8 +91,6 @@ Deno.serve(async (req: Request) => {
       code,
       grant_type: 'authorization_code',
     }
-    console.log('[strava-auth] sending token exchange — client_id:', tokenPayload.client_id, 'grant_type:', tokenPayload.grant_type)
-
     const tokenRes = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -106,7 +98,6 @@ Deno.serve(async (req: Request) => {
     })
 
     const tokens = await tokenRes.json()
-    console.log('[strava-auth] Strava response status:', tokenRes.status)
 
     if (!tokenRes.ok) {
       throw new Error(
@@ -116,8 +107,6 @@ Deno.serve(async (req: Request) => {
 
     // ── 5. Upsert connection ───────────────────────────────────────────────
     const athleteName = buildAthleteName(tokens.athlete)
-
-    console.log('[strava-auth] upserting connection for athlete:', tokens.athlete?.id, athleteName)
 
     const { error: upsertError } = await supabase
       .from('strava_connections')
@@ -133,12 +122,8 @@ Deno.serve(async (req: Request) => {
         { onConflict: 'user_id' },
       )
 
-    if (upsertError) {
-      console.log('[strava-auth] upsert error:', upsertError.message)
-      throw upsertError
-    }
+    if (upsertError) throw upsertError
 
-    console.log('[strava-auth] success — athlete:', athleteName)
     return new Response(
       JSON.stringify({ success: true, athleteName }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

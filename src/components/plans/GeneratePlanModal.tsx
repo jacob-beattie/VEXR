@@ -68,7 +68,7 @@ const SPORT_TO_TYPE: Record<string, string> = {
 
 export function GeneratePlanModal({ onClose, onSuccess }: Props) {
   const isMobile = useIsMobile()
-  const { calculateFitnessMetrics } = useWorkouts()
+  const { calculateFitnessMetrics, refetchWorkouts } = useWorkouts()
   const { profile } = useProfile()
 
   const fitness = calculateFitnessMetrics()
@@ -282,6 +282,9 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
       if (calendarRows.length > 0) {
         const { error: workoutsError } = await supabase.from('workouts').insert(calendarRows)
         if (workoutsError) throw workoutsError
+        // Don't rely solely on the realtime subscription — refetch immediately so the
+        // Calendar/Dashboard reflect the new plan even if that channel is briefly disconnected.
+        await refetchWorkouts()
       }
 
       onSuccess(`Plan generated. ${parsedSessions.filter(s => s.sport !== 'rest').length} sessions added to your calendar.`)

@@ -2,6 +2,7 @@ import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout } from '../../types'
 import { localDateKey } from './utils'
+import { getWeekStart } from '../../lib/dateUtils'
 
 export function WeeklyLoadCard({ weekWorkouts, onDayClick }: { weekWorkouts: Workout[], onDayClick: (date: Date, workouts: Workout[]) => void }) {
   const actual = weekWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0)
@@ -10,8 +11,7 @@ export function WeeklyLoadCard({ weekWorkouts, onDayClick }: { weekWorkouts: Wor
   const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0
 
   const now = new Date()
-  const diff = now.getDay() === 0 ? -6 : 1 - now.getDay()
-  const monday = new Date(now); monday.setDate(now.getDate() + diff); monday.setHours(0, 0, 0, 0)
+  const monday = getWeekStart(now)
 
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday); d.setDate(monday.getDate() + i); d.setHours(0, 0, 0, 0)

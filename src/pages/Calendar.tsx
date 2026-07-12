@@ -8,16 +8,8 @@ import { LogWorkoutModal } from '../components/LogWorkoutModal'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import { COLORS } from '../lib/colors'
+import { getWeekStart } from '../lib/dateUtils'
 import type { Workout } from '../types'
-
-function getMondayOfWeek(d: Date): Date {
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const mon = new Date(d)
-  mon.setDate(d.getDate() + diff)
-  mon.setHours(0, 0, 0, 0)
-  return mon
-}
 
 export function Calendar() {
   const {
@@ -31,7 +23,7 @@ export function Calendar() {
   const [view, setView] = useState<'month' | 'week'>('week')
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
-  const [weekStart, setWeekStart] = useState<Date>(getMondayOfWeek(now))
+  const [weekStart, setWeekStart] = useState<Date>(getWeekStart(now))
 
   // ── Modal / sheet state ─────────────────────────────────────────────────────
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -65,7 +57,7 @@ export function Calendar() {
       const base = month === now.getMonth() && year === now.getFullYear()
         ? now
         : new Date(year, month, 1)
-      setWeekStart(getMondayOfWeek(base))
+      setWeekStart(getWeekStart(base))
     }
     setView(v)
   }
@@ -105,7 +97,7 @@ export function Calendar() {
     ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
     : undefined
 
-  const summaryWeekStart = view === 'week' ? weekStart : getMondayOfWeek(now)
+  const summaryWeekStart = view === 'week' ? weekStart : getWeekStart(now)
 
   // WorkoutsContext only loads a trailing window by default (see historyWindowStart). If the
   // user navigates the calendar to a month/week older than that window, upgrade to full history

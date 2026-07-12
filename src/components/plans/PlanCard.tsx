@@ -4,6 +4,7 @@ import type { TrainingPlan, SessionSport } from '../../types'
 import type { Tables } from '../../types/database.types'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useWorkouts } from '../../contexts/WorkoutsContext'
 import { SPORT_LABELS, SPORT_TABS } from './shared'
 import { formatDuration } from '../dashboard/utils'
 
@@ -332,6 +333,7 @@ function deriveCurrentWeek(plan: TrainingPlan): number {
 }
 
 export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
+  const { refetchWorkouts } = useWorkouts()
   const [showMenu, setShowMenu] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -396,6 +398,9 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
           .eq('user_id', user.id)
           .eq('planned', true)
           .in('date', dates)
+        // Don't rely solely on the realtime subscription — refetch immediately so the
+        // Calendar/Dashboard reflect the deletion even if that channel is briefly disconnected.
+        await refetchWorkouts()
       }
 
       const { error } = await supabase

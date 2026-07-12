@@ -3,8 +3,10 @@ import type { ReactNode, MutableRefObject } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Workout, WorkoutType, WorkoutBlock } from '../types'
 import type { Tables, Json } from '../types/database.types'
-import { calculatePMC } from '../lib/calculateMetrics'
+import { getWeekStart, getWeekEnd } from '../lib/dateUtils'
 import { localDateKey } from '../components/dashboard/utils'
+import * as selectors from '../lib/workoutSelectors'
+import type { FitnessMetrics, WeeklyLoadEntry, DailyLoadEntry, FitnessHistoryEntry } from '../lib/workoutSelectors'
 
 type WorkoutRow = Tables<'workouts'>
 
@@ -62,16 +64,6 @@ function serializeStructure(structure: WorkoutBlock[] | null | undefined): Json 
   return structure as unknown as Json
 }
 
-interface FitnessMetrics {
-  ctl: number
-  atl: number
-  tsb: number
-}
-
-type WeeklyLoadEntry = { week: string; tss: number; planned: number }
-type DailyLoadEntry = { day: string; tss: number; planned: number }
-type FitnessHistoryEntry = { week: string; fitness: number; fatigue: number; form: number }
-
 interface WorkoutsContextValue {
   workouts: Workout[]
   loading: boolean
@@ -110,10 +102,6 @@ function windowCutoffDateKey(): string {
 }
 
 const WorkoutsContext = createContext<WorkoutsContextValue | null>(null)
-
-function formatDateLabel(d: Date) {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-}
 
 // Per-`workouts`-identity memoization cache for the derived getters below. Each getter
 // computes fresh `today`/`now` values at call time (so results stay correct if the tab is
@@ -291,14 +279,8 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     const cached = cache.workoutsForWeek.get(todayKey)
     if (cached) return cached
     const now = new Date()
-    const day = now.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const start = new Date(now)
-    start.setDate(now.getDate() + diff)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(start)
-    end.setDate(start.getDate() + 6)
-    end.setHours(23, 59, 59, 999)
+    const start = getWeekStart(now)
+    const end = getWeekEnd(now)
     const result = workouts.filter(w => {
       const d = new Date(w.date + 'T00:00:00')
       return d >= start && d <= end
@@ -314,10 +296,9 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     if (cached) return cached
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    // windowStart = today (we only need `current`, not history)
-    const { current } = calculatePMC(workouts, today, today)
-    cache.fitnessMetrics.set(todayKey, current)
-    return current
+    const result = selectors.calculateFitnessMetrics(workouts, today)
+    cache.fitnessMetrics.set(todayKey, result)
+    return result
   }, [workouts])
 
   const getDailyWeekLoad = useCallback((): DailyLoadEntry[] => {
@@ -325,29 +306,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     const todayKey = localDateKey(new Date())
     const cached = cache.dailyWeekLoad.get(todayKey)
     if (cached) return cached
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    const now = new Date()
-    const day = now.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const monday = new Date(now)
-    monday.setDate(now.getDate() + diff)
-    monday.setHours(0, 0, 0, 0)
-    const result = days.map((d, i) => {
-      const date = new Date(monday)
-      date.setDate(monday.getDate() + i)
-      date.setHours(0, 0, 0, 0)
-      const dateEnd = new Date(date)
-      dateEnd.setHours(23, 59, 59, 999)
-      const dayWorkouts = workouts.filter(w => {
-        const wd = new Date(w.date + 'T00:00:00')
-        return wd >= date && wd <= dateEnd
-      })
-      return {
-        day: d,
-        tss: dayWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-        planned: dayWorkouts.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-      }
-    })
+    const result = selectors.getDailyWeekLoad(workouts, new Date())
     cache.dailyWeekLoad.set(todayKey, result)
     return result
   }, [workouts])
@@ -358,26 +317,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     const cacheKey = `${todayKey}:${weeks}`
     const cached = cache.weeklyLoadHistory.get(cacheKey)
     if (cached) return cached
-    const now = new Date()
-    const result = Array.from({ length: weeks }, (_, i) => {
-      const weekStart = new Date(now)
-      const day = weekStart.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      weekStart.setDate(now.getDate() + diff - (weeks - 1 - i) * 7)
-      weekStart.setHours(0, 0, 0, 0)
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekStart.getDate() + 6)
-      weekEnd.setHours(23, 59, 59, 999)
-      const ww = workouts.filter(w => {
-        const d = new Date(w.date + 'T00:00:00')
-        return d >= weekStart && d <= weekEnd
-      })
-      return {
-        week: formatDateLabel(weekStart),
-        tss: ww.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-        planned: ww.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-      }
-    })
+    const result = selectors.getWeeklyLoadHistory(workouts, new Date(), weeks)
     cache.weeklyLoadHistory.set(cacheKey, result)
     return result
   }, [workouts])
@@ -390,14 +330,7 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     if (cached) return cached
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const windowStart = new Date(today.getTime() - weeks * 7 * 86400000)
-    const { history } = calculatePMC(workouts, windowStart, today)
-    const result = history.map(d => ({
-      week: d.label,
-      fitness: d.ctl,
-      fatigue: d.atl,
-      form: d.tsb,
-    }))
+    const result = selectors.getFitnessHistory(workouts, today, weeks)
     cache.fitnessHistory.set(cacheKey, result)
     return result
   }, [workouts])

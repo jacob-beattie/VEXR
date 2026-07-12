@@ -7,6 +7,7 @@ import { ImportReviewScreen } from './ImportReviewScreen'
 import { mapEdgeSessions } from './shared'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useWorkouts } from '../../contexts/WorkoutsContext'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -56,6 +57,7 @@ interface ImportModalProps {
 
 export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
   const isMobile = useIsMobile()
+  const { refetchWorkouts } = useWorkouts()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [uploadTab, setUploadTab] = useState<'pdf' | 'html' | 'text'>('pdf')
   const [isDragging, setIsDragging] = useState(false)
@@ -294,6 +296,9 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
       if (calendarRows.length > 0) {
         const { error: workoutsError } = await supabase.from('workouts').insert(calendarRows)
         if (workoutsError) throw workoutsError
+        // Don't rely solely on the realtime subscription — refetch immediately so the
+        // Calendar/Dashboard reflect the import even if that channel is briefly disconnected.
+        await refetchWorkouts()
       }
 
       onImportSuccess?.(`Plan imported. ${parsedSessions.length} sessions added to your calendar.`)
