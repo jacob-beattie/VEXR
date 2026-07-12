@@ -192,6 +192,12 @@ npm run dev
 
 App runs at `http://localhost:5173`
 
+If you're using the local Supabase stack (§3a) and want one command that launches Docker Desktop
+(if it's not already running), starts the local stack, and starts the dev server, use
+`npm run dev:up` instead — `scripts/dev-up.sh`/`scripts/dev-down.sh` (macOS only). `npm run dev:down`
+stops the dev server, the local Supabase stack, and quits Docker Desktop, so nothing keeps using
+RAM/CPU in the background when you're done for the day.
+
 ---
 
 ## Testing

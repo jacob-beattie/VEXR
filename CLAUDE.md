@@ -99,6 +99,7 @@ docs/
   review/        — the repo audit this and other hardening passes work through (docs/review/*.md)
 .github/workflows/ci.yml — lint + typecheck + full test suite on every push/PR to main
 .env.example   — frontend env var template, safe to commit (copy to .env.local)
+scripts/dev-up.sh, dev-down.sh — macOS-only convenience scripts (npm run dev:up / dev:down) that start/stop Docker Desktop + the local Supabase stack + the Vite dev server together
 ```
 
 ## Database (Supabase)
