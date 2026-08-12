@@ -186,7 +186,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             textAlign: 'center',
             transition: 'background 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#0284c7')}
+          onMouseEnter={e => (e.currentTarget.style.background = COLORS.accentDark)}
           onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
         >
           + Log Workout

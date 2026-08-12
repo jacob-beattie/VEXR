@@ -214,8 +214,8 @@ export function SessionsList({
                 {s.showConflictColumn && wConflicts > 0 && (
                   <span style={{
                     marginLeft: 'auto', fontSize: 11,
-                    background: '#f59e0b18', color: COLORS.amber,
-                    border: '1px solid #f59e0b40', borderRadius: 6,
+                    background: COLORS.conflictAmber + '18', color: COLORS.amber,
+                    border: `1px solid ${COLORS.conflictAmber}40`, borderRadius: 6,
                     padding: '2px 8px', fontWeight: 700,
                   }}>
                     ⚠ {wConflicts} conflict{wConflicts !== 1 ? 's' : ''}
@@ -323,8 +323,8 @@ export function SessionsList({
                           {session.conflict && (
                             <span style={{
                               fontSize: 10, fontWeight: 700,
-                              background: '#f59e0b15', color: COLORS.amber,
-                              border: '1px solid #f59e0b35',
+                              background: COLORS.conflictAmber + '15', color: COLORS.amber,
+                              border: `1px solid ${COLORS.conflictAmber}35`,
                               borderRadius: 5, padding: '2px 7px',
                               fontFamily: 'DM Mono, monospace',
                             }}>conflict</span>

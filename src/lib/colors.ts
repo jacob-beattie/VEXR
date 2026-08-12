@@ -21,6 +21,9 @@ export const COLORS = {
   tipText: "#8b9eb0",
   restBlock: "#7b8fa6",
   heartRate: "#f87171",
+  conflictAmber: "#f59e0b",
+  accentDark: "#0284c7",
+  accentBright: "#00c8e0",
 }
 
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {

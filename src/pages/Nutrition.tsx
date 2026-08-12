@@ -626,7 +626,7 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
           <button
             onClick={handleSave}
             style={{ flex: 1, padding: '11px 0', background: COLORS.accent, border: 'none', borderRadius: 10, color: COLORS.white, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.accentBright)}
             onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
           >Save</button>
         </div>

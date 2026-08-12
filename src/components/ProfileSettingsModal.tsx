@@ -4,6 +4,7 @@ import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
 import { paceToSeconds, secsToPaceStr } from '../lib/tss'
 import { calcHRZoneBoundaries } from '../lib/zones'
+import { HR_ZONE_COLORS } from '../lib/analyticsDerivations'
 import type { Profile, FitnessBenchmark } from '../types'
 import type { Tables } from '../types/database.types'
 import { Button } from './ui/Button'
@@ -937,7 +938,6 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           {activeZoneTab === 'heart_rate' && (() => {
             const maxHrNum = parseInt(form.max_hr) || 0
             const hrZones = maxHrNum > 0 ? calcHRZones(maxHrNum) : []
-            const zoneColors = ['#4a9eff', COLORS.green, '#ffdd00', COLORS.orange, '#ff4757']
             return (
               <div>
                 <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 16 }}>
@@ -959,7 +959,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 {maxHrNum > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {hrZones.map((zone, i) => {
-                      const color = zoneColors[i]
+                      const color = HR_ZONE_COLORS[i]
                       return (
                         <div key={zone.zone_number} style={{
                           display: 'flex', alignItems: 'center', gap: 12,
