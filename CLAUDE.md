@@ -257,6 +257,15 @@ Apply these continuously while writing or modifying code — not just when expli
 - Confirm the change does only what was asked — no unrelated refactors bundled in silently.
 - If a change touches RLS policies, auth logic, or the ES256/`verify_jwt` pattern, call out the security implication explicitly rather than assuming it's fine.
 
+## Git Commit Conventions
+
+- **Atomic commits** — one logical change per commit; a commit should be revertible on its own without breaking anything else. Don't bundle unrelated fixes into one commit even if they were made in the same session — split by concern before committing.
+- **Subject line**: imperative mood, ~50 chars, no trailing period (e.g. "Fix rate limit bypass", not "Fixed" or "Fixes").
+- **Body explains why, not what** — the diff already shows what changed; the body should cover reasoning, constraints, and what was ruled out. Blank line after the subject.
+- **Every commit should leave the codebase in a working state** — tests pass, it builds, nothing left half-done. Run typecheck/lint/tests after each commit in a multi-commit sequence, not just at the end.
+- **Conventional prefixes** (`fix:`, `feat:`, `refactor:`, `chore:`, `docs:`, `test:`) are not currently used in this repo's history but are worth adopting for new commits — enables automated changelogs/semver later and is much easier to start now than retrofit.
+- **Squash noisy WIP commits before merging to main** — collapse typo-fix/WIP churn into one clean commit, but don't squash away legitimately separate changes just because they landed in the same session.
+
 ## Rules
 
 - Always use the existing COLORS object — never hardcode colors
