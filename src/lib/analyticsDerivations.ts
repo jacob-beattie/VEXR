@@ -1,5 +1,6 @@
 import { COLORS } from './colors'
 import { getWeekStart, getWeekEnd } from './dateUtils'
+import { paceToSeconds } from './tss'
 import type { Workout } from '../types'
 
 // Pure derivation functions for the Analytics deep-dive page, extracted out of
@@ -55,11 +56,8 @@ export function parseZone(zone: string | null | undefined): string {
 export function parsePaceToSecs(pace: string | null | undefined): number | null {
   if (!pace) return null
   const parts = pace.split(':')
-  if (parts.length !== 2) return null
-  const mins = parseInt(parts[0])
-  const secs = parseInt(parts[1])
-  if (isNaN(mins) || isNaN(secs)) return null
-  return mins * 60 + secs
+  if (parts.length !== 2 || isNaN(parseInt(parts[0])) || isNaN(parseInt(parts[1]))) return null
+  return paceToSeconds(pace)
 }
 
 export function getVolumeHistory(workouts: Workout[], weeks: number) {
