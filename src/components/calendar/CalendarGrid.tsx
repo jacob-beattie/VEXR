@@ -297,7 +297,7 @@ export function CalendarGrid({
             {calDays.map((day, i) => {
               const dayWorkouts = day ? (workoutsByDay[day] ?? []) : []
               if (!day) return <div key={i} style={{ borderRadius: 8, aspectRatio: '1' }} />
-              const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              const dayKey = localDateKey(new Date(year, month, day))
               return (
                 <DroppableCalendarDay
                   key={i}

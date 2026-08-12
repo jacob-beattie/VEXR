@@ -3,6 +3,7 @@ import { COLORS } from '../lib/colors'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../types/database.types'
+import { localDateKey } from '../components/dashboard/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,10 +79,6 @@ function dateFromOffset(offset: number): Date {
   const d = new Date()
   d.setDate(d.getDate() + offset)
   return d
-}
-
-function toDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // ─── Calorie Ring ─────────────────────────────────────────────────────────────
@@ -701,7 +698,7 @@ export function Nutrition() {
   const [staticReloadKey, setStaticReloadKey] = useState(0)
   const [dayReloadKey, setDayReloadKey] = useState(0)
 
-  const dateKey = toDateKey(dateFromOffset(dateOffset))
+  const dateKey = localDateKey(dateFromOffset(dateOffset))
 
   // Fetch targets + custom foods once
   useEffect(() => {

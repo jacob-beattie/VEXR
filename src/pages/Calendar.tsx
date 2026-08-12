@@ -9,6 +9,7 @@ import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import { COLORS } from '../lib/colors'
 import { getWeekStart } from '../lib/dateUtils'
+import { localDateKey } from '../components/dashboard/utils'
 import type { Workout } from '../types'
 
 export function Calendar() {
@@ -93,9 +94,7 @@ export function Calendar() {
     setShowBottomSheet(false)
   }
 
-  const logDate = selectedDate
-    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
-    : undefined
+  const logDate = selectedDate ? localDateKey(selectedDate) : undefined
 
   const summaryWeekStart = view === 'week' ? weekStart : getWeekStart(now)
 
@@ -105,7 +104,7 @@ export function Calendar() {
   useEffect(() => {
     if (hasFullHistory) return
     const visibleStart = view === 'month' ? new Date(year, month, 1) : weekStart
-    const visibleStartKey = `${visibleStart.getFullYear()}-${String(visibleStart.getMonth() + 1).padStart(2, '0')}-${String(visibleStart.getDate()).padStart(2, '0')}`
+    const visibleStartKey = localDateKey(visibleStart)
     if (visibleStartKey < historyWindowStart) {
       requestFullHistory()
     }
