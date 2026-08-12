@@ -463,7 +463,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
                   background: COLORS.orange,
                   border: 'none',
                   borderRadius: 8,
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 13, fontWeight: 700,
                   cursor: deleting ? 'not-allowed' : 'pointer',
                   opacity: deleting ? 0.7 : 1,

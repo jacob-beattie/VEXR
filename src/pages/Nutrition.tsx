@@ -262,7 +262,7 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
   const allFoods = [...builtinFoods, ...customFoods]
   const filtered = allFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 9)
   const { label, color } = MEAL_META[meal]
-  const btnTextColor = '#fff'
+  const btnTextColor = COLORS.white
   const canCreate = newName.trim() && newCal
 
   const handleCreate = async () => {
@@ -625,7 +625,7 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
           >Cancel</button>
           <button
             onClick={handleSave}
-            style={{ flex: 1, padding: '11px 0', background: COLORS.accent, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
+            style={{ flex: 1, padding: '11px 0', background: COLORS.accent, border: 'none', borderRadius: 10, color: COLORS.white, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
             onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
             onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
           >Save</button>

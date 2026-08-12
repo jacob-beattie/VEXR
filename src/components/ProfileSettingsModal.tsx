@@ -449,7 +449,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           onClick={() => setViewingAvatar(false)}
           style={{
             position: 'absolute', top: 20, right: 24,
-            background: 'none', border: 'none', color: '#fff',
+            background: 'none', border: 'none', color: COLORS.white,
             fontSize: 28, cursor: 'pointer', lineHeight: 1, padding: 4,
           }}
         >
@@ -528,7 +528,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   width: '100%', height: '100%',
                   background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 700, color: '#fff',
+                  fontSize: 22, fontWeight: 700, color: COLORS.white,
                 }}>
                   {form.name ? form.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                 </div>
@@ -539,7 +539,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   position: 'absolute', inset: 0, borderRadius: '50%',
                   background: 'rgba(0,0,0,0.55)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: uploadingAvatar ? 11 : 18, color: '#fff',
+                  fontSize: uploadingAvatar ? 11 : 18, color: COLORS.white,
                 }}>
                   {uploadingAvatar ? '...' : '✎'}
                 </div>
@@ -1078,7 +1078,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   background: COLORS.strava,
                   border: 'none',
                   borderRadius: 8,
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 13, fontWeight: 700,
                   padding: '10px 20px',
                   textDecoration: 'none',

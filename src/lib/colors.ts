@@ -16,6 +16,11 @@ export const COLORS = {
   amber: "#d97706",
   strava: "#FC4C02",
   danger: "#ef4444",
+  white: "#ffffff",
+  black: "#000000",
+  tipText: "#8b9eb0",
+  restBlock: "#7b8fa6",
+  heartRate: "#f87171",
 }
 
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {

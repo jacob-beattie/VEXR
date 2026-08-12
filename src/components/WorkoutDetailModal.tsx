@@ -21,7 +21,7 @@ const PHASE_META: Record<SessionPhase['type'], { color: string; label: string }>
   warmup:   { color: COLORS.green,   label: 'Warmup' },
   main:     { color: COLORS.orange,  label: 'Main Set' },
   cooldown: { color: COLORS.muted,   label: 'Cooldown' },
-  tip:      { color: '#8b9eb0',      label: 'Tip' },
+  tip:      { color: COLORS.tipText, label: 'Tip' },
 }
 
 function extractMinutes(text: string): number {
@@ -131,7 +131,7 @@ function SessionPlanVisual({ phases, totalDuration }: { phases: SessionPhase[]; 
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
   interval: COLORS.accent,
-  rest: '#7b8fa6',
+  rest: COLORS.restBlock,
   cooldown: COLORS.green,
 }
 
@@ -335,7 +335,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
     statCards.push({ label: 'Avg Power', value: String(workout.avg_power), unit: 'w', color: COLORS.accent })
   }
   if (workout.heart_rate_avg && workout.heart_rate_avg > 0) {
-    statCards.push({ label: 'Avg HR', value: String(workout.heart_rate_avg), unit: 'bpm', color: '#f87171' })
+    statCards.push({ label: 'Avg HR', value: String(workout.heart_rate_avg), unit: 'bpm', color: COLORS.heartRate })
   }
   if (workout.heart_rate_max && workout.heart_rate_max > 0) {
     statCards.push({ label: 'Max HR', value: String(workout.heart_rate_max), unit: 'bpm', color: COLORS.orange })
@@ -649,7 +649,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                     position: 'absolute', top: 3,
                     left: form.planned ? 21 : 3,
                     width: 16, height: 16, borderRadius: '50%',
-                    background: '#fff', transition: 'left 0.2s',
+                    background: COLORS.white, transition: 'left 0.2s',
                   }} />
                 </button>
                 <span style={{ fontSize: 13, color: COLORS.muted }}>Planned (not yet completed)</span>

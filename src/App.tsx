@@ -60,7 +60,7 @@ function AICoachErrorFallback() {
       <button
         onClick={() => window.location.reload()}
         style={{
-          background: COLORS.accent, color: '#000', border: 'none', borderRadius: 8,
+          background: COLORS.accent, color: COLORS.black, border: 'none', borderRadius: 8,
           padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         }}
       >
@@ -320,7 +320,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             borderRadius: '50%',
             background: COLORS.accent,
             border: 'none',
-            color: '#fff',
+            color: COLORS.white,
             fontSize: 24,
             fontWeight: 400,
             display: 'flex',
