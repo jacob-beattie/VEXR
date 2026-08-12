@@ -38,7 +38,7 @@ The project has a Supabase MCP server configured in `.mcp.json` (project ref: `f
 
 ## Design System
 
-- Dark theme only, no light mode
+- Light theme only, no dark mode (has been since the initial commit — `COLORS.bg`/`surface`/`card`/`text` are all light values; no theme-switching logic exists anywhere in the app)
 - Colors: `src/lib/colors.ts` — always import COLORS from here, never hardcode hex values
 - Fonts: Inter for body, DM Mono for numbers/stats
 - Border radius: 8–16px depending on context (cards = 12–16px, inputs = 8px, badges = 6px)
