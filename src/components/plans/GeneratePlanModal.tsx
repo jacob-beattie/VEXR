@@ -126,7 +126,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
     Promise.all([animDone, apiCall])
       .then(([, sessions]) => {
         if (!cancelled) {
-          setParsedSessions(sessions as ParsedSession[])
+          setParsedSessions((sessions as ParsedSession[]).filter(s => s.sport !== 'rest'))
           setStep(3)
         }
       })
@@ -248,11 +248,11 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
       if (planError) throw planError
 
       const { error: sessionsError } = await supabase.from('training_sessions').insert(
-        parsedSessions.map(s => ({
+        parsedSessions.filter(s => s.sport !== 'rest').map(s => ({
           user_id: user.id,
           plan_id: plan.id,
           week_number: s.week,
-          sport: s.sport === 'rest' ? 'other' : s.sport,
+          sport: s.sport,
           title: s.title,
           scheduled_date: s.scheduledDate ?? null,
           duration_min: parseInt(s.dur) || null,
@@ -287,7 +287,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
         await refetchWorkouts()
       }
 
-      onSuccess(`Plan generated. ${parsedSessions.length} sessions added to your calendar.`)
+      onSuccess(`Plan generated. ${parsedSessions.filter(s => s.sport !== 'rest').length} sessions added to your calendar.`)
       onClose()
     } catch (err) {
       const msg =
