@@ -26,6 +26,16 @@ export const COLORS = {
   accentBright: "#12a34a",
 }
 
+// Canonical CTL/ATL/TSB colors — the PMC (fitness/fatigue/form) triad shown together
+// on FitnessAreaChart and referenced anywhere else the same three metrics appear
+// (e.g. the Landing page's dashboard preview), so the palette never drifts between them.
+// Validated colorblind-safe as an all-pairs set (lines can cross and sit adjacent anywhere).
+export const PMC_COLORS = {
+  ctl: "#0a6fd1",
+  atl: "#c98a12",
+  tsb: "#0a9a94",
+}
+
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {
   swim:     "#0a6fd1",
   ride:     "#9330a8",
