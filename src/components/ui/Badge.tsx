@@ -1,5 +1,6 @@
 import type { WorkoutType } from '../../types'
 import { SPORT_COLORS, WORKOUT_TYPE_TINTS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 
 const LABELS: Record<WorkoutType, string> = {
   run: 'Run', ride: 'Ride', swim: 'Swim', strength: 'Strength', rest: 'Rest',
@@ -36,7 +37,7 @@ export function Badge({ type }: BadgeProps) {
       color: w.color,
       background: w.bg,
       border: `1px solid ${w.border}`,
-      borderRadius: 4,
+      borderRadius: RADIUS.chip,
       padding: '2px 7px',
     }}>
       {w.label}
