@@ -26,16 +26,22 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [filter, setFilter] = useState<WorkoutType | 'all'>('all')
+  const [actionError, setActionError] = useState('')
 
   const filtered = filter === 'all' ? items : items.filter(i => i.type === filter)
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
+    setActionError('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await supabase.from('workout_library').insert({ ...form, user_id: user.id })
+      const { error } = await supabase.from('workout_library').insert({ ...form, user_id: user.id })
+      if (error) {
+        setActionError('Failed to save workout. Please try again.')
+        return
+      }
       setShowForm(false)
       setForm(emptyForm)
       onRefresh()
@@ -45,7 +51,12 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
   }
 
   const handleDelete = async (id: string) => {
-    await supabase.from('workout_library').delete().eq('id', id)
+    setActionError('')
+    const { error } = await supabase.from('workout_library').delete().eq('id', id)
+    if (error) {
+      setActionError('Failed to delete workout. Please try again.')
+      return
+    }
     onRefresh()
   }
 
@@ -63,6 +74,12 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {actionError && (
+        <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+          {actionError}
+        </div>
+      )}
 
       {/* Filter strip — scrollable on mobile */}
       <div style={{
@@ -228,7 +245,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
             borderRadius: '50%',
             background: showForm ? COLORS.surface : COLORS.accent,
             border: showForm ? `1px solid ${COLORS.border}` : 'none',
-            color: showForm ? COLORS.muted : '#fff',
+            color: showForm ? COLORS.muted : COLORS.white,
             fontSize: 26,
             fontWeight: 300,
             display: 'flex',

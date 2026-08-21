@@ -19,6 +19,9 @@ vi.mock('../../../lib/supabase', () => ({
   },
 }))
 
+const mockUseWorkouts = vi.hoisted(() => vi.fn())
+vi.mock('../../../contexts/WorkoutsContext', () => ({ useWorkouts: mockUseWorkouts }))
+
 const basePlan: TrainingPlan = {
   id: 'plan-1',
   user_id: 'user-1',
@@ -58,6 +61,7 @@ function makeSelectChain(data: unknown, error: unknown = null) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockFrom.mockReturnValue(makeSelectChain([]))
+  mockUseWorkouts.mockReturnValue({ refetchWorkouts: vi.fn() })
 })
 
 describe('PlanCard — rendering', () => {
@@ -137,6 +141,47 @@ describe('PlanCard — delete confirmation', () => {
 
     await waitFor(() => expect(mockOnRefresh).toHaveBeenCalled())
     expect(mockOnToast).toHaveBeenCalledWith(expect.stringContaining('deleted'))
+  })
+
+  it('refetches workouts after deleting a plan with scheduled sessions (F1: does not rely solely on realtime)', async () => {
+    const mockRefetchWorkouts = vi.fn()
+    mockUseWorkouts.mockReturnValue({ refetchWorkouts: mockRefetchWorkouts })
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'training_sessions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          not: vi.fn().mockResolvedValue({ data: [{ scheduled_date: '2025-01-01' }], error: null }),
+        }
+      }
+      if (table === 'workouts') {
+        return {
+          delete: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                in: vi.fn().mockResolvedValue({ error: null }),
+              }),
+            }),
+          }),
+        }
+      }
+      // training_plans
+      return {
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      }
+    })
+
+    render(<PlanCard plan={basePlan} onRefresh={mockOnRefresh} onToast={mockOnToast} />)
+    await userEvent.click(screen.getByText('⋯'))
+    await userEvent.click(screen.getByText('Delete'))
+    await userEvent.click(screen.getByRole('button', { name: /delete plan/i }))
+
+    await waitFor(() => expect(mockRefetchWorkouts).toHaveBeenCalled())
   })
 })
 

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
+import { formatDuration } from '../dashboard/utils'
 import type { Workout } from '../../types'
 
 interface DayBottomSheetProps {
@@ -16,15 +17,6 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const DAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '—'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
 
 export function DayBottomSheet({ date, workouts, onSelectWorkout, onAddWorkout, onClose }: DayBottomSheetProps) {
   useEffect(() => {

@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
+import { paceToSeconds, secsToPaceStr } from '../lib/tss'
+import { calcHRZoneBoundaries } from '../lib/zones'
+import { HR_ZONE_COLORS } from '../lib/analyticsDerivations'
 import type { Profile, FitnessBenchmark } from '../types'
+import type { Tables } from '../types/database.types'
 import { Button } from './ui/Button'
 import { useStrava } from '../contexts/StravaContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -24,6 +28,19 @@ const CYCLING_ZONE_DEFS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// fitness_benchmarks.metric has no DB check constraint, so the column is real `string` at
+// the schema level — narrowing to the app's literal union is only as safe as the write path
+// (this modal only ever writes 'ftp'/'pace'/'css') staying disciplined.
+function mapFitnessBenchmarkRow(row: Tables<'fitness_benchmarks'>): FitnessBenchmark {
+  return {
+    id: row.id,
+    user_id: row.user_id ?? '',
+    metric: row.metric as FitnessBenchmark['metric'],
+    value: row.value,
+    recorded_at: row.recorded_at ?? '',
+  }
+}
+
 function calcCyclingZones(ftp: number) {
   return CYCLING_ZONE_DEFS.map(z => ({
     zone_number: z.zone_number,
@@ -33,53 +50,37 @@ function calcCyclingZones(ftp: number) {
   }))
 }
 
+const HR_ZONE_NAMES = ['Recovery', 'Aerobic', 'Tempo', 'Threshold', 'Max']
+
 function calcHRZones(maxHrVal: number) {
-  const z1Max = Math.round(maxHrVal * 0.65)
-  const z2Max = Math.round(maxHrVal * 0.75)
-  const z3Max = Math.round(maxHrVal * 0.82)
-  const z4Max = Math.round(maxHrVal * 0.89)
-  return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: '0',              max_value: String(z1Max) },
-    { zone_number: 2, zone_name: 'Aerobic',    min_value: String(z1Max + 1), max_value: String(z2Max) },
-    { zone_number: 3, zone_name: 'Tempo',      min_value: String(z2Max + 1), max_value: String(z3Max) },
-    { zone_number: 4, zone_name: 'Threshold',  min_value: String(z3Max + 1), max_value: String(z4Max) },
-    { zone_number: 5, zone_name: 'Max',        min_value: String(z4Max + 1), max_value: '' },
-  ]
-}
-
-function paceToSeconds(pace: string): number | null {
-  if (!pace || !pace.includes(':')) return null
-  const [min, sec] = pace.split(':').map(Number)
-  if (isNaN(min) || isNaN(sec)) return null
-  return min * 60 + sec
-}
-
-function secondsToPace(seconds: number): string {
-  const min = Math.floor(seconds / 60)
-  const sec = Math.round(seconds % 60)
-  return `${min}:${String(sec).padStart(2, '0')}`
+  return calcHRZoneBoundaries(maxHrVal).map((b, i) => ({
+    zone_number: i + 1,
+    zone_name: HR_ZONE_NAMES[i],
+    min_value: String(b.min),
+    max_value: b.max !== null ? String(b.max) : '',
+  }))
 }
 
 function calcRunningZones(runPace: string) {
-  const T = paceToSeconds(runPace)
+  const T = paceToSeconds(runPace) || null
   if (!T) return null
   return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.25), max_value: '' },
-    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.10), max_value: secondsToPace(T * 1.25) },
-    { zone_number: 3, zone_name: 'Tempo',     min_value: secondsToPace(T * 1.02), max_value: secondsToPace(T * 1.10) },
-    { zone_number: 4, zone_name: 'Threshold', min_value: secondsToPace(T * 0.97), max_value: secondsToPace(T * 1.02) },
-    { zone_number: 5, zone_name: 'VO2 Max',   min_value: '',                      max_value: secondsToPace(T * 0.97) },
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secsToPaceStr(T * 1.25), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secsToPaceStr(T * 1.10), max_value: secsToPaceStr(T * 1.25) },
+    { zone_number: 3, zone_name: 'Tempo',     min_value: secsToPaceStr(T * 1.02), max_value: secsToPaceStr(T * 1.10) },
+    { zone_number: 4, zone_name: 'Threshold', min_value: secsToPaceStr(T * 0.97), max_value: secsToPaceStr(T * 1.02) },
+    { zone_number: 5, zone_name: 'VO2 Max',   min_value: '',                      max_value: secsToPaceStr(T * 0.97) },
   ]
 }
 
 function calcSwimmingZones(css: string) {
-  const T = paceToSeconds(css)
+  const T = paceToSeconds(css) || null
   if (!T) return null
   return [
-    { zone_number: 1, zone_name: 'Recovery',  min_value: secondsToPace(T * 1.20), max_value: '' },
-    { zone_number: 2, zone_name: 'Aerobic',   min_value: secondsToPace(T * 1.05), max_value: secondsToPace(T * 1.20) },
-    { zone_number: 3, zone_name: 'Threshold', min_value: secondsToPace(T * 0.95), max_value: secondsToPace(T * 1.05) },
-    { zone_number: 4, zone_name: 'Speed',     min_value: '',                      max_value: secondsToPace(T * 0.95) },
+    { zone_number: 1, zone_name: 'Recovery',  min_value: secsToPaceStr(T * 1.20), max_value: '' },
+    { zone_number: 2, zone_name: 'Aerobic',   min_value: secsToPaceStr(T * 1.05), max_value: secsToPaceStr(T * 1.20) },
+    { zone_number: 3, zone_name: 'Threshold', min_value: secsToPaceStr(T * 0.95), max_value: secsToPaceStr(T * 1.05) },
+    { zone_number: 4, zone_name: 'Speed',     min_value: '',                      max_value: secsToPaceStr(T * 0.95) },
   ]
 }
 
@@ -204,6 +205,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [loadingData, setLoadingData] = useState(true)
+  const [dataError, setDataError] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url ?? null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -211,25 +213,28 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const [viewingAvatar, setViewingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoadingData(true)
+    setDataError(false)
 
-    const { data: bData } = await supabase
+    const { data: bData, error: bError } = await supabase
       .from('fitness_benchmarks')
       .select('*')
       .eq('user_id', user.id)
       .order('recorded_at', { ascending: true })
 
-    if (bData) setBenchmarks(bData as FitnessBenchmark[])
-
-
+    if (bError) {
+      setDataError(true)
+    } else if (bData) {
+      setBenchmarks(bData.map(mapFitnessBenchmarkRow))
+    }
 
     setLoadingData(false)
-  }
+  }, [user.id])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function handleAvatarUpload(file: File) {
     setUploadingAvatar(true)
@@ -369,7 +374,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     .filter(b => b.metric === 'pace')
     .map(b => ({
       date: new Date(b.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      value: paceToSeconds(b.value) ?? 0,
+      value: paceToSeconds(b.value),
       paceLabel: b.value,
     }))
 
@@ -377,7 +382,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
     .filter(b => b.metric === 'css')
     .map(b => ({
       date: new Date(b.recorded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      value: paceToSeconds(b.value) ?? 0,
+      value: paceToSeconds(b.value),
       paceLabel: b.value,
     }))
 
@@ -445,7 +450,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           onClick={() => setViewingAvatar(false)}
           style={{
             position: 'absolute', top: 20, right: 24,
-            background: 'none', border: 'none', color: '#fff',
+            background: 'none', border: 'none', color: COLORS.white,
             fontSize: 28, cursor: 'pointer', lineHeight: 1, padding: 4,
           }}
         >
@@ -524,7 +529,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   width: '100%', height: '100%',
                   background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 700, color: '#fff',
+                  fontSize: 22, fontWeight: 700, color: COLORS.white,
                 }}>
                   {form.name ? form.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                 </div>
@@ -535,7 +540,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   position: 'absolute', inset: 0, borderRadius: '50%',
                   background: 'rgba(0,0,0,0.55)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: uploadingAvatar ? 11 : 18, color: '#fff',
+                  fontSize: uploadingAvatar ? 11 : 18, color: COLORS.white,
                 }}>
                   {uploadingAvatar ? '...' : '✎'}
                 </div>
@@ -677,6 +682,16 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           <div style={sectionLabelStyle}>Benchmark History</div>
           {loadingData ? (
             <div style={{ color: COLORS.muted, fontSize: 13, padding: '16px 0' }}>Loading…</div>
+          ) : dataError ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, color: COLORS.orange, fontSize: 13, padding: '16px 0' }}>
+              <span>Failed to load benchmark history.</span>
+              <button
+                onClick={loadData}
+                style={{ background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6, color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 16 }}>
               <BenchmarkSparkline
@@ -923,7 +938,6 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           {activeZoneTab === 'heart_rate' && (() => {
             const maxHrNum = parseInt(form.max_hr) || 0
             const hrZones = maxHrNum > 0 ? calcHRZones(maxHrNum) : []
-            const zoneColors = ['#4a9eff', COLORS.green, '#ffdd00', COLORS.orange, '#ff4757']
             return (
               <div>
                 <div style={{ fontSize: 11, color: COLORS.muted, marginBottom: 16 }}>
@@ -945,7 +959,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                 {maxHrNum > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {hrZones.map((zone, i) => {
-                      const color = zoneColors[i]
+                      const color = HR_ZONE_COLORS[i]
                       return (
                         <div key={zone.zone_number} style={{
                           display: 'flex', alignItems: 'center', gap: 12,
@@ -1064,7 +1078,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                   background: COLORS.strava,
                   border: 'none',
                   borderRadius: 8,
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 13, fontWeight: 700,
                   padding: '10px 20px',
                   textDecoration: 'none',

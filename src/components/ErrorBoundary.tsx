@@ -1,8 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { COLORS } from '../lib/colors'
+import { captureError } from '../lib/sentry'
 
 interface Props {
   children: ReactNode
+  // Compact, in-layout fallback for a boundary scoped to one feature/route (sidebar/topbar
+  // stay mounted around it) — omit to get the full-viewport fallback used at the app root.
+  fallback?: ReactNode
 }
 
 interface State {
@@ -18,10 +22,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary] Uncaught error:', error, info.componentStack)
+    captureError(error, { componentStack: info.componentStack })
   }
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback
+
       return (
         <div style={{
           minHeight: '100vh',
@@ -52,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               style={{
                 background: COLORS.accent,
-                color: '#000',
+                color: COLORS.black,
                 border: 'none',
                 borderRadius: 8,
                 padding: '12px 24px',

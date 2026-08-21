@@ -223,7 +223,7 @@ export function Landing() {
           <button
             onClick={() => navigate('/login')}
             style={{
-              fontSize: 13, fontWeight: 700, color: '#fff',
+              fontSize: 13, fontWeight: 700, color: COLORS.white,
               background: COLORS.accent,
               border: 'none',
               borderRadius: 8,
@@ -286,7 +286,7 @@ export function Landing() {
             onClick={() => navigate('/login')}
             style={{
               padding: '11px 26px', fontSize: 14, fontWeight: 700,
-              background: COLORS.accent, color: '#fff',
+              background: COLORS.accent, color: COLORS.white,
               border: 'none', borderRadius: 9, cursor: 'pointer',
             }}
           >
@@ -451,7 +451,7 @@ export function Landing() {
             onClick={() => navigate('/signup')}
             style={{
               padding: '11px 30px', fontSize: 14, fontWeight: 700,
-              background: COLORS.accent, color: '#fff',
+              background: COLORS.accent, color: COLORS.white,
               border: 'none', borderRadius: 9, cursor: 'pointer',
             }}
           >

@@ -5,6 +5,11 @@ import type { Workout } from '../types'
 const CTL_K = 1 - Math.exp(-1 / 42)  // 42-day time constant (Fitness)
 const ATL_K = 1 - Math.exp(-1 / 7)   // 7-day time constant  (Fatigue)
 
+// Only the fields the PMC engine actually reads. Narrower than `Workout` so that a
+// partial row (e.g. an edge function's `select('date, tss, planned, ...')` query,
+// which doesn't fetch every Workout column) satisfies this type without a cast.
+type PMCWorkout = Pick<Workout, 'date' | 'tss' | 'planned'>
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface DayMetrics {
@@ -32,7 +37,7 @@ function localDateKey(d: Date): string {
  * Build a YYYY-MM-DD → TSS map from actual (non-planned) workouts only.
  * Multiple workouts on the same day are summed.
  */
-export function buildTssByDay(workouts: Workout[]): Record<string, number> {
+export function buildTssByDay(workouts: PMCWorkout[]): Record<string, number> {
   const map: Record<string, number> = {}
   for (const w of workouts) {
     if (w.planned) continue  // planned workouts don't count as actual load
@@ -105,7 +110,7 @@ function runPMC(
  * @param today  End date (inclusive) — pass midnight-normalised Date for today
  */
 export function calculatePMC(
-  workouts: Workout[],
+  workouts: PMCWorkout[],
   windowStart: Date,
   today: Date,
 ): { current: FitnessSnapshot; history: DayMetrics[] } {

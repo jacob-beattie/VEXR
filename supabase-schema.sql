@@ -31,24 +31,19 @@ create table workouts (
 );
 
 -- Strava OAuth connections (one row per user)
--- Run this if the table doesn't already exist:
--- create table strava_connections (
---   id uuid default gen_random_uuid() primary key,
---   user_id uuid references profiles(id) on delete cascade unique,
---   access_token text not null,
---   refresh_token text not null,
---   expires_at bigint not null,
---   athlete_id bigint not null,
---   athlete_name text,
---   updated_at timestamp with time zone default now()
--- );
+create table strava_connections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade unique,
+  access_token text not null,
+  refresh_token text not null,
+  expires_at bigint not null,
+  athlete_id bigint not null,
+  athlete_name text,
+  updated_at timestamp with time zone default now()
+);
 
--- Add athlete_name if the table exists but the column doesn't:
--- alter table strava_connections add column if not exists athlete_name text;
-
--- RLS for strava_connections:
--- alter table strava_connections enable row level security;
--- create policy "Users can manage own strava connection" on strava_connections for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+alter table strava_connections enable row level security;
+create policy "Users can manage own strava connection" on strava_connections for all using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Training Plans
 create table training_plans (
@@ -179,6 +174,13 @@ alter table training_sessions
     references training_plans(id)
     on delete cascade;
 
+-- Strava-synced workout fields: strava-sync writes these on every synced activity.
+alter table workouts add column if not exists distance_meters integer;
+alter table workouts add column if not exists calories        integer;
+alter table workouts add column if not exists elevation_gain  integer;
+alter table workouts add column if not exists avg_power       integer;
+alter table workouts add column if not exists avg_pace        text;
+
 -- ─── Nutrition ────────────────────────────────────────────────────────────────
 
 -- Daily food logs
@@ -283,8 +285,97 @@ create table if not exists api_rate_limits (
 );
 create index if not exists idx_api_rate_limits on api_rate_limits(user_id, function_name, called_at);
 alter table api_rate_limits enable row level security;
-create policy "Users can manage own rate limits" on api_rate_limits
-  for all using ((select auth.uid()) = user_id);
+-- No policies: this is a rate-limit ledger, not user-owned data — the whole point is that it
+-- constrains the user, so they must not be able to read/insert/update/delete it directly via the
+-- anon-key client (RLS enabled + zero policies = deny-all for anon/authenticated). Edge functions
+-- read/write it via a scoped service-role client instead (see checkRateLimit() in
+-- supabase/functions/_shared/rateLimit.ts).
+
+-- Atomic check-and-increment, called via RPC from checkRateLimit(). A plain select-count-then-
+-- insert from JS is two round trips with no transaction, so concurrent requests from the same
+-- user could all read the same under-limit count before any of them inserted, letting all of
+-- them through. This function does the check and insert inside one statement/transaction,
+-- serialized by a per-(user_id, function_name) advisory lock, so only one caller wins the race.
+create or replace function check_and_increment_rate_limit(
+  p_user_id uuid,
+  p_function_name text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_window_start timestamptz := now() - (p_window_seconds || ' seconds')::interval;
+  v_count integer;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text || ':' || p_function_name));
+
+  select count(*) into v_count
+  from api_rate_limits
+  where user_id = p_user_id
+    and function_name = p_function_name
+    and called_at >= v_window_start;
+
+  if v_count >= p_limit then
+    return false;
+  end if;
+
+  insert into api_rate_limits (user_id, function_name) values (p_user_id, p_function_name);
+  return true;
+end;
+$$;
+
+-- `revoke ... from public` alone is NOT sufficient on this project: Supabase's default
+-- privileges grant EXECUTE on every new public-schema function directly to `anon` and
+-- `authenticated` (not via the PUBLIC pseudo-role), so both roles could otherwise call this
+-- SECURITY DEFINER function directly via PostgREST (/rest/v1/rpc/check_and_increment_rate_limit)
+-- and bypass RLS to insert arbitrary api_rate_limits rows for any user_id — confirmed via
+-- `set role anon; select check_and_increment_rate_limit(...)` succeeding before the explicit
+-- revoke below was added. Must revoke from anon/authenticated explicitly, not just public.
+revoke all on function check_and_increment_rate_limit(uuid, text, integer, integer) from public;
+revoke execute on function check_and_increment_rate_limit(uuid, text, integer, integer) from anon, authenticated;
+grant execute on function check_and_increment_rate_limit(uuid, text, integer, integer) to service_role;
+
+-- Refunds a rate-limit reservation checkRateLimit() made when the underlying Claude call
+-- subsequently failed to produce a usable result (network error, timeout, non-2xx, or
+-- malformed output) — called from releaseRateLimit() in supabase/functions/_shared/rateLimit.ts.
+-- Without this, an Anthropic-side failure still burns one of the user's hourly requests,
+-- compounding an outage with Vexr's own rate limit. Deletes the single most-recent reservation
+-- for this (user_id, function_name) pair, serialized by the same advisory lock
+-- check_and_increment_rate_limit uses, so a concurrent legitimate insert can't be deleted out
+-- from under it mid-check.
+create or replace function release_rate_limit_slot(
+  p_user_id uuid,
+  p_function_name text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text || ':' || p_function_name));
+
+  delete from api_rate_limits
+  where id = (
+    select id from api_rate_limits
+    where user_id = p_user_id
+      and function_name = p_function_name
+    order by called_at desc
+    limit 1
+  );
+end;
+$$;
+
+-- Same anon/authenticated-default-privilege gap as check_and_increment_rate_limit above — a
+-- caller reachable via PostgREST could otherwise delete arbitrary users' rate-limit rows
+-- directly (including their own, defeating the rate limit entirely). Revoke explicitly.
+revoke all on function release_rate_limit_slot(uuid, text) from public;
+revoke execute on function release_rate_limit_slot(uuid, text) from anon, authenticated;
+grant execute on function release_rate_limit_slot(uuid, text) to service_role;
 
 -- ── Performance indexes ───────────────────────────────────────────────────────
 -- Composite (user_id, date) covers both user-only and date-range queries
@@ -299,8 +390,6 @@ create index if not exists idx_training_zones_user_id    on training_zones(user_
 -- Composite (user_id, date) for nutrition_logs: date-scoped meal lookups
 create index if not exists idx_nutrition_logs_user_date  on nutrition_logs(user_id, date);
 create index if not exists idx_nutrition_custom_foods_user_id on nutrition_custom_foods(user_id);
-create index if not exists idx_ai_briefings_user_id on ai_briefings(user_id);
-create index if not exists idx_goals_user_id on goals(user_id);
 
 -- ── AI Briefings ──────────────────────────────────────────────────────────────
 create table if not exists ai_briefings (
@@ -312,6 +401,7 @@ create table if not exists ai_briefings (
 alter table ai_briefings enable row level security;
 create policy "Users can manage own briefings" on ai_briefings
   for all using ((select auth.uid()) = user_id);
+create index if not exists idx_ai_briefings_user_id on ai_briefings(user_id);
 
 -- ── Season Goals ──────────────────────────────────────────────────────────────
 create table if not exists goals (
@@ -324,16 +414,29 @@ create table if not exists goals (
 alter table goals enable row level security;
 create policy "Users can manage own goals" on goals
   for all using ((select auth.uid()) = user_id);
+create index if not exists idx_goals_user_id on goals(user_id);
+
+-- ── Onboarding & profile fields added out-of-band ─────────────────────────────
+-- Backported: applied directly via mcp__supabase__apply_migration and never reflected here —
+-- see CLAUDE.md's project rule that schema changes must also land in this file.
+alter table profiles add column if not exists onboarding_completed boolean default false;
+alter table profiles add column if not exists max_hr integer;
 
 -- ── Profile avatar ────────────────────────────────────────────────────────────
 alter table profiles add column if not exists avatar_url text;
 
--- Storage bucket for profile avatars (run once in Supabase dashboard or via migration)
--- insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
---   on conflict (id) do nothing;
--- create policy "Users can upload their own avatar" on storage.objects
---   for insert with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
--- create policy "Users can update their own avatar" on storage.objects
---   for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
--- create policy "Avatars are publicly readable" on storage.objects
---   for select using (bucket_id = 'avatars');
+-- Storage bucket for profile avatars
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+  on conflict (id) do nothing;
+-- Filenames are stored as "<user_id>.<ext>" (no folder prefix), so ownership is checked via
+-- split_part(name, '.', 1) rather than storage.foldername(name) (which splits on "/" and would
+-- never match a flat filename).
+create policy "Users can upload their own avatar" on storage.objects
+  for insert with check (bucket_id = 'avatars' and auth.uid()::text = split_part(name, '.', 1));
+create policy "Users can update their own avatar" on storage.objects
+  for update using (bucket_id = 'avatars' and auth.uid()::text = split_part(name, '.', 1));
+-- No SELECT policy: the bucket is public, so GET-by-known-filename already works via the
+-- public object URL (/storage/v1/object/public/avatars/<name>), which bypasses RLS entirely.
+-- A broad `for select using (bucket_id = 'avatars')` policy is not needed for that and only
+-- adds the ability to list/enumerate every filename in the bucket via the Storage API — removed
+-- per Supabase security advisor (public_bucket_allows_listing).

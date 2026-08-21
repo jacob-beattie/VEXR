@@ -1,26 +1,14 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { COLORS } from '../../lib/colors'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
 import { calculatePMC } from '../../lib/calculateMetrics'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { localDateKey, formatDuration } from '../dashboard/utils'
 
 interface WeeklySummaryProps {
   workouts: Workout[]
   weekStart: Date
-}
-
-function localDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return '0m'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
 }
 
 export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
@@ -36,6 +24,20 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
       d.setDate(weekStart.getDate() + i)
       return localDateKey(d)
     })
+  )
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const fitnessDate = new Date(weekEnd < today ? weekEnd : today)
+  fitnessDate.setHours(0, 0, 0, 0)
+  const fitnessDateKey = fitnessDate.getTime()
+  // Calendar re-renders this on every unrelated state change (modal open/close, day
+  // selection) with the same `workouts` reference and week — memoize so calculatePMC's full
+  // day-loop over the whole history only reruns when the inputs actually change. Computed
+  // (and hooked) before the early-return below so hook call order stays unconditional.
+  const { current: fitness } = useMemo(
+    () => calculatePMC(workouts, fitnessDate, fitnessDate),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workouts, fitnessDateKey]
   )
 
   const weekWorkouts = workouts.filter(w => weekKeys.has(w.date.split('T')[0]))
@@ -61,10 +63,6 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
     }
   }).filter(s => s.count > 0)
 
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const fitnessDate = new Date(weekEnd < today ? weekEnd : today)
-  fitnessDate.setHours(0, 0, 0, 0)
-  const { current: fitness } = calculatePMC(workouts, fitnessDate, fitnessDate)
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
 
   const tsbColor = fitness.tsb > 0 ? COLORS.green : fitness.tsb > -10 ? COLORS.orange : COLORS.danger

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { COLORS } from '../lib/colors'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
+import type { Tables } from '../types/database.types'
+import { localDateKey } from '../components/dashboard/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,16 +49,36 @@ const DEFAULT_TARGETS: NutritionTargets = {
   fat_target: 85,
 }
 
+function mapNutritionTargetsRow(row: Tables<'nutrition_targets'>): NutritionTargets {
+  return {
+    calorie_target: row.calorie_target ?? DEFAULT_TARGETS.calorie_target,
+    protein_target: row.protein_target ?? DEFAULT_TARGETS.protein_target,
+    carbs_target: row.carbs_target ?? DEFAULT_TARGETS.carbs_target,
+    fat_target: row.fat_target ?? DEFAULT_TARGETS.fat_target,
+  }
+}
+
+// nutrition_logs.meal has no DB check constraint, so the column is real `string` at the
+// schema level — narrowing to MealKey here is only as safe as the insert path (handleAddFood
+// below) staying disciplined about only writing the four valid meal keys.
+function mapNutritionLogRow(row: Tables<'nutrition_logs'>): FoodEntry & { meal: MealKey } {
+  return {
+    id: row.id,
+    food_name: row.food_name,
+    calories: row.calories,
+    protein: row.protein,
+    carbs: row.carbs,
+    fat: row.fat,
+    meal: row.meal as MealKey,
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dateFromOffset(offset: number): Date {
   const d = new Date()
   d.setDate(d.getDate() + offset)
   return d
-}
-
-function toDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // ─── Calorie Ring ─────────────────────────────────────────────────────────────
@@ -240,7 +262,7 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
   const allFoods = [...builtinFoods, ...customFoods]
   const filtered = allFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 9)
   const { label, color } = MEAL_META[meal]
-  const btnTextColor = '#fff'
+  const btnTextColor = COLORS.white
   const canCreate = newName.trim() && newCal
 
   const handleCreate = async () => {
@@ -603,8 +625,8 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
           >Cancel</button>
           <button
             onClick={handleSave}
-            style={{ flex: 1, padding: '11px 0', background: COLORS.accent, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#00c8e0')}
+            style={{ flex: 1, padding: '11px 0', background: COLORS.accent, border: 'none', borderRadius: 10, color: COLORS.white, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
+            onMouseEnter={e => (e.currentTarget.style.background = COLORS.accentBright)}
             onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
           >Save</button>
         </div>
@@ -670,12 +692,18 @@ export function Nutrition() {
   const [addFoodModal, setAddFoodModal] = useState<MealKey | null>(null)
   const [showTargets, setShowTargets] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [staticError, setStaticError] = useState('')
+  const [dayError, setDayError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [staticReloadKey, setStaticReloadKey] = useState(0)
+  const [dayReloadKey, setDayReloadKey] = useState(0)
 
-  const dateKey = toDateKey(dateFromOffset(dateOffset))
+  const dateKey = localDateKey(dateFromOffset(dateOffset))
 
   // Fetch targets + custom foods once
   useEffect(() => {
     const fetchStatic = async () => {
+      setStaticError('')
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const [targetsRes, customRes, builtinRes] = await Promise.all([
@@ -683,7 +711,12 @@ export function Nutrition() {
         supabase.from('nutrition_custom_foods').select('*').eq('user_id', user.id).order('created_at'),
         supabase.from('food_database').select('*').order('name'),
       ])
-      if (targetsRes.data) setTargets(targetsRes.data)
+      const fetchError = targetsRes.error || customRes.error || builtinRes.error
+      if (fetchError) {
+        setStaticError('Failed to load nutrition targets and food database. Please retry.')
+        return
+      }
+      if (targetsRes.data) setTargets(mapNutritionTargetsRow(targetsRes.data))
       if (customRes.data) {
         setCustomFoods(customRes.data.map(r => ({ name: r.name, cal: r.calories, protein: r.protein, carbs: r.carbs, fat: r.fat, source: 'custom' as const })))
       }
@@ -692,12 +725,13 @@ export function Nutrition() {
       }
     }
     fetchStatic()
-  }, [])
+  }, [staticReloadKey])
 
   // Fetch logs + hydration when date changes
   useEffect(() => {
     const fetchDay = async () => {
       setLoading(true)
+      setDayError('')
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
@@ -706,7 +740,13 @@ export function Nutrition() {
         supabase.from('hydration_logs').select('liters').eq('user_id', user.id).eq('date', dateKey).maybeSingle(),
       ])
 
-      const rows = (logsRes.data ?? []) as (FoodEntry & { meal: MealKey })[]
+      if (logsRes.error || hydrRes.error) {
+        setDayError('Failed to load this day’s meals and hydration. Please retry.')
+        setLoading(false)
+        return
+      }
+
+      const rows = (logsRes.data ?? []).map(mapNutritionLogRow)
       const newMeals: Meals = { breakfast: [], lunch: [], dinner: [], snacks: [] }
       for (const r of rows) {
         if (r.meal in newMeals) newMeals[r.meal].push(r)
@@ -716,9 +756,10 @@ export function Nutrition() {
       setLoading(false)
     }
     fetchDay()
-  }, [dateKey])
+  }, [dateKey, dayReloadKey])
 
   const handleAddFood = async (meal: MealKey, food: FoodDbItem) => {
+    setActionError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data, error } = await supabase
@@ -726,11 +767,20 @@ export function Nutrition() {
       .insert({ user_id: user.id, date: dateKey, meal, food_name: food.name, calories: food.cal, protein: food.protein, carbs: food.carbs, fat: food.fat })
       .select()
       .single()
-    if (!error && data) setMeals(m => ({ ...m, [meal]: [...m[meal], data as FoodEntry] }))
+    if (error || !data) {
+      setActionError('Failed to add food. Please try again.')
+      return
+    }
+    setMeals(m => ({ ...m, [meal]: [...m[meal], mapNutritionLogRow(data)] }))
   }
 
   const handleRemoveFood = async (id: string) => {
-    await supabase.from('nutrition_logs').delete().eq('id', id)
+    setActionError('')
+    const { error } = await supabase.from('nutrition_logs').delete().eq('id', id)
+    if (error) {
+      setActionError('Failed to remove food. Please try again.')
+      return
+    }
     setMeals(m => {
       const updated = { ...m }
       for (const key of Object.keys(updated) as MealKey[]) {
@@ -741,28 +791,43 @@ export function Nutrition() {
   }
 
   const handleSetHydration = async (liters: number) => {
-    setHydration(liters)
+    setActionError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('hydration_logs').upsert({ user_id: user.id, date: dateKey, liters })
+    const { error } = await supabase.from('hydration_logs').upsert({ user_id: user.id, date: dateKey, liters })
+    if (error) {
+      setActionError('Failed to update hydration. Please try again.')
+      return
+    }
+    setHydration(liters)
   }
 
   const handleSaveCustomFood = async (food: FoodDbItem) => {
+    setActionError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('nutrition_custom_foods').insert({
+    const { error } = await supabase.from('nutrition_custom_foods').insert({
       user_id: user.id, name: food.name, calories: food.cal,
       protein: food.protein, carbs: food.carbs, fat: food.fat,
     })
+    if (error) {
+      setActionError('Failed to save custom food. Please try again.')
+      return
+    }
     setCustomFoods(prev => [...prev, { ...food, source: 'custom' as const }])
   }
 
   const handleSaveTargets = async (t: NutritionTargets) => {
-    setTargets(t)
-    setShowTargets(false)
+    setActionError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('nutrition_targets').upsert({ user_id: user.id, ...t })
+    const { error } = await supabase.from('nutrition_targets').upsert({ user_id: user.id, ...t })
+    if (error) {
+      setActionError('Failed to save targets. Please try again.')
+      return
+    }
+    setTargets(t)
+    setShowTargets(false)
   }
 
   const allItems = Object.values(meals).flat()
@@ -780,6 +845,31 @@ export function Nutrition() {
 
   return (
     <div>
+      {(staticError || dayError || actionError) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{staticError || dayError || actionError}</span>
+          {(staticError || dayError) && (
+            <button
+              onClick={() => {
+                if (staticError) setStaticReloadKey(k => k + 1)
+                if (dayError) setDayReloadKey(k => k + 1)
+              }}
+              style={{
+                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+              }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Date navigator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
         <button

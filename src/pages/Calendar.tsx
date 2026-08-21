@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { CalendarGrid } from '../components/calendar/CalendarGrid'
@@ -7,19 +7,16 @@ import { DayBottomSheet } from '../components/calendar/DayBottomSheet'
 import { LogWorkoutModal } from '../components/LogWorkoutModal'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
+import { COLORS } from '../lib/colors'
+import { getWeekStart } from '../lib/dateUtils'
+import { localDateKey } from '../components/dashboard/utils'
 import type { Workout } from '../types'
 
-function getMondayOfWeek(d: Date): Date {
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const mon = new Date(d)
-  mon.setDate(d.getDate() + diff)
-  mon.setHours(0, 0, 0, 0)
-  return mon
-}
-
 export function Calendar() {
-  const { workouts, addWorkout, updateWorkout, deleteWorkout } = useWorkouts()
+  const {
+    workouts, loading, error, refetchWorkouts, addWorkout, updateWorkout, deleteWorkout,
+    hasFullHistory, historyWindowStart, requestFullHistory,
+  } = useWorkouts()
   const isMobile = useIsMobile()
   const now = new Date()
 
@@ -27,7 +24,7 @@ export function Calendar() {
   const [view, setView] = useState<'month' | 'week'>('week')
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
-  const [weekStart, setWeekStart] = useState<Date>(getMondayOfWeek(now))
+  const [weekStart, setWeekStart] = useState<Date>(getWeekStart(now))
 
   // ── Modal / sheet state ─────────────────────────────────────────────────────
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -61,7 +58,7 @@ export function Calendar() {
       const base = month === now.getMonth() && year === now.getFullYear()
         ? now
         : new Date(year, month, 1)
-      setWeekStart(getMondayOfWeek(base))
+      setWeekStart(getWeekStart(base))
     }
     setView(v)
   }
@@ -97,14 +94,51 @@ export function Calendar() {
     setShowBottomSheet(false)
   }
 
-  const logDate = selectedDate
-    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
-    : undefined
+  const logDate = selectedDate ? localDateKey(selectedDate) : undefined
 
-  const summaryWeekStart = view === 'week' ? weekStart : getMondayOfWeek(now)
+  const summaryWeekStart = view === 'week' ? weekStart : getWeekStart(now)
+
+  // WorkoutsContext only loads a trailing window by default (see historyWindowStart). If the
+  // user navigates the calendar to a month/week older than that window, upgrade to full history
+  // so older periods don't silently render as empty.
+  useEffect(() => {
+    if (hasFullHistory) return
+    const visibleStart = view === 'month' ? new Date(year, month, 1) : weekStart
+    const visibleStartKey = localDateKey(visibleStart)
+    if (visibleStartKey < historyWindowStart) {
+      requestFullHistory()
+    }
+  }, [view, year, month, weekStart, hasFullHistory, historyWindowStart, requestFullHistory])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: COLORS.muted }}>
+        Loading…
+      </div>
+    )
+  }
 
   return (
     <>
+      {error && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 12,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{error}</span>
+          <button
+            onClick={() => refetchWorkouts()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <WeeklySummary workouts={workouts} weekStart={summaryWeekStart} />
         <CalendarGrid

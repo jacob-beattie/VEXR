@@ -47,7 +47,8 @@ Vexr is a TrainingPeaks alternative built with a focus on:
 - 📱 **Mobile First** — fully responsive, bottom nav, touch-friendly modals
 - 🌙 **Dark Mode** — always dark, optimised for athlete use
 - ⚡ **Real-time Sync** — Supabase realtime keeps all views in sync instantly
-- 🔒 **Production Hardening** — React error boundary, password reset flow, per-user rate limiting on Strava and AI edge functions, 30s fetch timeouts on all Claude API calls
+- 🔒 **Production Hardening** — React error boundaries (root + AI Coach route) wired to optional Sentry error tracking (frontend + all 6 edge functions, no-op unless `VITE_SENTRY_DSN`/`SENTRY_DSN` are set — see `docs/ENVIRONMENT.md`), password reset flow, per-user rate limiting on Strava and AI edge functions (with automatic refund if the Claude call itself fails), 30s fetch timeouts on all Claude API calls, page-level error/retry states across Nutrition, Dashboard widgets, and Profile Settings, fail-loud startup env var validation
+- 🛡️ **Type Safety** — TypeScript strict mode, generated Supabase types wired into every query, runtime-validated AI plan JSON
 
 ---
 
@@ -87,15 +88,21 @@ npm install
 
 ### 2. Set up environment variables
 
-Create a `.env.local` file in the root:
+```bash
+cp .env.example .env.local
+```
 
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_STRAVA_CLIENT_ID=your_strava_client_id
-VITE_STRAVA_CLIENT_SECRET=your_strava_client_secret
-VITE_STRAVA_REDIRECT_URI=http://localhost:5173/strava/callback
-```
+Fill in the values in `.env.local`. See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the full
+list of every environment variable Vexr uses — both these frontend/Vercel vars and the Supabase
+edge function secrets from step 4 below — in one place, including which are required.
+
+Do **not** add a `VITE_STRAVA_CLIENT_SECRET` var here — any `VITE_`-prefixed variable gets bundled
+into client-side JS by Vite, which would ship the Strava client secret to the browser. The client
+secret is a server-side-only value; it's set as a Supabase Edge Function secret in step 4 below,
+never in `.env.local`.
+
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are required — the app fails loudly at startup with a
+visible error naming the missing variable if either is absent, instead of a blank white screen.
 
 ### 3. Set up Supabase
 
@@ -104,7 +111,33 @@ VITE_STRAVA_REDIRECT_URI=http://localhost:5173/strava/callback
 - Enable Email auth in Authentication settings
 - Disable email confirmations for local development
 
-### 3a. (Optional) Connect Supabase MCP
+### 3a. Local development vs. production Supabase
+
+`npm run dev` reads `.env.local`, which by default points at a **local** Supabase stack — not the
+shared production project. This matters: without this split, every `npm run dev` session (and
+every exploratory query run from Claude Code) hits real user data directly, since there's only one
+Supabase project. See `docs/ENVIRONMENT.md` and `docs/review/11-deployment.md` §2 for the full
+rationale.
+
+To run against a local stack:
+
+```bash
+supabase start   # requires Docker — https://docs.docker.com/get-docker/
+supabase status  # copy "API URL" and "anon key" into .env.local
+supabase db reset  # (re)applies supabase/migrations/ + supabase/seed.sql to the local database
+```
+
+`supabase/migrations/20240101000000_initial_schema.sql` is a hand-kept copy of
+`supabase-schema.sql` (the real source of truth) — see the comment at the top of that file for the
+sync convention.
+
+If you deliberately need to point local dev at the real production project (e.g. debugging a
+production-only issue), copy the values from `.env.production.local` into `.env.local`, or run
+`npm run build` locally — Vite loads `.env.production.local` automatically for a production-mode
+build, so a real production build always uses real production credentials without touching
+`.env.local`.
+
+### 3b. (Optional) Connect Supabase MCP
 
 For direct DB access from Claude Code, create `.mcp.json` in the repo root:
 
@@ -124,9 +157,19 @@ This lets Claude run queries, apply migrations, check logs, and deploy edge func
 ### 4. Set up Supabase Edge Function secrets
 
 ```bash
+supabase secrets set STRAVA_CLIENT_ID=your_strava_client_id
 supabase secrets set STRAVA_CLIENT_SECRET=your_strava_client_secret
 supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
+
+`STRAVA_CLIENT_ID` is required — `strava-auth` throws at request time if it's unset. Optionally
+set `ALLOWED_ORIGIN` (comma-separated list of allowed origins) to lock down CORS for production;
+if unset, only `localhost`/`127.0.0.1` (any port) and `*.vercel.app` preview deployments are
+allowed. Bearer-JWT auth inside each function is the real security boundary either way — this
+only controls which browser origins can read the response. Optionally set `SENTRY_DSN` for edge
+function error tracking (see §3 Monitoring below and `docs/ENVIRONMENT.md`). Full var list,
+including the ones auto-injected by the Supabase runtime, is in
+[`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
 ### 5. Deploy Edge Functions
 
@@ -134,6 +177,7 @@ supabase secrets set ANTHROPIC_API_KEY=your_anthropic_api_key
 supabase functions deploy strava-auth --no-verify-jwt
 supabase functions deploy strava-sync --no-verify-jwt
 supabase functions deploy ai-briefing --no-verify-jwt
+supabase functions deploy race-predictor --no-verify-jwt
 supabase functions deploy parse-plan --no-verify-jwt
 supabase functions deploy generate-plan --no-verify-jwt
 ```
@@ -148,6 +192,12 @@ npm run dev
 
 App runs at `http://localhost:5173`
 
+If you're using the local Supabase stack (§3a) and want one command that launches Docker Desktop
+(if it's not already running), starts the local stack, and starts the dev server, use
+`npm run dev:up` instead — `scripts/dev-up.sh`/`scripts/dev-down.sh` (macOS only). `npm run dev:down`
+stops the dev server, the local Supabase stack, and quits Docker Desktop, so nothing keeps using
+RAM/CPU in the background when you're done for the day.
+
 ---
 
 ## Testing
@@ -157,7 +207,9 @@ npm test          # run all tests once
 npm run test:watch  # watch mode
 ```
 
-264 tests across 26 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable Proxy that replicates the query builder API without hitting the network.
+411 tests across 34 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
+
+`.github/workflows/ci.yml` runs lint, type check, and the full test suite on every push/PR to `main` — a red test suite or a type error now shows as a failing check on the commit before it can reach production, instead of only surfacing after a manual `npm test` (or not at all). This does not block Vercel's own auto-deploy (a separate, bigger integration); it's a visible gate, not a hard stop, today.
 
 ---
 

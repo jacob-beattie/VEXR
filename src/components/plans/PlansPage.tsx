@@ -1,10 +1,14 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, lazy, Suspense } from 'react'
 import { COLORS } from '../../lib/colors'
 import type { TrainingPlan } from '../../types'
 import { PlanCard } from './PlanCard'
-import { ImportModal } from './ImportModal'
 import { GeneratePlanModal } from './GeneratePlanModal'
 import { useIsMobile } from '../../hooks/useIsMobile'
+
+// ImportModal statically pulls in all of pdfjs-dist (134 kB gzip) for PDF text extraction —
+// lazy-loaded so that cost is only paid by visitors who actually click "Import Plan", not
+// every /plans page load, matching the lazy-route pattern already used in App.tsx.
+const ImportModal = lazy(() => import('./ImportModal').then(m => ({ default: m.ImportModal })))
 
 interface PlansPageProps {
   plans: TrainingPlan[]
@@ -124,10 +128,12 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
       )}
 
       {showImport && (
-        <ImportModal
-          onClose={() => setShowImport(false)}
-          onImportSuccess={handleImportSuccess}
-        />
+        <Suspense fallback={null}>
+          <ImportModal
+            onClose={() => setShowImport(false)}
+            onImportSuccess={handleImportSuccess}
+          />
+        </Suspense>
       )}
       {showGenerate && (
         <GeneratePlanModal

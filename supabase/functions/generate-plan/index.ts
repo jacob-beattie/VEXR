@@ -1,5 +1,30 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { validateParsedPlan } from '../_shared/validatePlan.ts'
+import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
+import { resolveSessionDates, flagConflicts, computeTotalWeeks, computePlanPhases } from '../_shared/planScheduling.ts'
+import { validateGeneratePlanRequest } from '../_shared/generatePlanValidation.ts'
+import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
+import type { Database } from '../_shared/database.types.ts'
+
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: GeneratePlanRequest (see _shared/generatePlanValidation.ts) —
+//   { sport, raceDistance, raceDate, startDate, preferredDays?: string[], level?, goalTime?,
+//     athleteProfile: { ctl, ftp?, thresholdPace?, css?, primarySport } }
+// Success 200: { plan_name, race_name, total_weeks, sessions: ResolvedSession[], conflict_count }
+//   - sessions have scheduled_date resolved from week/day_of_week and has_conflict flagged
+//     against the user's existing workouts (see _shared/planScheduling.ts)
+// Errors:
+//   401 { error: 'Missing authorization header' | 'Not authenticated' }
+//   429 { error: 'Rate limit exceeded...' }                     — >5 generations/hr
+//   400 { error: <validation message> }                         — bad request body (see
+//                                                                    validateGeneratePlanRequest)
+//   400 { error: 'parse_failed' }                                — Claude's output wasn't usable
+//                                                                    JSON matching the plan shape
+//   504 { error: 'Plan generation took too long...', requestId } — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId }    — any other failure
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
@@ -7,52 +32,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const VALID_SPORTS = ['triathlon', 'run', 'bike', 'swim'] as const
-const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 60 * 60 * 1000
-
-const DAY_OFFSETS: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-}
-
-function resolveDate(startDate: string, week: number, dayOfWeek: string): string {
-  const start = new Date(startDate + 'T00:00:00Z')
-  const weekOffset = (week - 1) * 7
-  const dayOffset = DAY_OFFSETS[dayOfWeek] ?? 0
-  const resolved = new Date(start.getTime() + (weekOffset + dayOffset) * 86400000)
-  return resolved.toISOString().split('T')[0]
-}
-
-interface RawSession {
-  week: number
-  day_of_week: string
-  time_of_day: string
-  sport: string
-  title: string
-  description: string
-  duration_minutes: number | null
-  target_metric: string
-  zone_label: string
-  phase: string
-  notes: string
-}
-
-type SupabaseClient = ReturnType<typeof createClient>
-
-async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', 'generate-plan')
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= RATE_LIMIT) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'generate-plan' })
-  return true
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
@@ -60,16 +41,19 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
+
   try {
     // ── Auth ──────────────────────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -81,9 +65,10 @@ Deno.serve(async (req: Request) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
     // ── Rate limit ────────────────────────────────────────────────────────────
-    const allowed = await checkRateLimit(supabase, user.id)
+    const allowed = await checkRateLimit(user.id, 'generate-plan', RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can generate up to 5 plans per hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -91,72 +76,23 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────────
-    const body = await req.json()
-    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = body as {
-      sport: string
-      raceDistance: string
-      raceDate: string
-      startDate: string
-      preferredDays?: string[]
-      level?: string
-      goalTime?: string
-      athleteProfile: {
-        ctl: number
-        ftp?: number
-        thresholdPace?: string
-        css?: string
-        primarySport: string
-      }
+    const rawBody: unknown = await req.json()
+    const validation = validateGeneratePlanRequest(rawBody)
+    if (!validation.ok) {
+      return new Response(JSON.stringify({ error: validation.error }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
+    const { sport, raceDistance, raceDate, startDate, preferredDays, level, goalTime, athleteProfile } = validation.value
 
-    if (!sport || !raceDistance || !raceDate || !startDate) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (!(VALID_SPORTS as readonly string[]).includes(sport)) {
-      return new Response(JSON.stringify({ error: 'Invalid sport' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (typeof raceDistance !== 'string' || raceDistance.length === 0 || raceDistance.length > 100) {
-      return new Response(JSON.stringify({ error: 'Invalid race distance' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (level !== undefined && !(VALID_LEVELS as readonly string[]).includes(level)) {
-      return new Response(JSON.stringify({ error: 'Invalid level' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    const startMs = Date.parse(startDate)
-    const raceMs = Date.parse(raceDate)
-    if (isNaN(startMs) || isNaN(raceMs)) {
-      return new Response(JSON.stringify({ error: 'Invalid date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (raceMs <= startMs) {
-      return new Response(JSON.stringify({ error: 'Race date must be after start date' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const totalWeeks = Math.max(1, Math.round((raceMs - startMs) / (7 * 86400000)))
-
-    const baseWeeks = Math.round(totalWeeks * 0.55)
-    const buildWeeks = Math.round(totalWeeks * 0.3)
-    const peakEnd = baseWeeks + buildWeeks
-    const taperWeeks = Math.max(1, totalWeeks - peakEnd)
+    const totalWeeks = computeTotalWeeks(startDate, raceDate)
+    const { baseWeeks, peakEnd } = computePlanPhases(totalWeeks)
 
     // ── Build prompt ──────────────────────────────────────────────────────────
     const fitnessLines: string[] = [`CTL: ${athleteProfile.ctl}`]
     if (athleteProfile.ftp) fitnessLines.push(`FTP: ${athleteProfile.ftp}W`)
     if (athleteProfile.thresholdPace) fitnessLines.push(`Run threshold pace: ${athleteProfile.thresholdPace} min/km`)
     if (athleteProfile.css) fitnessLines.push(`Swim CSS: ${athleteProfile.css} /100m`)
-
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
     const availableDaysLine = preferredDays && preferredDays.length > 0
       ? preferredDays.join(', ')
@@ -226,57 +162,60 @@ Return exactly this JSON structure:
 
 Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon' ? 'Multiple sessions on the same day are allowed — output them as separate entries with the same week and day_of_week but different time_of_day ("AM"/"PM"). Rest days have a single entry with sport "rest".' : 'One entry per day (one per day_of_week).'} Rest day description = "".`
 
-    const generateController = new AbortController()
-    const generateTimeout = setTimeout(() => generateController.abort(), 30000)
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: generateController.signal,
-    })
-    clearTimeout(generateTimeout)
+    // Calls Claude and turns its output into a validated plan. If the call fails outright,
+    // times out, or produces output that can't be turned into a usable plan, refunds the
+    // rate-limit slot checkRateLimit already reserved — none of those outcomes gave the
+    // athlete a plan, so they shouldn't cost part of their hourly quota. Returns a Response
+    // directly for the parse-failure case (preserving the existing 400 behaviour) so the
+    // caller can tell "give up, respond now" apart from "here's a usable plan" without a
+    // variable that's nullable across the try/catch boundary. A failure further down in the
+    // handler (conflict-detection DB read) happens after Claude already produced a usable
+    // plan, so it deliberately isn't covered by this function and won't refund.
+    async function generatePlanFromClaude(): Promise<{ parsed: NonNullable<ReturnType<typeof validateParsedPlan>> } | Response> {
+      try {
+        const rawText = await callClaude(prompt, 8000, 'generate-plan')
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text()
-      console.error('[generate-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-      throw new Error('AI service error')
+        // ── Strip markdown wrappers ───────────────────────────────────────────
+        const jsonStr = rawText
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```\s*$/, '')
+          .trim()
+
+        let rawParsed: unknown
+        try {
+          rawParsed = JSON.parse(jsonStr)
+        } catch {
+          console.error('[generate-plan] JSON parse failed. Raw:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'generate-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const parsed = validateParsedPlan(rawParsed)
+        if (!parsed) {
+          console.error('[generate-plan] Parsed JSON failed shape validation. Raw:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'generate-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return { parsed }
+      } catch (claudeErr) {
+        await releaseRateLimit(user.id, 'generate-plan')
+        throw claudeErr
+      }
     }
 
-    const aiData = await aiRes.json()
-    const rawText = aiData.content?.[0]?.text?.trim() ?? ''
+    const claudeResult = await generatePlanFromClaude()
+    if (claudeResult instanceof Response) return claudeResult
+    const { parsed } = claudeResult
 
-    // ── Strip markdown wrappers ───────────────────────────────────────────────
-    const jsonStr = rawText
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/, '')
-      .trim()
-
-    let parsed: { plan_name: string; total_weeks: number; races: Array<{ name: string; date: string }>; sessions: RawSession[] }
-    try {
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      console.error('[generate-plan] JSON parse failed. Raw:', rawText.slice(0, 500))
-      return new Response(JSON.stringify({ error: 'parse_failed' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const rawSessions: RawSession[] = parsed.sessions ?? []
+    const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
-    const resolvedSessions = rawSessions.map(s => ({
-      ...s,
-      scheduled_date: s.day_of_week ? resolveDate(startDate, s.week, s.day_of_week) : null,
-      has_conflict: false,
-    }))
+    let resolvedSessions = resolveSessionDates(rawSessions, startDate)
 
     // ── Conflict detection ────────────────────────────────────────────────────
     const datesToCheck = resolvedSessions
@@ -291,12 +230,7 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
         .in('date', datesToCheck)
 
       if (conflictingWorkouts && conflictingWorkouts.length > 0) {
-        const conflictSet = new Set(conflictingWorkouts.map((w: { date: string }) => w.date))
-        for (const s of resolvedSessions) {
-          if (s.scheduled_date && conflictSet.has(s.scheduled_date)) {
-            s.has_conflict = true
-          }
-        }
+        resolvedSessions = flagConflicts(resolvedSessions, conflictingWorkouts.map((w: { date: string }) => w.date))
       }
     }
 
@@ -316,9 +250,18 @@ Generate all ${totalWeeks} weeks. Every day must appear. ${sport === 'triathlon'
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[generate-plan] error:', message)
+    console.error(`[generate-plan] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'generate-plan' })
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      return new Response(
+        JSON.stringify({ error: 'Plan generation took too long. Please try again.', requestId }),
+        { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.', requestId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }

@@ -1,0 +1,4 @@
+-- Runs after migrations on `supabase db reset`. The food_database seed rows already ship inside
+-- the initial_schema migration (supabase/migrations/20240101000000_initial_schema.sql), so this
+-- file is intentionally empty — add local-dev-only seed data here if you need it (e.g. a test
+-- user's workouts), never real user data.

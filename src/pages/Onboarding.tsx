@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
 import { supabase } from '../lib/supabase'
 import { useIsMobile } from '../hooks/useIsMobile'
+import type { TablesUpdate } from '../types/database.types'
 
 const SPORTS = ['triathlon', 'cycling', 'running', 'swimming'] as const
 const SPORT_LABELS: Record<string, string> = {
@@ -190,7 +191,7 @@ export function Onboarding() {
     setSaving(true)
     setError('')
     try {
-      const updates: Record<string, unknown> = {}
+      const updates: TablesUpdate<'profiles'> = {}
       if (ftp) updates.ftp = parseInt(ftp, 10)
       if (runPace) updates.run_pace = runPace
       if (css) updates.css = css
@@ -354,7 +355,7 @@ export function Onboarding() {
                         fontFamily: 'inherit',
                         transition: 'all 0.15s',
                         background: sport === s ? COLORS.accent : COLORS.surface,
-                        color: sport === s ? '#fff' : COLORS.text,
+                        color: sport === s ? COLORS.white : COLORS.text,
                         borderTop: `1px solid ${sport === s ? COLORS.accent : COLORS.border}`,
                         borderRight: `1px solid ${sport === s ? COLORS.accent : COLORS.border}`,
                         borderBottom: `1px solid ${sport === s ? COLORS.accent : COLORS.border}`,
@@ -384,7 +385,7 @@ export function Onboarding() {
                 borderRadius: 10,
                 background: COLORS.accent,
                 border: 'none',
-                color: '#fff',
+                color: COLORS.white,
                 fontSize: 15,
                 fontWeight: 700,
                 cursor: saving ? 'not-allowed' : 'pointer',
@@ -495,7 +496,7 @@ export function Onboarding() {
                   borderRadius: 10,
                   background: COLORS.accent,
                   border: 'none',
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 15,
                   fontWeight: 700,
                   cursor: saving ? 'not-allowed' : 'pointer',
@@ -567,7 +568,7 @@ export function Onboarding() {
                 borderRadius: 10,
                 background: COLORS.strava,
                 border: 'none',
-                color: '#fff',
+                color: COLORS.white,
                 fontSize: 15,
                 fontWeight: 700,
                 cursor: 'pointer',

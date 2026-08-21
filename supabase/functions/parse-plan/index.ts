@@ -1,5 +1,32 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { validateParsedPlan } from '../_shared/validatePlan.ts'
+import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
+import { resolveSessionDates, flagConflicts } from '../_shared/planScheduling.ts'
+import { validateParsePlanRequest } from '../_shared/parsePlanValidation.ts'
+import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
+import type { Database } from '../_shared/database.types.ts'
+
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: ParsePlanRequest (see _shared/parsePlanValidation.ts) —
+//   { content: string (max 80000 chars), contentType: 'pdf'|'html'|'text',
+//     startDate?, raceDate?, planName? }
+//   - content is the already-extracted plain text of the uploaded plan (PDF text extraction
+//     happens client-side via pdfjs-dist before this function is called)
+// Success 200: { plan_name, race_name, total_weeks, sessions: ResolvedSession[], conflict_count }
+//   - sessions have scheduled_date resolved from week/day_of_week and has_conflict flagged
+//     against the user's existing workouts (see _shared/planScheduling.ts)
+// Errors:
+//   401 { error: 'Missing authorization header' | 'Not authenticated' }
+//   429 { error: 'Rate limit exceeded...' }                     — >5 imports/hr
+//   400 { error: <validation message> }                         — bad request body (see
+//                                                                    validateParsePlanRequest)
+//   400 { error: 'parse_failed' }                                — Claude's output wasn't usable
+//                                                                    JSON matching the plan shape
+//   504 { error: 'Plan parsing took too long...', requestId }   — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId }    — any other failure
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
@@ -7,51 +34,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const VALID_CONTENT_TYPES = ['pdf', 'html', 'text'] as const
 const RATE_LIMIT = 5
 const RATE_WINDOW_MS = 60 * 60 * 1000
-
-const DAY_OFFSETS: Record<string, number> = {
-  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
-  Friday: 4, Saturday: 5, Sunday: 6,
-}
-
-function resolveDate(startDate: string, week: number, dayOfWeek: string): string {
-  const start = new Date(startDate + 'T00:00:00Z')
-  const weekOffset = (week - 1) * 7
-  const dayOffset = DAY_OFFSETS[dayOfWeek] ?? 0
-  const resolved = new Date(start.getTime() + (weekOffset + dayOffset) * 86400000)
-  return resolved.toISOString().split('T')[0]
-}
-
-interface RawSession {
-  week: number
-  day_of_week: string
-  time_of_day: string
-  sport: string
-  title: string
-  description: string
-  duration_minutes: number | null
-  target_metric: string
-  zone_label: string
-  phase: string
-  notes: string
-}
-
-type SupabaseClient = ReturnType<typeof createClient>
-
-async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', 'parse-plan')
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= RATE_LIMIT) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: 'parse-plan' })
-  return true
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
@@ -59,16 +43,19 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
+
   try {
     // ── Auth ──────────────────────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -80,9 +67,10 @@ Deno.serve(async (req: Request) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
     // ── Rate limit ────────────────────────────────────────────────────────────
-    const allowed = await checkRateLimit(supabase, user.id)
+    const allowed = await checkRateLimit(user.id, 'parse-plan', RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. You can import up to 5 plans per hour.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -90,45 +78,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Parse + validate body ─────────────────────────────────────────────────
-    const body = await req.json()
-    const { content, contentType, startDate, raceDate, planName } = body as {
-      content: string
-      contentType: string
-      startDate: string
-      raceDate: string
-      planName?: string
-    }
-
-    if (!content || typeof content !== 'string') {
-      return new Response(JSON.stringify({ error: 'Missing content' }), {
+    const rawBody: unknown = await req.json()
+    const validation = validateParsePlanRequest(rawBody)
+    if (!validation.ok) {
+      return new Response(JSON.stringify({ error: validation.error }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (content.length > 80000) {
-      return new Response(JSON.stringify({ error: 'content_too_large' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (!(VALID_CONTENT_TYPES as readonly string[]).includes(contentType)) {
-      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (startDate && isNaN(Date.parse(startDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid start date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (raceDate && isNaN(Date.parse(raceDate))) {
-      return new Response(JSON.stringify({ error: 'Invalid race date format' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    const { content, contentType, startDate, raceDate, planName } = validation.value
 
     // ── Call Claude ───────────────────────────────────────────────────────────
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
     const prompt = `You are a training plan parser. Extract all training sessions from the plan text below and return ONLY valid JSON. No explanation, no markdown, no code blocks — just raw JSON.
 
 Return this exact structure:
@@ -176,59 +135,60 @@ Content type: ${contentType}
 Plan text:
 ${content}`
 
-    const parseController = new AbortController()
-    const parseTimeout = setTimeout(() => parseController.abort(), 30000)
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: parseController.signal,
-    })
-    clearTimeout(parseTimeout)
+    // Calls Claude and turns its output into a validated plan. If the call fails outright,
+    // times out, or produces output that can't be turned into a usable plan, refunds the
+    // rate-limit slot checkRateLimit already reserved — none of those outcomes gave the
+    // athlete a usable import, so they shouldn't cost part of their hourly quota. Returns a
+    // Response directly for the parse-failure case (preserving the existing 400 behaviour) so
+    // the caller can tell "give up, respond now" apart from "here's a usable plan" without a
+    // variable that's nullable across the try/catch boundary. A failure further down in the
+    // handler (conflict-detection DB read) happens after Claude already produced a usable
+    // plan, so it deliberately isn't covered by this function and won't refund.
+    async function parsePlanFromClaude(): Promise<{ parsed: NonNullable<ReturnType<typeof validateParsedPlan>> } | Response> {
+      try {
+        const rawText = await callClaude(prompt, 8192, 'parse-plan')
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text()
-      console.error('[parse-plan] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-      throw new Error('AI service error')
+        // ── Strip markdown wrappers ───────────────────────────────────────────
+        const jsonStr = rawText
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```\s*$/, '')
+          .trim()
+
+        let rawParsed: unknown
+        try {
+          rawParsed = JSON.parse(jsonStr)
+        } catch {
+          console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'parse-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const parsed = validateParsedPlan(rawParsed)
+        if (!parsed) {
+          console.error('[parse-plan] Parsed JSON failed shape validation. Raw text:', rawText.slice(0, 500))
+          await releaseRateLimit(user.id, 'parse-plan')
+          return new Response(JSON.stringify({ error: 'parse_failed' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return { parsed }
+      } catch (claudeErr) {
+        await releaseRateLimit(user.id, 'parse-plan')
+        throw claudeErr
+      }
     }
 
-    const aiData = await aiRes.json()
-    const rawText = aiData.content?.[0]?.text?.trim() ?? ''
+    const claudeResult = await parsePlanFromClaude()
+    if (claudeResult instanceof Response) return claudeResult
+    const { parsed } = claudeResult
 
-    // ── Strip markdown wrappers ───────────────────────────────────────────────
-    const jsonStr = rawText
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/, '')
-      .trim()
-
-    let parsed: { plan_name: string; total_weeks: number; races: Array<{ name: string; date: string }>; sessions: RawSession[] }
-    try {
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      console.error('[parse-plan] JSON parse failed. Raw text:', rawText.slice(0, 500))
-      return new Response(JSON.stringify({ error: 'parse_failed' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const rawSessions: RawSession[] = parsed.sessions ?? []
+    const rawSessions = parsed.sessions
 
     // ── Resolve scheduled dates ───────────────────────────────────────────────
-    const resolvedSessions = rawSessions.map(s => ({
-      ...s,
-      scheduled_date: startDate && s.day_of_week
-        ? resolveDate(startDate, s.week, s.day_of_week)
-        : null,
-      has_conflict: false,
-    }))
+    let resolvedSessions = resolveSessionDates(rawSessions, startDate)
 
     // ── Conflict detection ────────────────────────────────────────────────────
     const datesToCheck = resolvedSessions
@@ -243,12 +203,7 @@ ${content}`
         .in('date', datesToCheck)
 
       if (conflictingWorkouts && conflictingWorkouts.length > 0) {
-        const conflictSet = new Set(conflictingWorkouts.map((w: { date: string }) => w.date))
-        for (const s of resolvedSessions) {
-          if (s.scheduled_date && conflictSet.has(s.scheduled_date)) {
-            s.has_conflict = true
-          }
-        }
+        resolvedSessions = flagConflicts(resolvedSessions, conflictingWorkouts.map((w: { date: string }) => w.date))
       }
     }
 
@@ -268,9 +223,18 @@ ${content}`
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[parse-plan] error:', message)
+    console.error(`[parse-plan] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'parse-plan' })
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      return new Response(
+        JSON.stringify({ error: 'Plan parsing took too long. Please try again.', requestId }),
+        { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
+      JSON.stringify({ error: 'An internal error occurred. Please try again.', requestId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }

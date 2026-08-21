@@ -1,19 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { COLORS } from '../lib/colors'
-import { supabase } from '../lib/supabase'
-import { useWorkouts } from '../contexts/WorkoutsContext'
-import { useProfile } from '../contexts/ProfileContext'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { calculatePMC } from '../lib/calculateMetrics'
+import { useAICoachData } from '../hooks/useAICoachData'
 import { RacePredictor } from '../components/ai/RacePredictor'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface BriefingRecord {
-  id: string
-  briefing: string
-  generated_at: string
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,16 +23,6 @@ function formatHistoryDate(iso: string): string {
 function firstSentence(text: string): string {
   const match = text.match(/^[^.!?]+[.!?]/)
   return match ? match[0] : text.slice(0, 120) + '…'
-}
-
-function getTrainingPhase(daysUntilRace: number | null): { label: string; color: string; description: string } {
-  if (daysUntilRace === null || daysUntilRace < 0) {
-    return { label: 'Base', color: COLORS.accent, description: 'Building aerobic foundation' }
-  }
-  if (daysUntilRace < 28) return { label: 'Taper', color: COLORS.green, description: 'Reducing load before race' }
-  if (daysUntilRace < 56) return { label: 'Peak', color: COLORS.purple, description: 'Sharpening fitness' }
-  if (daysUntilRace < 84) return { label: 'Build', color: COLORS.orange, description: 'Building intensity' }
-  return { label: 'Base', color: COLORS.accent, description: 'Building aerobic foundation' }
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -123,88 +102,19 @@ function QuickStatCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function AICoach() {
-  const { workouts, getWorkoutsForWeek, getWeeklyLoadHistory } = useWorkouts()
-  const { profile } = useProfile()
   const isMobile = useIsMobile()
-
-  const [briefings, setBriefings] = useState<BriefingRecord[]>([])
-  const [loadingBriefings, setLoadingBriefings] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [genError, setGenError] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
-  // ── Derived fitness metrics ──────────────────────────────────────────────────
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const sevenDaysAgo = new Date(today.getTime() - 7 * 86400000)
-
-  const { current: fitness } = calculatePMC(workouts, today, today)
-  const { current: weekAgoFitness } = calculatePMC(workouts, sevenDaysAgo, sevenDaysAgo)
-  const ctlChange = fitness.ctl - weekAgoFitness.ctl
-
-  // Race countdown
-  const raceDate = profile?.race_date ? new Date(profile.race_date + 'T00:00:00') : null
-  const daysUntilRace = raceDate
-    ? Math.ceil((raceDate.getTime() - today.getTime()) / 86400000)
-    : null
-  const phase = getTrainingPhase(daysUntilRace)
-
-  // Weekly compliance (completed / total scheduled sessions this week)
-  const weekWorkouts = getWorkoutsForWeek()
-  const completedThisWeek = weekWorkouts.filter(w => !w.planned)
-  const plannedThisWeek = weekWorkouts.filter(w => w.planned)
-  const totalWeekSessions = completedThisWeek.length + plannedThisWeek.length
-  const compliance = totalWeekSessions > 0
-    ? Math.round((completedThisWeek.length / totalWeekSessions) * 100)
-    : null
-
-  // TSS comparison: this week vs last week
-  const weeklyHistory = getWeeklyLoadHistory(2)
-  const thisWeekTSS = weeklyHistory[1]?.tss ?? 0
-  const lastWeekTSS = weeklyHistory[0]?.tss ?? 0
-
-  // ── Data fetching ────────────────────────────────────────────────────────────
-  const fetchBriefings = useCallback(async () => {
-    setLoadingBriefings(true)
-    const { data } = await supabase
-      .from('ai_briefings')
-      .select('id, briefing, generated_at')
-      .order('generated_at', { ascending: false })
-      .limit(9)
-    setBriefings((data ?? []) as BriefingRecord[])
-    setLoadingBriefings(false)
-  }, [])
-
-  useEffect(() => { fetchBriefings() }, [fetchBriefings])
-
-  // ── Generate / refresh ────────────────────────────────────────────────────
-  const generate = useCallback(async (force = false) => {
-    setGenerating(true)
-    setGenError(null)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Not authenticated')
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-      const res = await fetch(`${supabaseUrl}/functions/v1/ai-briefing`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        },
-        body: JSON.stringify({ force }),
-      })
-
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to generate briefing')
-      await fetchBriefings()
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setGenerating(false)
-    }
-  }, [fetchBriefings])
+  const {
+    profile,
+    workoutsLoading, workoutsError, refetchWorkouts,
+    fitness, ctlChange,
+    daysUntilRace, phase,
+    compliance, completedThisWeekCount, totalWeekSessions,
+    thisWeekTSS, lastWeekTSS,
+    loadingBriefings, briefingsError, refetchBriefings, generating, genError, generate,
+    current, isCurrentFresh, history,
+  } = useAICoachData()
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
@@ -215,19 +125,59 @@ export function AICoach() {
     })
   }
 
-  // Current = most recent briefing (within 24h or oldest record)
-  const current = briefings[0] ?? null
-  const isCurrentFresh = current
-    ? (Date.now() - new Date(current.generated_at).getTime()) < 24 * 60 * 60 * 1000
-    : false
-  const history = briefings.slice(1)
-
   const tsbPositive = fitness.tsb >= 0
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  if (workoutsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: COLORS.muted }}>
+        Loading…
+      </div>
+    )
+  }
+
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      {workoutsError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{workoutsError}</span>
+          <button
+            onClick={() => refetchWorkouts()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {briefingsError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <span style={{ fontSize: 13, color: COLORS.orange }}>{briefingsError}</span>
+          <button
+            onClick={() => refetchBriefings()}
+            style={{
+              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Metrics row ─────────────────────────────────────────────────────── */}
       <div style={{
@@ -454,7 +404,7 @@ export function AICoach() {
           }
           sub={
             totalWeekSessions > 0
-              ? `${completedThisWeek.length} of ${totalWeekSessions} sessions`
+              ? `${completedThisWeekCount} of ${totalWeekSessions} sessions`
               : 'No sessions this week'
           }
         />

@@ -28,7 +28,7 @@ interface LogWorkoutModalProps {
 const BLOCK_COLORS: Record<BlockType, string> = {
   warmup: COLORS.orange,
   interval: COLORS.accent,
-  rest: '#7b8fa6',
+  rest: COLORS.restBlock,
   cooldown: COLORS.green,
 }
 
@@ -288,6 +288,7 @@ function StructuredBuilder({ blocks, setBlocks, workoutType, ftp, threshPace, cs
     if (fromIdx === toIdx) return
     const arr = [...blocks]
     const [item] = arr.splice(fromIdx, 1)
+    if (!item) return
     arr.splice(toIdx, 0, item)
     setBlocks(arr)
   }
@@ -445,7 +446,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
 
   const structuredTss = useMemo(() =>
     computeStructuredTSS(blocks, form.type, threshPace),
-    [blocks, form.type, ftp, threshPace, css]
+    [blocks, form.type, threshPace]
   )
 
   const structuredDuration = useMemo(() => computeStructuredDuration(blocks), [blocks])
@@ -855,7 +856,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
                 position: 'absolute', top: 3,
                 left: form.planned ? 21 : 3,
                 width: 16, height: 16, borderRadius: '50%',
-                background: '#fff', transition: 'left 0.2s',
+                background: COLORS.white, transition: 'left 0.2s',
               }} />
             </button>
             <span style={{ fontSize: 13, color: COLORS.muted }}>Mark as planned (not yet completed)</span>

@@ -9,6 +9,7 @@ import { COLORS } from '../../lib/colors'
 import { CalendarDay } from './CalendarDay'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { localDateKey, formatDuration } from '../dashboard/utils'
 import type { Workout } from '../../types'
 
 interface CalendarGridProps {
@@ -32,19 +33,6 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-function localDateKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes) return ''
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
 
 // ── Ghost card shown under cursor while dragging ─────────────────────────────
 function GhostCard({ workout }: { workout: Workout }) {
@@ -309,7 +297,7 @@ export function CalendarGrid({
             {calDays.map((day, i) => {
               const dayWorkouts = day ? (workoutsByDay[day] ?? []) : []
               if (!day) return <div key={i} style={{ borderRadius: 8, aspectRatio: '1' }} />
-              const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              const dayKey = localDateKey(new Date(year, month, day))
               return (
                 <DroppableCalendarDay
                   key={i}

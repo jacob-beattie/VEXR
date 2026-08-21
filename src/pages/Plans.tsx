@@ -2,7 +2,34 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { COLORS } from '../lib/colors'
 import type { TrainingPlan } from '../types'
+import type { Tables } from '../types/database.types'
 import { PlansPage } from '../components/plans/PlansPage'
+
+type TrainingPlanRow = Tables<'training_plans'> & { training_sessions?: { count: number }[] }
+
+const VALID_STATUSES: readonly string[] = ['active', 'complete', 'upcoming', 'archived']
+
+// training_plans.status has a narrower DB check constraint than the app's status union, and
+// the row also carries a joined `training_sessions(count)` aggregate that isn't part of the
+// plain generated row shape — map it explicitly instead of a blind `as TrainingPlan[]` cast so
+// an unexpected status value (schema drift) falls back to a safe default instead of silently
+// flowing an unrecognised string into UI logic that switches on status.
+function mapTrainingPlanRow(row: TrainingPlanRow): TrainingPlan {
+  return {
+    id: row.id,
+    user_id: row.user_id ?? '',
+    name: row.name,
+    sport: row.sport,
+    total_weeks: row.total_weeks,
+    current_week: row.current_week ?? 0,
+    status: VALID_STATUSES.includes(row.status ?? '') ? (row.status as TrainingPlan['status']) : 'upcoming',
+    race_name: row.race_name,
+    race_date: row.race_date,
+    start_date: row.start_date,
+    source: row.source,
+    total_sessions: row.training_sessions?.[0]?.count ?? 0,
+  }
+}
 
 export function Plans() {
   const [plans, setPlans] = useState<TrainingPlan[]>([])
@@ -20,14 +47,7 @@ export function Plans() {
       if (fetchError) throw fetchError
 
       if (data) {
-        setPlans(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data as any[]).map(p => ({
-            ...p,
-            total_sessions: (p.training_sessions?.[0]?.count as number) ?? 0,
-            training_sessions: undefined,
-          })) as TrainingPlan[]
-        )
+        setPlans(data.map(mapTrainingPlanRow))
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load training plans.')

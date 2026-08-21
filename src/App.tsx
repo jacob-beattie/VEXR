@@ -10,6 +10,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
 import { ProfileSettingsModal } from './components/ProfileSettingsModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { User } from '@supabase/supabase-js'
 
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
@@ -30,6 +31,41 @@ function PageLoader() {
   return (
     <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 14, fontFamily: "'Inter', sans-serif" }}>
       Loading…
+    </div>
+  )
+}
+
+// Scoped fallback for the AI Coach route boundary — the page leans on an external API
+// (Claude) plus real arithmetic (race predictor math) on live fitness data, so it's the
+// most likely single page to throw a render exception from unexpected input shapes. A
+// local boundary here means that failure degrades to this card instead of the whole app.
+function AICoachErrorFallback() {
+  return (
+    <div style={{
+      background: COLORS.card,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 14,
+      padding: '32px 28px',
+      textAlign: 'center',
+      maxWidth: 480,
+      margin: '40px auto',
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 12 }}>⚠</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>
+        AI Coach hit a snag
+      </div>
+      <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 20, lineHeight: 1.5 }}>
+        Something went wrong loading this page. The rest of Vexr is unaffected — try reloading just this page.
+      </div>
+      <button
+        onClick={() => window.location.reload()}
+        style={{
+          background: COLORS.accent, color: COLORS.black, border: 'none', borderRadius: 8,
+          padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        Reload page
+      </button>
     </div>
   )
 }
@@ -115,7 +151,7 @@ function SyncToast({ isMobile }: { isMobile: boolean }) {
 // Inner shell — rendered inside all providers
 function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User }) {
   const { addWorkout } = useWorkouts()
-  const { profile, setProfile } = useProfile()
+  const { profile, setProfile, error: profileError, refetchProfile } = useProfile()
   const [showModal, setShowModal] = useState(false)
   const [logWorkoutDate, setLogWorkoutDate] = useState<string | undefined>()
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -123,6 +159,21 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
+
+  // Close the mobile sidebar whenever the route changes or the mobile/desktop
+  // breakpoint flips. This is derived state (reacting to values that change
+  // during render — pathname, isMobile — not synchronizing with an external
+  // system), so per https://react.dev/learn/you-might-not-need-an-effect
+  // ("Adjusting some state when a prop changes") it's adjusted directly during
+  // render — guarded by comparing against the last-seen values — instead of in
+  // a useEffect. This avoids an extra commit/render pass and the
+  // react-hooks/set-state-in-effect lint error.
+  const [lastCloseKey, setLastCloseKey] = useState(`${location.pathname}|${isMobile}`)
+  const closeKey = `${location.pathname}|${isMobile}`
+  if (closeKey !== lastCloseKey) {
+    setLastCloseKey(closeKey)
+    if (isMobile) setSidebarOpen(false)
+  }
 
   // Custom events from Dashboard (and other pages) to open modals
   useEffect(() => {
@@ -152,11 +203,6 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
       navigate('/onboarding', { replace: true })
     }
   }, [profile, navigate])
-
-  // Close sidebar whenever route changes on mobile
-  useEffect(() => {
-    if (isMobile) setSidebarOpen(false)
-  }, [location.pathname, isMobile])
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -218,12 +264,36 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
           />
         )}
 
+        {profileError && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+            padding: '10px 16px', marginBottom: 16,
+          }}>
+            <span style={{ fontSize: 13, color: COLORS.orange }}>{profileError}</span>
+            <button
+              onClick={() => refetchProfile()}
+              style={{
+                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
+                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         <Suspense fallback={null}>
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/analytics" element={<Analytics onOpenProfile={() => setShowProfileModal(true)} />} />
-            <Route path="/ai-coach" element={<AICoach />} />
+            <Route path="/ai-coach" element={
+              <ErrorBoundary fallback={<AICoachErrorFallback />}>
+                <AICoach />
+              </ErrorBoundary>
+            } />
             <Route path="/plans" element={<Plans />} />
             <Route path="/library" element={<Library />} />
             <Route path="/nutrition" element={<Nutrition />} />
@@ -250,7 +320,7 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
             borderRadius: '50%',
             background: COLORS.accent,
             border: 'none',
-            color: '#fff',
+            color: COLORS.white,
             fontSize: 24,
             fontWeight: 400,
             display: 'flex',

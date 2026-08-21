@@ -1,18 +1,73 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import type { ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import type { ReactNode, MutableRefObject } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Workout } from '../types'
-import { calculatePMC } from '../lib/calculateMetrics'
+import type { Workout, WorkoutType, WorkoutBlock } from '../types'
+import type { Tables, Json } from '../types/database.types'
+import { getWeekStart, getWeekEnd } from '../lib/dateUtils'
+import { localDateKey } from '../components/dashboard/utils'
+import * as selectors from '../lib/workoutSelectors'
+import type { FitnessMetrics, WeeklyLoadEntry, DailyLoadEntry, FitnessHistoryEntry } from '../lib/workoutSelectors'
 
-interface FitnessMetrics {
-  ctl: number
-  atl: number
-  tsb: number
+type WorkoutRow = Tables<'workouts'>
+
+// TypeScript's generated-type checks only hold at compile time — they can't catch a live
+// schema drift (a column renamed in a migration but database.types.ts not regenerated, or a
+// row written by a manual execute_sql/edge function that doesn't match the expected shape).
+// calculateFitnessMetrics/getFitnessHistory (the canonical PMC engine) run on every workout in
+// state on every render, so a malformed `duration_minutes`/`tss` here would silently produce
+// NaN throughout the dashboard/analytics/calendar rather than a clear error — validate the
+// couple of fields those derived getters depend on before mapping.
+function isValidWorkoutRow(row: unknown): row is WorkoutRow {
+  if (!row || typeof row !== 'object') return false
+  const r = row as Record<string, unknown>
+  return typeof r.id === 'string'
+    && typeof r.title === 'string'
+    && typeof r.type === 'string'
+    && typeof r.date === 'string'
+    && (r.duration_minutes === null || typeof r.duration_minutes === 'number')
+    && (r.tss === null || typeof r.tss === 'number')
+    && (r.planned === null || typeof r.planned === 'boolean')
+}
+
+// workouts.type has no DB check constraint, so the column is real `string` at the schema
+// level — narrowing to WorkoutType here is only as safe as every write path (this context's
+// addWorkout/updateWorkout, plus strava-sync) staying disciplined about only writing valid values.
+function mapWorkoutRow(row: WorkoutRow): Workout {
+  return {
+    id: row.id,
+    user_id: row.user_id ?? '',
+    title: row.title,
+    type: row.type as WorkoutType,
+    date: row.date,
+    duration_minutes: row.duration_minutes ?? 0,
+    tss: row.tss ?? 0,
+    zone: row.zone ?? undefined,
+    notes: row.notes ?? undefined,
+    planned: row.planned ?? false,
+    structure: row.structure as unknown as WorkoutBlock[] | null,
+    strava_activity_id: row.strava_activity_id,
+    heart_rate_avg: row.heart_rate_avg,
+    heart_rate_max: row.heart_rate_max,
+    distance_meters: row.distance_meters,
+    calories: row.calories,
+    elevation_gain: row.elevation_gain,
+    avg_power: row.avg_power,
+    avg_pace: row.avg_pace,
+    created_at: row.created_at ?? '',
+  }
+}
+
+// WorkoutBlock[] has no index signature so it isn't structurally assignable to Json — the
+// shape is JSON-serializable at runtime, this just bridges the two type representations.
+function serializeStructure(structure: WorkoutBlock[] | null | undefined): Json | null | undefined {
+  if (structure === undefined) return undefined
+  return structure as unknown as Json
 }
 
 interface WorkoutsContextValue {
   workouts: Workout[]
   loading: boolean
+  error: string | null
   refetchWorkouts: () => Promise<void>
   addWorkout: (workout: Omit<Workout, 'id' | 'user_id' | 'created_at'>) => Promise<void>
   updateWorkout: (id: string, updates: Partial<Workout>) => Promise<void>
@@ -21,35 +76,117 @@ interface WorkoutsContextValue {
   getWorkoutsForWeek: () => Workout[]
   getTodaysWorkouts: () => Workout[]
   calculateFitnessMetrics: () => FitnessMetrics
-  getWeeklyLoadHistory: (weeks?: number) => Array<{ week: string; tss: number; planned: number }>
-  getDailyWeekLoad: () => Array<{ day: string; tss: number; planned: number }>
-  getFitnessHistory: (weeks?: number) => Array<{ week: string; fitness: number; fatigue: number; form: number }>
+  getWeeklyLoadHistory: (weeks?: number) => WeeklyLoadEntry[]
+  getDailyWeekLoad: () => DailyLoadEntry[]
+  getFitnessHistory: (weeks?: number) => FitnessHistoryEntry[]
   getUpcomingWorkouts: (days?: number) => Workout[]
+  /** True once a caller has upgraded the session to an unbounded fetch via `requestFullHistory`. */
+  hasFullHistory: boolean
+  /** YYYY-MM-DD cutoff of the default fetch window — dates before this aren't loaded until `requestFullHistory` runs. */
+  historyWindowStart: string
+  /** Upgrades `workouts` to the user's entire history (no date floor). Idempotent; stays unbounded for the rest of the session. */
+  requestFullHistory: () => Promise<void>
+}
+
+// Default fetch only covers a trailing window instead of the user's entire history — see
+// fetchWorkouts below. ~24 months comfortably covers CTL/ATL warmup (the EWMA converges within
+// ~250 days) and every default Dashboard/Calendar/Analytics view; callers that genuinely need
+// older data (Analytics "All" range, Calendar navigated to an older month) opt in via
+// requestFullHistory rather than paying the full-history cost on every load/mutation/realtime event.
+const HISTORY_WINDOW_DAYS = 730
+
+function windowCutoffDateKey(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - HISTORY_WINDOW_DAYS)
+  return localDateKey(d)
 }
 
 const WorkoutsContext = createContext<WorkoutsContextValue | null>(null)
 
+// Per-`workouts`-identity memoization cache for the derived getters below. Each getter
+// computes fresh `today`/`now` values at call time (so results stay correct if the tab is
+// left open across midnight), but caches by (day, args) so repeated calls in the same render
+// — or across renders where neither workouts nor the day have changed — skip recomputation.
+interface DerivedCache {
+  workouts: Workout[]
+  fitnessMetrics: Map<string, FitnessMetrics>
+  fitnessHistory: Map<string, FitnessHistoryEntry[]>
+  weeklyLoadHistory: Map<string, WeeklyLoadEntry[]>
+  dailyWeekLoad: Map<string, DailyLoadEntry[]>
+  workoutsForWeek: Map<string, Workout[]>
+  todaysWorkouts: Map<string, Workout[]>
+  upcomingWorkouts: Map<string, Workout[]>
+  workoutsForMonth: Map<string, Workout[]>
+}
+
+function makeEmptyCache(workouts: Workout[]): DerivedCache {
+  return {
+    workouts,
+    fitnessMetrics: new Map(),
+    fitnessHistory: new Map(),
+    weeklyLoadHistory: new Map(),
+    dailyWeekLoad: new Map(),
+    workoutsForWeek: new Map(),
+    todaysWorkouts: new Map(),
+    upcomingWorkouts: new Map(),
+    workoutsForMonth: new Map(),
+  }
+}
+
+// Module-scope (not a per-render closure) so it never needs to appear in a useCallback
+// dependency array — only the ref and the `workouts` array it's keyed on do.
+function getDerivedCache(cacheRef: MutableRefObject<DerivedCache>, workouts: Workout[]): DerivedCache {
+  if (cacheRef.current.workouts !== workouts) {
+    cacheRef.current = makeEmptyCache(workouts)
+  }
+  return cacheRef.current
+}
+
 export function WorkoutsProvider({ children }: { children: ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [hasFullHistory, setHasFullHistory] = useState(false)
+  const fetchIdRef = useRef(0)
+  const fullHistoryRef = useRef(false)
+  const cacheRef = useRef<DerivedCache>(makeEmptyCache([]))
 
   const fetchWorkouts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('workouts')
-      .select('*')
-      .order('date', { ascending: false })
+    const reqId = ++fetchIdRef.current
+    const base = supabase.from('workouts').select('*')
+    const scoped = fullHistoryRef.current ? base : base.gte('date', windowCutoffDateKey())
+    const { data, error: fetchError } = await scoped.order('date', { ascending: false })
 
-    if (error) {
+    // A newer fetch already resolved (or started) — this response is stale, ignore it.
+    if (reqId !== fetchIdRef.current) return
+
+    if (fetchError) {
+      setError('Failed to load workouts. Please try again.')
       setLoading(false)
       return
     }
 
-    setWorkouts((data ?? []) as Workout[])
+    const rows = data ?? []
+    if (rows.some(r => !isValidWorkoutRow(r))) {
+      setError('Received unexpected workout data. Please refresh or contact support.')
+      setLoading(false)
+      return
+    }
+
+    setError(null)
+    setWorkouts(rows.map(mapWorkoutRow))
     setLoading(false)
   }, [])
 
   useEffect(() => {
-    // Fetch immediately (session should already be set by ProtectedLayout)
+    // Fetch immediately (session should already be set by ProtectedLayout).
+    // Same category as ProfileContext's fetch-on-mount effect: this
+    // synchronizes with an external system (Supabase), so the setState call
+    // once the fetch resolves is the correct, idiomatic pattern per
+    // react.dev's own "Fetching data" example — there's no render-time-only
+    // alternative. Disabled with explanation rather than restructured
+    // around the newer, stricter compiler lint rule.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchWorkouts()
 
     // Also re-fetch on any auth state change — handles the case where the
@@ -72,163 +209,183 @@ export function WorkoutsProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchWorkouts])
 
-  const addWorkout = async (workout: Omit<Workout, 'id' | 'user_id' | 'created_at'>) => {
+  const addWorkout = useCallback(async (workout: Omit<Workout, 'id' | 'user_id' | 'created_at'>) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
-    const { error } = await supabase.from('workouts').insert({ ...workout, user_id: user.id })
-    if (error) throw error
+    const { error: insertError } = await supabase.from('workouts').insert({
+      ...workout,
+      structure: serializeStructure(workout.structure),
+      user_id: user.id,
+    })
+    if (insertError) throw insertError
     // Don't wait for realtime — refetch immediately so UI updates right away
     await fetchWorkouts()
-  }
+  }, [fetchWorkouts])
 
-  const updateWorkout = async (id: string, updates: Partial<Workout>) => {
-    const { error } = await supabase.from('workouts').update(updates).eq('id', id)
-    if (error) throw error
+  const updateWorkout = useCallback(async (id: string, updates: Partial<Workout>) => {
+    const { error: updateError } = await supabase.from('workouts').update({
+      ...updates,
+      structure: serializeStructure(updates.structure),
+    }).eq('id', id)
+    if (updateError) throw updateError
     await fetchWorkouts()
-  }
+  }, [fetchWorkouts])
 
-  const deleteWorkout = async (id: string) => {
-    const { error } = await supabase.from('workouts').delete().eq('id', id)
-    if (error) throw error
+  const deleteWorkout = useCallback(async (id: string) => {
+    const { error: deleteError } = await supabase.from('workouts').delete().eq('id', id)
+    if (deleteError) throw deleteError
     await fetchWorkouts()
-  }
+  }, [fetchWorkouts])
+
+  const requestFullHistory = useCallback(async () => {
+    if (fullHistoryRef.current) return
+    fullHistoryRef.current = true
+    setHasFullHistory(true)
+    await fetchWorkouts()
+  }, [fetchWorkouts])
 
   // ─── Derived data helpers ────────────────────────────────────────────────
+  // `workouts` only changes reference when a fetch actually replaces the array, so keying
+  // the cache on that reference (rather than on the WorkoutsProvider's own render count)
+  // means these getters stay cheap across re-renders triggered by unrelated state elsewhere
+  // in the tree (modal open/close, mobile breakpoint, etc.) without ever returning stale data.
 
-  // toISOString() converts to UTC which breaks date matching for timezones
-  // ahead of UTC (e.g. AEST). Always build keys from local date parts instead.
-  const localDateKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  const formatDateLabel = (d: Date) =>
-    d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-
-  const getWorkoutsForMonth = (year: number, month: number): Workout[] =>
-    workouts.filter(w => {
+  const getWorkoutsForMonth = useCallback((year: number, month: number): Workout[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const key = `${year}-${month}`
+    const cached = cache.workoutsForMonth.get(key)
+    if (cached) return cached
+    const result = workouts.filter(w => {
       const d = new Date(w.date + 'T00:00:00')
       return d.getFullYear() === year && d.getMonth() === month
     })
+    cache.workoutsForMonth.set(key, result)
+    return result
+  }, [workouts])
 
-  const getTodaysWorkouts = (): Workout[] => {
+  const getTodaysWorkouts = useCallback((): Workout[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
     const todayKey = localDateKey(new Date())
-    return workouts.filter(w => w.date.split('T')[0] === todayKey)
-  }
+    const cached = cache.todaysWorkouts.get(todayKey)
+    if (cached) return cached
+    const result = workouts.filter(w => w.date.split('T')[0] === todayKey)
+    cache.todaysWorkouts.set(todayKey, result)
+    return result
+  }, [workouts])
 
-  const getWorkoutsForWeek = (): Workout[] => {
+  const getWorkoutsForWeek = useCallback((): Workout[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cached = cache.workoutsForWeek.get(todayKey)
+    if (cached) return cached
     const now = new Date()
-    const day = now.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const start = new Date(now)
-    start.setDate(now.getDate() + diff)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(start)
-    end.setDate(start.getDate() + 6)
-    end.setHours(23, 59, 59, 999)
-    return workouts.filter(w => {
+    const start = getWeekStart(now)
+    const end = getWeekEnd(now)
+    const result = workouts.filter(w => {
       const d = new Date(w.date + 'T00:00:00')
       return d >= start && d <= end
     })
-  }
+    cache.workoutsForWeek.set(todayKey, result)
+    return result
+  }, [workouts])
 
-  const calculateFitnessMetrics = (): FitnessMetrics => {
+  const calculateFitnessMetrics = useCallback((): FitnessMetrics => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cached = cache.fitnessMetrics.get(todayKey)
+    if (cached) return cached
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    // windowStart = today (we only need `current`, not history)
-    const { current } = calculatePMC(workouts, today, today)
-    return current
-  }
+    const result = selectors.calculateFitnessMetrics(workouts, today)
+    cache.fitnessMetrics.set(todayKey, result)
+    return result
+  }, [workouts])
 
-  const getDailyWeekLoad = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    const now = new Date()
-    const day = now.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const monday = new Date(now)
-    monday.setDate(now.getDate() + diff)
-    monday.setHours(0, 0, 0, 0)
-    return days.map((d, i) => {
-      const date = new Date(monday)
-      date.setDate(monday.getDate() + i)
-      date.setHours(0, 0, 0, 0)
-      const dateEnd = new Date(date)
-      dateEnd.setHours(23, 59, 59, 999)
-      const dayWorkouts = workouts.filter(w => {
-        const wd = new Date(w.date + 'T00:00:00')
-        return wd >= date && wd <= dateEnd
-      })
-      return {
-        day: d,
-        tss: dayWorkouts.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-        planned: dayWorkouts.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-      }
-    })
-  }
+  const getDailyWeekLoad = useCallback((): DailyLoadEntry[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cached = cache.dailyWeekLoad.get(todayKey)
+    if (cached) return cached
+    const result = selectors.getDailyWeekLoad(workouts, new Date())
+    cache.dailyWeekLoad.set(todayKey, result)
+    return result
+  }, [workouts])
 
-  const getWeeklyLoadHistory = (weeks = 8) => {
-    const now = new Date()
-    return Array.from({ length: weeks }, (_, i) => {
-      const weekStart = new Date(now)
-      const day = weekStart.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      weekStart.setDate(now.getDate() + diff - (weeks - 1 - i) * 7)
-      weekStart.setHours(0, 0, 0, 0)
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekStart.getDate() + 6)
-      weekEnd.setHours(23, 59, 59, 999)
-      const ww = workouts.filter(w => {
-        const d = new Date(w.date + 'T00:00:00')
-        return d >= weekStart && d <= weekEnd
-      })
-      return {
-        week: formatDateLabel(weekStart),
-        tss: ww.filter(w => !w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-        planned: ww.filter(w => w.planned).reduce((s, w) => s + (w.tss || 0), 0),
-      }
-    })
-  }
+  const getWeeklyLoadHistory = useCallback((weeks = 8): WeeklyLoadEntry[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cacheKey = `${todayKey}:${weeks}`
+    const cached = cache.weeklyLoadHistory.get(cacheKey)
+    if (cached) return cached
+    const result = selectors.getWeeklyLoadHistory(workouts, new Date(), weeks)
+    cache.weeklyLoadHistory.set(cacheKey, result)
+    return result
+  }, [workouts])
 
-  const getFitnessHistory = (weeks = 8) => {
+  const getFitnessHistory = useCallback((weeks = 8): FitnessHistoryEntry[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cacheKey = `${todayKey}:${weeks}`
+    const cached = cache.fitnessHistory.get(cacheKey)
+    if (cached) return cached
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const windowStart = new Date(today.getTime() - weeks * 7 * 86400000)
-    const { history } = calculatePMC(workouts, windowStart, today)
-    return history.map(d => ({
-      week: d.label,
-      fitness: d.ctl,
-      fatigue: d.atl,
-      form: d.tsb,
-    }))
-  }
+    const result = selectors.getFitnessHistory(workouts, today, weeks)
+    cache.fitnessHistory.set(cacheKey, result)
+    return result
+  }, [workouts])
 
   // Returns planned workouts with date >= today (today's planned workouts are included).
-  const getUpcomingWorkouts = (days = 14): Workout[] => {
+  const getUpcomingWorkouts = useCallback((days = 14): Workout[] => {
+    const cache = getDerivedCache(cacheRef, workouts)
+    const todayKey = localDateKey(new Date())
+    const cacheKey = `${todayKey}:${days}`
+    const cached = cache.upcomingWorkouts.get(cacheKey)
+    if (cached) return cached
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const end = new Date(today)
     end.setDate(today.getDate() + days)
-    return workouts
+    const result = workouts
       .filter(w => {
         const d = new Date(w.date + 'T00:00:00')
         return w.planned === true && d >= today && d <= end
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }
+    cache.upcomingWorkouts.set(cacheKey, result)
+    return result
+  }, [workouts])
+
+  const value = useMemo<WorkoutsContextValue>(() => ({
+    workouts, loading, error,
+    refetchWorkouts: fetchWorkouts,
+    addWorkout, updateWorkout, deleteWorkout,
+    getWorkoutsForMonth, getWorkoutsForWeek, getTodaysWorkouts,
+    calculateFitnessMetrics,
+    getWeeklyLoadHistory, getDailyWeekLoad,
+    getFitnessHistory, getUpcomingWorkouts,
+    hasFullHistory, historyWindowStart: windowCutoffDateKey(), requestFullHistory,
+  }), [
+    workouts, loading, error, fetchWorkouts,
+    addWorkout, updateWorkout, deleteWorkout,
+    getWorkoutsForMonth, getWorkoutsForWeek, getTodaysWorkouts,
+    calculateFitnessMetrics,
+    getWeeklyLoadHistory, getDailyWeekLoad,
+    getFitnessHistory, getUpcomingWorkouts,
+    hasFullHistory, requestFullHistory,
+  ])
 
   return (
-    <WorkoutsContext.Provider value={{
-      workouts, loading,
-      refetchWorkouts: fetchWorkouts,
-      addWorkout, updateWorkout, deleteWorkout,
-      getWorkoutsForMonth, getWorkoutsForWeek, getTodaysWorkouts,
-      calculateFitnessMetrics,
-      getWeeklyLoadHistory, getDailyWeekLoad,
-      getFitnessHistory, getUpcomingWorkouts,
-    }}>
+    <WorkoutsContext.Provider value={value}>
       {children}
     </WorkoutsContext.Provider>
   )
 }
 
+// Splitting useWorkouts into its own file would touch every one of its
+// importers across the app for a fast-refresh nicety only — not worth it on
+// a solo project. Scoped disable instead of a file-structure change.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkouts() {
   const ctx = useContext(WorkoutsContext)
   if (!ctx) throw new Error('useWorkouts must be used within WorkoutsProvider')

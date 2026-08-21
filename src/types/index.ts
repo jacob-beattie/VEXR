@@ -1,3 +1,5 @@
+import type { Tables } from './database.types'
+
 export type WorkoutType = 'run' | 'ride' | 'swim' | 'strength' | 'rest'
 
 export type BlockType = 'warmup' | 'interval' | 'rest' | 'cooldown'
@@ -34,10 +36,9 @@ export interface Workout {
   created_at: string
 }
 
-export interface StravaConnection {
-  athlete_id: number
-  athlete_name: string | null
-}
+// Exact subset of the generated strava_connections row — no app-specific narrowing needed,
+// so this stays a direct alias instead of a hand-duplicated interface.
+export type StravaConnection = Pick<Tables<'strava_connections'>, 'athlete_id' | 'athlete_name'>
 
 export interface Profile {
   id: string
@@ -105,17 +106,6 @@ export interface FitnessBenchmark {
   metric: 'ftp' | 'pace' | 'css'
   value: string
   recorded_at: string
-}
-
-export interface TrainingZone {
-  id: string
-  user_id: string
-  sport: 'cycling' | 'running' | 'swimming'
-  zone_number: number
-  zone_name: string
-  min_value: string | null
-  max_value: string | null
-  updated_at: string
 }
 
 export interface WorkoutLibraryItem {

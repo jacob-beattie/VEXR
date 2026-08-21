@@ -1,28 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { COLORS, SPORT_COLORS } from '../../lib/colors'
-import type { TrainingPlan } from '../../types'
+import { COLORS } from '../../lib/colors'
+import type { TrainingPlan, SessionSport } from '../../types'
+import type { Tables } from '../../types/database.types'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
-
-
-const SPORT_LABELS: Record<string, string> = {
-  swim: 'Swim', bike: 'Bike', run: 'Run',
-  sc: 'S&C', brick: 'Brick', other: 'Other',
-}
-
-const SPORT_TABS = [
-  { key: 'all',   label: 'All' },
-  { key: 'swim',  label: 'Swim' },
-  { key: 'bike',  label: 'Bike' },
-  { key: 'run',   label: 'Run' },
-  { key: 'sc',    label: 'S&C' },
-  { key: 'brick', label: 'Brick' },
-]
+import { useWorkouts } from '../../contexts/WorkoutsContext'
+import { SPORT_TABS } from './shared'
+import { formatDuration } from '../dashboard/utils'
+import { SessionsList, type SessionListItem } from './SessionsList'
 
 interface TrainingSession {
   id: string
   week_number: number
-  sport: string
+  sport: SessionSport
   title: string
   scheduled_date: string | null
   duration_min: number | null
@@ -31,19 +21,45 @@ interface TrainingSession {
   status: string
 }
 
-function formatDuration(min: number | null): string {
-  if (!min) return '—'
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return m ? `${h}h ${m}m` : `${h}h`
+type TrainingSessionRow = Pick<
+  Tables<'training_sessions'>,
+  'id' | 'week_number' | 'sport' | 'title' | 'scheduled_date' | 'duration_min' | 'target_metric' | 'notes' | 'status'
+>
+
+// training_sessions.sport has a DB check constraint (see supabase-schema.sql) so this narrowing
+// is backed by the schema, unlike the other sport/type casts in this file.
+function mapTrainingSessionRow(row: TrainingSessionRow): TrainingSession {
+  return {
+    id: row.id,
+    week_number: row.week_number,
+    sport: row.sport as SessionSport,
+    title: row.title,
+    scheduled_date: row.scheduled_date,
+    duration_min: row.duration_min,
+    target_metric: row.target_metric,
+    notes: row.notes,
+    status: row.status ?? 'pending',
+  }
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—'
+function formatDate(dateStr: string | null): string | null {
+  if (!dateStr) return null
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short',
   })
+}
+
+function toListItem(s: TrainingSession): SessionListItem {
+  return {
+    id: s.id,
+    week: s.week_number,
+    sport: s.sport,
+    title: s.title,
+    dateLabel: formatDate(s.scheduled_date),
+    durationLabel: formatDuration(s.duration_min),
+    targetMetric: s.target_metric,
+    detail: s.notes,
+  }
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -73,7 +89,6 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
   const [loading, setLoading] = useState(true)
   const [sportFilter, setSportFilter] = useState('all')
   const [openWeeks, setOpenWeeks] = useState<Record<number, boolean>>({})
-  const [expandedSession, setExpandedSession] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -82,9 +97,9 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
       .eq('plan_id', planId)
       .order('week_number', { ascending: true })
       .then(({ data }) => {
-        const rows = (data || []).filter(
-          s => !(s.sport === 'other' && !s.title && !s.duration_min)
-        ) as TrainingSession[]
+        const rows = (data || [])
+          .filter(s => !(s.sport === 'other' && !s.title && !s.duration_min))
+          .map(mapTrainingSessionRow)
         setSessions(rows)
         const weeks = [...new Set(rows.map(s => s.week_number))].sort((a, b) => a - b)
         // Open first week by default
@@ -92,11 +107,6 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
         setLoading(false)
       })
   }, [planId])
-
-  const filtered = sportFilter === 'all' ? sessions : sessions.filter(s => s.sport === sportFilter)
-  const weeks = [...new Set(sessions.map(s => s.week_number))].sort((a, b) => a - b)
-
-  const toggleWeek = (w: number) => setOpenWeeks(prev => ({ ...prev, [w]: !prev[w] }))
 
   if (loading) {
     return (
@@ -117,202 +127,18 @@ function PlanSessionsView({ planId, isMobile }: { planId: string; isMobile: bool
   const presentSportTabs = SPORT_TABS.filter(t => t.key === 'all' || sessions.some(s => s.sport === t.key))
 
   return (
-    <div>
-      {/* Sport filter tabs */}
-      {presentSportTabs.length > 2 && (
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
-          {presentSportTabs.map(t => {
-            const isActive = sportFilter === t.key
-            return (
-              <button
-                key={t.key}
-                onClick={() => setSportFilter(t.key)}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: 7,
-                  border: `1px solid ${isActive ? `${COLORS.accent}40` : 'transparent'}`,
-                  fontSize: 11, fontWeight: 600,
-                  cursor: 'pointer',
-                  background: isActive ? `${COLORS.accent}15` : 'transparent',
-                  color: isActive ? COLORS.accent : COLORS.muted,
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  transition: 'all 0.15s',
-                  fontFamily: 'Inter, sans-serif',
-                }}
-              >
-                {t.key !== 'all' && (
-                  <span style={{
-                    display: 'inline-block', width: 6, height: 6,
-                    borderRadius: '50%',
-                    background: SPORT_COLORS[t.key] || COLORS.muted,
-                    flexShrink: 0,
-                  }} />
-                )}
-                {t.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Column headers — desktop only */}
-      {!isMobile && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '82px 1fr 95px 55px 110px',
-          gap: 10, padding: '0 10px 8px',
-          fontSize: 10, fontWeight: 700, color: COLORS.muted,
-          letterSpacing: '0.08em', textTransform: 'uppercase',
-          fontFamily: 'DM Mono, monospace',
-        }}>
-          <span>Sport</span>
-          <span>Session</span>
-          <span>Date</span>
-          <span>Duration</span>
-          <span>Target</span>
-        </div>
-      )}
-
-      {/* Week rows */}
-      <div style={{ maxHeight: 480, overflowY: 'auto' }}>
-        {weeks.map(w => {
-          const wSessions = filtered.filter(s => s.week_number === w)
-          if (wSessions.length === 0) return null
-          const isOpen = openWeeks[w] ?? false
-
-          return (
-            <div key={w} style={{ marginBottom: 6 }}>
-              <div
-                onClick={() => toggleWeek(w)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 10px',
-                  background: COLORS.bg,
-                  borderRadius: 7,
-                  border: `1px solid ${COLORS.border}`,
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  marginBottom: isOpen ? 3 : 0,
-                }}
-              >
-                <span style={{
-                  fontSize: 9,
-                  color: isOpen ? COLORS.accent : COLORS.muted,
-                  display: 'inline-block',
-                  transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s',
-                }}>▶</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.text }}>Week {w}</span>
-                <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                  {wSessions.length} session{wSessions.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {isOpen && wSessions.map(s => {
-                const sportColor = SPORT_COLORS[s.sport] || COLORS.muted
-                const isExpanded = expandedSession === s.id
-                const hasDetail = Boolean(s.notes)
-                return (
-                  <div key={s.id} style={{ marginBottom: 2 }}>
-                    <div
-                      onClick={() => hasDetail && setExpandedSession(prev => prev === s.id ? null : s.id)}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: isMobile ? '82px 1fr 55px' : '82px 1fr 95px 55px 110px',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: isMobile ? '7px 10px' : '8px 10px',
-                        borderRadius: isExpanded ? '6px 6px 0 0' : 6,
-                        background: isExpanded ? COLORS.border + '40' : 'transparent',
-                        cursor: hasDetail ? 'pointer' : 'default',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = COLORS.border + '40' }}
-                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
-                    >
-                      {/* Sport */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <div style={{
-                          width: 7, height: 7, borderRadius: '50%',
-                          background: sportColor, flexShrink: 0,
-                          boxShadow: `0 0 5px ${sportColor}80`,
-                        }} />
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, color: sportColor,
-                          fontFamily: 'DM Mono, monospace',
-                          letterSpacing: '0.05em', textTransform: 'uppercase',
-                        }}>
-                          {SPORT_LABELS[s.sport] || s.sport}
-                        </span>
-                      </div>
-
-                      {/* Title + expand caret */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden' }}>
-                        <span style={{
-                          fontSize: 12, color: COLORS.text, fontWeight: 500,
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        }}>
-                          {s.title}
-                        </span>
-                        {hasDetail && (
-                          <span style={{
-                            fontSize: 8, color: isExpanded ? COLORS.accent : COLORS.muted,
-                            flexShrink: 0,
-                            display: 'inline-block',
-                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s, color 0.15s',
-                          }}>▶</span>
-                        )}
-                      </div>
-
-                      {/* Date — desktop only */}
-                      {!isMobile && (
-                        <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                          {formatDate(s.scheduled_date)}
-                        </span>
-                      )}
-
-                      {/* Duration */}
-                      <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
-                        {formatDuration(s.duration_min)}
-                      </span>
-
-                      {/* Target metric — desktop only */}
-                      {!isMobile && s.target_metric && (
-                        <span style={{
-                          fontSize: 10, color: COLORS.accent, fontFamily: 'DM Mono, monospace',
-                          background: `${COLORS.accent}10`, borderRadius: 4,
-                          padding: '2px 6px',
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        }}>
-                          {s.target_metric}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Expanded description */}
-                    {isExpanded && hasDetail && (
-                      <div style={{
-                        padding: '10px 12px 12px',
-                        background: COLORS.bg,
-                        borderTop: `1px solid ${COLORS.border}40`,
-                        borderRight: `1px solid ${COLORS.border}40`,
-                        borderBottom: `1px solid ${COLORS.border}40`,
-                        borderLeft: `1px solid ${COLORS.border}40`,
-                        borderRadius: '0 0 6px 6px',
-                        fontSize: 12, color: COLORS.muted, lineHeight: 1.65,
-                      }}>
-                        {s.notes}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <SessionsList
+      sessions={sessions.map(toListItem)}
+      isMobile={isMobile}
+      variant="compact"
+      sportTabs={presentSportTabs}
+      showSportTabs={presentSportTabs.length > 2}
+      sportFilter={sportFilter}
+      onSportFilterChange={setSportFilter}
+      openWeeks={openWeeks}
+      onToggleWeek={w => setOpenWeeks(prev => ({ ...prev, [w]: !prev[w] }))}
+      defaultWeekOpen={false}
+    />
   )
 }
 
@@ -331,6 +157,7 @@ function deriveCurrentWeek(plan: TrainingPlan): number {
 }
 
 export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
+  const { refetchWorkouts } = useWorkouts()
   const [showMenu, setShowMenu] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -395,6 +222,9 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
           .eq('user_id', user.id)
           .eq('planned', true)
           .in('date', dates)
+        // Don't rely solely on the realtime subscription — refetch immediately so the
+        // Calendar/Dashboard reflect the deletion even if that channel is briefly disconnected.
+        await refetchWorkouts()
       }
 
       const { error } = await supabase
@@ -633,7 +463,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
                   background: COLORS.orange,
                   border: 'none',
                   borderRadius: 8,
-                  color: '#fff',
+                  color: COLORS.white,
                   fontSize: 13, fontWeight: 700,
                   cursor: deleting ? 'not-allowed' : 'pointer',
                   opacity: deleting ? 0.7 : 1,

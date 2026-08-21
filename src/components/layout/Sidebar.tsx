@@ -24,7 +24,7 @@ const navItems = [
 ]
 
 export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = false, isOpen = false, onClose }: SidebarProps) {
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const { syncing, connection } = useStrava()
   const navigate = useNavigate()
   const location = useLocation()
@@ -110,16 +110,16 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
             background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, color: '#fff',
+            fontSize: 14, fontWeight: 700, color: COLORS.white,
           }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initials}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{profile?.name || 'Athlete'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{profileLoading ? 'Loading…' : (profile?.name || 'Athlete')}</div>
             <div style={{ fontSize: 10, color: COLORS.muted, textTransform: 'capitalize' }}>
-              {profile?.sport || 'triathlon'}
+              {profileLoading ? '' : (profile?.sport || 'triathlon')}
             </div>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             background: COLORS.accent,
             border: 'none',
             borderRadius: 10,
-            color: '#ffffff',
+            color: COLORS.white,
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
@@ -186,7 +186,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             textAlign: 'center',
             transition: 'background 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#0284c7')}
+          onMouseEnter={e => (e.currentTarget.style.background = COLORS.accentDark)}
           onMouseLeave={e => (e.currentTarget.style.background = COLORS.accent)}
         >
           + Log Workout

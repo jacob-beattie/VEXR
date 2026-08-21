@@ -1,5 +1,27 @@
 import type { WorkoutBlock, WorkoutType } from '../types'
 
+// ─── TSS / IF domain notes ──────────────────────────────────────────────────
+//
+// TSS (Training Stress Score) is the input to the PMC engine (see calculateMetrics.ts for
+// CTL/ATL/TSB). The standard TrainingPeaks formula used throughout this file is:
+//
+//   TSS = duration_hours × IF² × 100
+//
+// IF (Intensity Factor) is how hard a session was relative to threshold — 1.0 means the whole
+// session was done exactly at threshold pace/power/CSS. It's squared deliberately: TrainingPeaks'
+// methodology treats intensity as a quadratic cost, so a session done further above threshold
+// contributes disproportionately more load than the same duration done nearer threshold — an
+// hour at IF 1.2 (44 TSS more) counts for much more than an hour at IF 1.0, not just 20% more.
+// This is why a short hard interval session can score a similar or higher TSS than a much longer
+// easy one.
+//
+// Per-sport IF is threshold-relative in different units:
+//   - run:  IF = threshold pace (sec/km) ÷ actual pace (sec/km) — faster than threshold → IF > 1
+//   - ride: IF = avg power (W) ÷ FTP (W)
+//   - swim: IF = CSS (sec/100m) ÷ actual pace (sec/100m), where actual pace is derived from
+//           total swim duration over total distance, normalised to a per-100m rate first
+//           (`durationMinutes × 60 ÷ (swimDistance / 100)`) so it's comparable to CSS's own units
+
 export function paceToSeconds(pace: string): number {
   const parts = pace.split(':')
   if (parts.length !== 2) return 0

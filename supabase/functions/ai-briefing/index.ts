@@ -1,5 +1,28 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { checkRateLimit, releaseRateLimit } from '../_shared/rateLimit.ts'
+import { calculatePMC } from '../_shared/calculatePMC.ts'
+import { callClaude } from '../_shared/anthropic.ts'
+import { captureError } from '../_shared/errorTracking.ts'
+import type { Database } from '../_shared/database.types.ts'
+
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body (optional):  { force?: boolean }  — bypass the 24h cache and regenerate
+// Success 200:       { briefing: string, generated_at: string, cached: boolean, stale?: boolean }
+//   - Returns a cached briefing (cached: true) if one exists and is <24h old, unless force is set.
+//   - Otherwise calls Claude, saves the new briefing, prunes history to the 9 most recent.
+//   - If force:true and the Claude call fails, falls back to the most recent briefing on record
+//     (however old) with { cached: true, stale: true } instead of a hard error, since a slightly
+//     stale briefing is more useful than none when Claude is slow/down.
+// Errors:
+//   401 { error: 'Unauthorized' }                                   — missing/invalid bearer token
+//   429 { error: 'Rate limit exceeded...' }                         — >5 fresh generations/hr
+//                                                                       (cache hits don't count)
+//   504 { error: 'The AI coach took too long...', requestId }       — Claude call exceeded 30s
+//   500 { error: 'An internal error occurred...', requestId }       — any other failure
+// Note: the race-predictor narrative used to be a `mode: 'race_predictor'` branch of this
+// function; it now lives in the separate `race-predictor` edge function.
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
@@ -7,83 +30,16 @@ function getCorsHeaders(req: Request): Record<string, string> {
   return corsHeadersFor(req.headers.get('Origin') ?? '', ALLOWED_ORIGINS)
 }
 
-const RATE_WINDOW_MS = 60 * 60 * 1000
 const BRIEFING_RATE_LIMIT = 5
-const PREDICTOR_RATE_LIMIT = 10
-
-// ─── PMC constants (mirrors src/lib/calculateMetrics.ts) ─────────────────────
-const CTL_K = 1 - Math.exp(-1 / 42)
-const ATL_K = 1 - Math.exp(-1 / 7)
-
-function localDateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-interface Workout {
-  date: string
-  tss: number | null
-  planned: boolean
-  type: string
-  title: string
-  duration_minutes: number | null
-}
-
-function calculateCTLATL(workouts: Workout[], today: Date): { ctl: number; atl: number; tsb: number } {
-  const tssByDay: Record<string, number> = {}
-  for (const w of workouts) {
-    if (w.planned) continue
-    const key = w.date.split('T')[0]
-    tssByDay[key] = (tssByDay[key] || 0) + (w.tss || 0)
-  }
-
-  const allDates = Object.keys(tssByDay).sort()
-  if (allDates.length === 0) return { ctl: 0, atl: 0, tsb: 0 }
-
-  const warmupStart = new Date(allDates[0] + 'T00:00:00')
-  let ctl = 0
-  let atl = 0
-  const totalDays = Math.round((today.getTime() - warmupStart.getTime()) / 86400000)
-
-  for (let i = 0; i <= totalDays; i++) {
-    const d = new Date(warmupStart.getTime() + i * 86400000)
-    const key = localDateKey(d)
-    const tss = tssByDay[key] || 0
-    ctl = ctl + CTL_K * (tss - ctl)
-    atl = atl + ATL_K * (tss - atl)
-  }
-
-  return {
-    ctl: Math.round(ctl),
-    atl: Math.round(atl),
-    tsb: Math.round(ctl - atl),
-  }
-}
-
-type SupabaseClient = ReturnType<typeof createClient>
-
-async function checkRateLimit(
-  supabase: SupabaseClient,
-  userId: string,
-  functionName: string,
-  limit: number,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', functionName)
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= limit) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
-  return true
-}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -94,7 +50,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
@@ -107,83 +63,14 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
     // Parse body
     let force = false
-    let mode = 'briefing'
-    let raceBody: Record<string, unknown> = {}
     try {
       const body = await req.json()
       force = body?.force === true
-      mode = body?.mode ?? 'briefing'
-      raceBody = body ?? {}
     } catch { /* no body or non-JSON — fine */ }
-
-    // ── Race predictor mode ──────────────────────────────────────────────────
-    if (mode === 'race_predictor') {
-      const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing-predictor', PREDICTOR_RATE_LIMIT)
-      if (!allowed) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing predictions.' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const { ctl, ftp, runPace, css, sport, predictions } = raceBody as {
-        ctl: number; ftp: number; runPace: string; css: string
-        sport: string
-        predictions: { running: string; cycling: string; swimming: string; triathlon: string }
-      }
-
-      const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-      if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
-      const racePrompt = `You are an expert endurance coach. Based on an athlete's predicted race finish times and current fitness metrics, write a short personalised analysis (3–4 sentences). Be direct, specific, and encouraging. Use plain text only — no markdown, no bullets. Address the athlete as "you".
-
-Athlete primary sport: ${sport}
-Current CTL (fitness): ${ctl}
-${ftp ? `FTP: ${ftp}W` : ''}${runPace ? ` | Run threshold pace: ${runPace}/km` : ''}${css ? ` | CSS: ${css}/100m` : ''}
-
-Predicted finish times:
-Running: ${predictions?.running || 'No data'}
-Cycling: ${predictions?.cycling || 'No data'}
-Swimming: ${predictions?.swimming || 'No data'}
-Triathlon: ${predictions?.triathlon || 'No data'}
-
-Comment on what the predictions reveal about their current fitness, highlight one standout result or area to work on, and suggest one specific training focus to improve their predicted times.`
-
-      const predictorController = new AbortController()
-      const predictorTimeout = setTimeout(() => predictorController.abort(), 30000)
-      const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          messages: [{ role: 'user', content: racePrompt }],
-        }),
-        signal: predictorController.signal,
-      })
-      clearTimeout(predictorTimeout)
-
-      if (!aiRes.ok) {
-        const errBody = await aiRes.text()
-        console.error('[ai-briefing] Anthropic error (predictor):', aiRes.status, errBody.slice(0, 200))
-        throw new Error('AI service error')
-      }
-
-      const aiData = await aiRes.json()
-      const narrative = aiData.content?.[0]?.text?.trim()
-      if (!narrative) throw new Error('Empty response from AI service')
-
-      return new Response(
-        JSON.stringify({ narrative }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
-    }
 
     // Check for a cached briefing from the last 24 hours (unless force)
     if (!force) {
@@ -207,7 +94,7 @@ Comment on what the predictions reveal about their current fitness, highlight on
     }
 
     // ── Rate limit briefing API calls (cache misses + force refreshes) ────────
-    const allowed = await checkRateLimit(supabase, user.id, 'ai-briefing', BRIEFING_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'ai-briefing', BRIEFING_RATE_LIMIT)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please wait before refreshing your briefing.' }), {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -236,7 +123,7 @@ Comment on what the predictions reveal about their current fitness, highlight on
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const { ctl, atl, tsb } = calculateCTLATL(workouts ?? [], today)
+    const { current: { ctl, atl, tsb } } = calculatePMC(workouts ?? [], today, today)
 
     // This week's TSS
     const dow = today.getDay()
@@ -301,36 +188,37 @@ Write a concise weekly briefing (4–6 sentences max). Cover:
 
 Be direct, data-driven, and encouraging. Use plain text — no markdown, no bullet points. Address the athlete directly as "you".`
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+    // Wrapped separately from the outer handler try/catch: only a failure to get a usable
+    // briefing out of Claude should refund the rate-limit slot. A later failure (saving to
+    // ai_briefings, pruning) happens after Claude already succeeded, so it must not refund —
+    // the Anthropic API cost was already incurred.
+    let briefing = ''
+    try {
+      briefing = await callClaude(prompt, 500, 'ai-briefing')
+      if (!briefing) throw new Error('Empty response from AI service')
+    } catch (claudeErr) {
+      await releaseRateLimit(user.id, 'ai-briefing')
 
-    const briefingController = new AbortController()
-    const briefingTimeout = setTimeout(() => briefingController.abort(), 30000)
-    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: briefingController.signal,
-    })
-    clearTimeout(briefingTimeout)
+      // force:true skips the 24h-cache read above, so on a Claude failure here we haven't
+      // looked for an existing briefing at all yet. Fall back to the most recent one on record
+      // (however old) rather than a hard error — a stale briefing is more useful than none.
+      const { data: fallback } = await supabase
+        .from('ai_briefings')
+        .select('briefing, generated_at')
+        .eq('user_id', user.id)
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .single()
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text()
-      console.error('[ai-briefing] Anthropic error:', aiRes.status, errBody.slice(0, 200))
-      throw new Error('AI service error')
+      if (fallback) {
+        return new Response(
+          JSON.stringify({ briefing: fallback.briefing, generated_at: fallback.generated_at, cached: true, stale: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+
+      throw claudeErr
     }
-
-    const aiData = await aiRes.json()
-    const briefing = aiData.content?.[0]?.text?.trim()
-    if (!briefing) throw new Error('Empty response from AI service')
 
     // Insert new briefing (accumulate history)
     const { data: saved, error: saveError } = await supabase
@@ -359,10 +247,19 @@ Be direct, data-driven, and encouraging. Use plain text — no markdown, no bull
     )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('[ai-briefing] error:', message)
+    console.error(`[ai-briefing] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'ai-briefing' })
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      return new Response(
+        JSON.stringify({ error: 'The AI coach took too long to respond. Please try again.', requestId }),
+        { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     return new Response(
-      JSON.stringify({ error: 'An internal error occurred. Please try again.' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: 'An internal error occurred. Please try again.', requestId }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

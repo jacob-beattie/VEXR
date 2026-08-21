@@ -1,30 +1,29 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { parseAllowedOrigins, getCorsHeaders as corsHeadersFor } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { captureError } from '../_shared/errorTracking.ts'
+import type { Database } from '../_shared/database.types.ts'
+
+// ── Contract ─────────────────────────────────────────────────────────────────
+// POST, Authorization: Bearer <supabase JWT>
+// Body: none
+// Success 200: { count: number }  — number of newly-inserted workouts (0 if the user has no
+//   Strava connection, or no new activities in the last 30 days beyond what's already synced)
+//   - Refreshes the Strava access token first if it expires within 5 minutes
+//   - Fetches activities from the last 30 days, dedupes by strava_activity_id via
+//     upsert(..., { ignoreDuplicates: true }) so concurrent syncs can't fail the whole batch
+//   - TSS is estimated per-activity: power-based IF² for rides with power data, pace-based IF²
+//     for runs/swims with distance, Strava's suffer_score as a fallback, else ~50 TSS/hour
+// Errors:
+//   401 { error: 'Unauthorized' }                          — missing/invalid bearer token
+//   429 { error: 'Rate limit exceeded. Try again in an hour.' } — >3 syncs/hr
+//   500 { error: 'Sync failed. Please try again.', requestId }  — token refresh, Strava API, or
+//     DB failure (generic message client-side; real cause only in server logs)
 
 const ALLOWED_ORIGINS = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGIN'))
 
 const RATE_WINDOW_MS = 60 * 60 * 1000
 const STRAVA_SYNC_RATE_LIMIT = 3
-
-type SupabaseClient = ReturnType<typeof createClient>
-
-async function checkRateLimit(
-  supabase: SupabaseClient,
-  userId: string,
-  functionName: string,
-  limit: number,
-): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
-  const { count } = await supabase
-    .from('api_rate_limits')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('function_name', functionName)
-    .gte('called_at', windowStart)
-  if ((count ?? 0) >= limit) return false
-  await supabase.from('api_rate_limits').insert({ user_id: userId, function_name: functionName })
-  return true
-}
 
 // Map Strava sport_type → Vexr workout type
 function mapStravaType(sportType: string): string {
@@ -101,6 +100,9 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const requestId = crypto.randomUUID()
+  let userId: string | null = null
+
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -110,22 +112,22 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('[strava-sync] user:', user?.id ?? 'NOT FOUND', authError?.message ?? '')
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    userId = user.id
 
-    const allowed = await checkRateLimit(supabase, user.id, 'strava-sync', STRAVA_SYNC_RATE_LIMIT)
+    const allowed = await checkRateLimit(user.id, 'strava-sync', STRAVA_SYNC_RATE_LIMIT, RATE_WINDOW_MS)
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded. Try again in an hour.' }), {
         status: 429,
@@ -203,10 +205,8 @@ Deno.serve(async (req: Request) => {
       `https://www.strava.com/api/v3/athlete/activities?after=${afterSecs}&per_page=100`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     )
-    console.log('[strava-sync] Strava activities response status:', activitiesRes.status)
     if (!activitiesRes.ok) throw new Error(`Strava API error: ${activitiesRes.status}`)
     const activities = await activitiesRes.json() as Record<string, unknown>[]
-    console.log('[strava-sync] activities fetched:', activities.length)
 
     if (!activities.length) {
       return new Response(
@@ -300,10 +300,16 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    console.log('[strava-sync] inserting', inserts.length, 'workouts')
-    const { error: insertError } = await supabase.from('workouts').insert(inserts)
+    // upsert + ignoreDuplicates instead of insert: two concurrent syncs (e.g. two open tabs) can
+    // both read the same "existing" set before either has written, so a plain insert can hit the
+    // strava_activity_id unique constraint on a row the other request just committed — and since
+    // insert() is a single statement, that failure would fail the *entire* batch, not just the
+    // colliding row. Upserting with ignoreDuplicates skips the colliding rows instead and lets
+    // every genuinely-new activity in the batch land.
+    const { error: insertError } = await supabase
+      .from('workouts')
+      .upsert(inserts, { onConflict: 'strava_activity_id', ignoreDuplicates: true })
     if (insertError) throw insertError
-    console.log('[strava-sync] insert success')
 
     return new Response(
       JSON.stringify({ count: inserts.length }),
@@ -313,10 +319,11 @@ Deno.serve(async (req: Request) => {
     const message = err instanceof Error
       ? err.message
       : (err && typeof err === 'object' ? JSON.stringify(err) : String(err))
-    console.error('[strava-sync] error:', message)
+    console.error(`[strava-sync] request ${requestId} user ${userId ?? 'unauthenticated'} failed:`, message)
+    captureError(err, { requestId, userId, function: 'strava-sync' })
     return new Response(
-      JSON.stringify({ error: message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: 'Sync failed. Please try again.', requestId }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })
