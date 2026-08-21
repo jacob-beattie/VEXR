@@ -34,7 +34,7 @@ export function TopBar({ title, subtitle, titleIcon, titleIconColor, onMenuClick
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {titleIcon && (
-              <span style={{ fontSize: isMobile ? 16 : 18, color: titleIconColor ?? COLORS.accent, lineHeight: 1 }}>
+              <span style={{ fontSize: isMobile ? 16 : 18, color: titleIconColor ?? COLORS.text, lineHeight: 1 }}>
                 {titleIcon}
               </span>
             )}

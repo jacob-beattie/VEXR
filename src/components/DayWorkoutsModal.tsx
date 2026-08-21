@@ -1,4 +1,5 @@
 import { COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { workoutTypes } from './ui/Badge'
 import { formatDuration } from './dashboard/utils'
 import type { Workout } from '../types'
@@ -32,7 +33,8 @@ export function DayWorkoutsModal({ date, workouts, onSelectWorkout, onAddWorkout
         style={{
           background: COLORS.card,
           border: `1px solid ${COLORS.border}`,
-          borderRadius: 16,
+          borderRadius: RADIUS.card,
+          boxShadow: SHADOW.modal,
           width: '100%',
           maxWidth: 420,
           overflow: 'hidden',

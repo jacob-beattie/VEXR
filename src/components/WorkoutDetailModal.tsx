@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { workoutTypes } from './ui/Badge'
 import { Button } from './ui/Button'
 import { paceToSeconds, secsToPaceStr } from '../lib/tss'
@@ -364,7 +365,8 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
         style={{
           background: COLORS.card,
           border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
-          borderRadius: isMobile ? 0 : 16,
+          borderRadius: isMobile ? 0 : RADIUS.card,
+          boxShadow: isMobile ? 'none' : SHADOW.modal,
           width: '100%',
           maxWidth: isMobile ? '100%' : 520,
           maxHeight: isMobile ? '100dvh' : '90vh',
@@ -374,7 +376,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
         }}
       >
         {/* Colour bar */}
-        <div style={{ height: 3, background: wt.color, opacity: 0.8, borderRadius: '16px 16px 0 0' }} />
+        <div style={{ height: 3, background: wt.color, opacity: 0.8, borderRadius: isMobile ? 0 : `${RADIUS.card}px ${RADIUS.card}px 0 0` }} />
 
         <div style={{ padding: 28 }}>
           {/* Header */}

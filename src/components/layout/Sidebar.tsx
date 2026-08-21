@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { useProfile } from '../../contexts/ProfileContext'
 import { useStrava } from '../../contexts/StravaContext'
 
@@ -98,7 +99,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
       <div
         onClick={onProfileClick}
         style={{
-          margin: '0 12px 24px', background: COLORS.card, borderRadius: 10,
+          margin: '0 12px 24px', background: COLORS.card, borderRadius: RADIUS.card,
           padding: '12px 14px', border: `1px solid ${COLORS.border}`,
           cursor: 'pointer', transition: 'border-color 0.15s',
         }}
@@ -108,7 +109,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-            background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
+            background: COLORS.text,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 14, fontWeight: 700, color: COLORS.white,
           }}>
@@ -177,7 +178,7 @@ export function Sidebar({ onProfileClick, onSignOut, onLogWorkout, isMobile = fa
             padding: '12px',
             background: COLORS.accent,
             border: 'none',
-            borderRadius: 10,
+            borderRadius: RADIUS.button,
             color: COLORS.white,
             fontSize: 13,
             fontWeight: 700,

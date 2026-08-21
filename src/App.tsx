@@ -73,7 +73,7 @@ function AICoachErrorFallback() {
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
   '/calendar': { title: 'Training Calendar', subtitle: 'Track and plan your sessions' },
   '/analytics': { title: 'Performance Analytics', subtitle: 'Trends, fitness, and load analysis' },
-  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: COLORS.accent },
+  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦' },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
   '/nutrition': { title: 'Nutrition', subtitle: 'Track your daily fuel and macros' },

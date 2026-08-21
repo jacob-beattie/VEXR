@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import type { WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { Button } from './ui/Button'
 import { workoutTypes } from './ui/Badge'
@@ -540,7 +541,8 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
         style={{
           background: COLORS.card,
           border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
-          borderRadius: isMobile ? 0 : 16,
+          borderRadius: isMobile ? 0 : RADIUS.card,
+          boxShadow: isMobile ? 'none' : SHADOW.modal,
           padding: isMobile ? '20px 16px' : 28,
           width: '100%',
           maxWidth: isMobile ? '100%' : 540,

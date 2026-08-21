@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { supabase } from '../lib/supabase'
 import { paceToSeconds, secsToPaceStr } from '../lib/tss'
 import { calcHRZoneBoundaries } from '../lib/zones'
@@ -473,7 +474,8 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         style={{
           background: COLORS.surface,
           border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
-          borderRadius: isMobile ? 0 : 16,
+          borderRadius: isMobile ? 0 : RADIUS.card,
+          boxShadow: isMobile ? 'none' : SHADOW.modal,
           padding: isMobile ? '20px 16px' : '32px 36px',
           width: '100%',
           maxWidth: isMobile ? undefined : 880,
