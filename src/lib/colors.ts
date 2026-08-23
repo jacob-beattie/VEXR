@@ -36,6 +36,13 @@ export const PMC_COLORS = {
   tsb: "#0a9a94",
 }
 
+// HR training zones as an ordinal ramp (one hue, light->dark) rather than 5 unrelated
+// categorical colors — zone order carries real meaning (recovery -> max effort), so this
+// is validated for monotone lightness/contrast, not adjacent-pair colorblind separation.
+// Zone 1 -> Zone 5. Shared by analyticsDerivations.ts (HR_ZONE_COLORS) and
+// AnalyticsPage.tsx (ZONE_COLORS) so the ramp never drifts between the two.
+export const HR_ZONE_RAMP = ["#e0947a", "#d1604a", "#b8362a", "#8f2318", "#5c130c"]
+
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {
   swim:     "#0a6fd1",
   ride:     "#9330a8",

@@ -5,7 +5,8 @@ import {
   PieChart, Pie, Cell, LabelList,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { COLORS, SPORT_COLORS } from '../../lib/colors'
+import { COLORS, SPORT_COLORS, PMC_COLORS, HR_ZONE_RAMP } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { calcHRZoneBoundaries } from '../../lib/zones'
 import type { Workout, WorkoutType, Profile } from '../../types'
 import { workoutTypes } from '../ui/Badge'
@@ -32,12 +33,12 @@ const RANGE_OPTIONS: Array<{ label: string; weeks: number | null }> = [
 ]
 
 const ZONE_COLORS: Record<string, string> = {
-  'Zone 1': COLORS.accent,
-  'Zone 2': COLORS.green,
-  'Zone 3': COLORS.amber,
-  'Zone 4': COLORS.orange,
-  'Zone 5': COLORS.danger,
-  'Zone 6': COLORS.danger,
+  'Zone 1': HR_ZONE_RAMP[0],
+  'Zone 2': HR_ZONE_RAMP[1],
+  'Zone 3': HR_ZONE_RAMP[2],
+  'Zone 4': HR_ZONE_RAMP[3],
+  'Zone 5': HR_ZONE_RAMP[4],
+  'Zone 6': HR_ZONE_RAMP[4],
 }
 
 // Default boundaries using 220-35 and correct zone percentages
@@ -48,7 +49,7 @@ const DEFAULT_HR_BOUNDARIES = calcHRZoneBoundaries(DEFAULT_MAX_HR)
 
 function ChartCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
         {title}
       </div>
@@ -97,7 +98,7 @@ function PaceTooltip({ active, payload, label }: { active?: boolean; payload?: A
   return (
     <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
       <div style={{ color: COLORS.muted, marginBottom: 4 }}>{label}</div>
-      <div style={{ color: COLORS.green, fontWeight: 600 }}>{paceStr}</div>
+      <div style={{ color: SPORT_COLORS.run, fontWeight: 600 }}>{paceStr}</div>
     </div>
   )
 }
@@ -151,7 +152,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
 
   const monotonyColor = monotony === null ? COLORS.muted
     : monotony < 1.5 ? COLORS.green
-    : monotony < 2.0 ? COLORS.orange
+    : monotony < 2.0 ? COLORS.conflictAmber
     : COLORS.danger
   const monotonyLabel = monotony === null ? '—'
     : monotony < 1.5 ? 'Good variety'
@@ -184,7 +185,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
           { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km` },
           { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss) },
         ].map(s => (
-          <div key={s.label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '16px 20px' }}>
+          <div key={s.label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '16px 20px' }}>
             <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
           </div>
@@ -221,16 +222,16 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
             <AreaChart data={fitnessHistory}>
               <defs>
                 <linearGradient id="fitGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.accent} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={COLORS.accent} stopOpacity={0} />
+                  <stop offset="5%" stopColor={PMC_COLORS.ctl} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={PMC_COLORS.ctl} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="week" tick={{ fill: COLORS.muted, fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={tickInterval(fitnessHistory.length)} />
               <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="fitness" stroke={COLORS.accent}  strokeWidth={2} fill="url(#fitGrad)" name="Fitness (CTL)" dot={false} />
-              <Area type="monotone" dataKey="fatigue" stroke={COLORS.orange}  strokeWidth={2} fill="none"           name="Fatigue (ATL)" dot={false} />
-              <Area type="monotone" dataKey="form"    stroke={COLORS.green}   strokeWidth={2} fill="none"           name="Form (TSB)"    dot={false} strokeDasharray="4 2" />
+              <Area type="monotone" dataKey="fitness" stroke={PMC_COLORS.ctl}  strokeWidth={2} fill="url(#fitGrad)" name="Fitness (CTL)" dot={false} />
+              <Area type="monotone" dataKey="fatigue" stroke={PMC_COLORS.atl}  strokeWidth={2} fill="none"           name="Fatigue (ATL)" dot={false} />
+              <Area type="monotone" dataKey="form"    stroke={PMC_COLORS.tsb}  strokeWidth={2} fill="none"           name="Form (TSB)"    dot={false} strokeDasharray="4 2" />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
@@ -349,7 +350,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       </div>
 
       {/* Monotony score */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
           Training Monotony
         </div>
@@ -368,7 +369,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
             <div style={{ display: 'flex', gap: isMobile ? 10 : 20, marginTop: 10, flexWrap: 'wrap' }}>
               {[
                 { range: '< 1.5', label: 'Good variety', color: COLORS.green },
-                { range: '1.5 – 2.0', label: 'Moderate risk', color: COLORS.orange },
+                { range: '1.5 – 2.0', label: 'Moderate risk', color: COLORS.conflictAmber },
                 { range: '> 2.0', label: 'High risk', color: COLORS.danger },
               ].map(s => (
                 <div key={s.range} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -382,7 +383,7 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
       </div>
 
       {/* Best Performances */}
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px' }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
           Best Performances — {RANGE_OPTIONS.find(o => o.weeks === weeks)?.label ?? `${weeks}W`}
         </div>
@@ -512,11 +513,11 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
                       label={{ value: `Threshold ${runPace}/km`, position: 'insideTopRight', fill: COLORS.muted, fontSize: 10 }}
                     />
                   )}
-                  <Bar dataKey="speedKmh" fill={COLORS.green} radius={[4, 4, 0, 0]} name="Speed">
+                  <Bar dataKey="speedKmh" fill={SPORT_COLORS.run} radius={[4, 4, 0, 0]} name="Speed">
                     <LabelList
                       dataKey="paceStr"
                       position="top"
-                      style={{ fill: COLORS.green, fontSize: 10, fontWeight: 600, fontFamily: 'DM Mono, monospace' }}
+                      style={{ fill: SPORT_COLORS.run, fontSize: 10, fontWeight: 600, fontFamily: 'DM Mono, monospace' }}
                     />
                   </Bar>
                 </BarChart>
