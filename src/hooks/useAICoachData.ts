@@ -31,7 +31,7 @@ function getTrainingPhase(daysUntilRace: number | null): TrainingPhase {
   }
   if (daysUntilRace < 28) return { label: 'Taper', color: COLORS.green, description: 'Reducing load before race' }
   if (daysUntilRace < 56) return { label: 'Peak', color: COLORS.purple, description: 'Sharpening fitness' }
-  if (daysUntilRace < 84) return { label: 'Build', color: COLORS.orange, description: 'Building intensity' }
+  if (daysUntilRace < 84) return { label: 'Build', color: COLORS.amber, description: 'Building intensity' }
   return { label: 'Base', color: COLORS.text, description: 'Building aerobic foundation' }
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from './lib/colors'
+import { RADIUS } from './lib/designTokens'
 import { useAuth } from './hooks/useAuth'
 import { useIsMobile } from './hooks/useIsMobile'
 import { WorkoutsProvider, useWorkouts } from './contexts/WorkoutsContext'
@@ -267,15 +268,15 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         {profileError && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+            background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
             padding: '10px 16px', marginBottom: 16,
           }}>
-            <span style={{ fontSize: 13, color: COLORS.orange }}>{profileError}</span>
+            <span style={{ fontSize: 13, color: COLORS.danger }}>{profileError}</span>
             <button
               onClick={() => refetchProfile()}
               style={{
-                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+                color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
                 cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
               }}
             >

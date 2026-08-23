@@ -8,6 +8,7 @@ import { LogWorkoutModal } from '../components/LogWorkoutModal'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
 import { COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { getWeekStart } from '../lib/dateUtils'
 import { localDateKey } from '../components/dashboard/utils'
 import type { Workout } from '../types'
@@ -123,15 +124,15 @@ export function Calendar() {
       {error && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
           padding: '10px 16px', marginBottom: 12,
         }}>
-          <span style={{ fontSize: 13, color: COLORS.orange }}>{error}</span>
+          <span style={{ fontSize: 13, color: COLORS.danger }}>{error}</span>
           <button
             onClick={() => refetchWorkouts()}
             style={{
-              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+              color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
               cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
             }}
           >

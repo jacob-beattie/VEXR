@@ -1,4 +1,4 @@
-import type { WorkoutType, SessionSport } from '../types'
+import type { WorkoutType, SessionSport, BlockType } from '../types'
 
 export const COLORS = {
   bg: "#f5f7f8",
@@ -49,6 +49,18 @@ export const HR_ZONE_RAMP = ["#e0947a", "#d1604a", "#b8362a", "#8f2318", "#5c130
 // at once). Deliberately not `green` — that's reserved for status/interactive use.
 // Shared by NutritionSummaryCard.tsx and Nutrition.tsx so the mapping never drifts.
 export const MACRO_COLORS = { protein: PMC_COLORS.ctl, carbs: PMC_COLORS.atl, fat: "#9330a8" }
+
+// Structured-workout block-type colors, shared by LogWorkoutModal (block builder) and
+// WorkoutDetailModal (block breakdown view) so warmup/interval/cooldown read the same
+// in both places instead of each component keeping its own drifting copy. Validated
+// colorblind-safe together (all-pairs — blocks can sit adjacent in any order when
+// drag-reordered). `rest` stays a plain neutral, not part of the identity set.
+export const BLOCK_COLORS: Record<BlockType, string> = {
+  warmup: "#c98a12",
+  interval: "#9330a8",
+  rest: "#5b6169",
+  cooldown: "#0c8a3f",
+}
 
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {
   swim:     "#0a6fd1",

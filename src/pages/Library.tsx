@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import type { WorkoutLibraryItem, WorkoutType } from '../types'
 import type { Tables } from '../types/database.types'
 import { LibraryPage } from '../components/library/LibraryPage'
@@ -54,7 +55,7 @@ export function Library() {
   if (error) {
     return (
       <div style={{ padding: '20px 0' }}>
-        <div style={{ color: COLORS.orange, fontSize: 13, padding: '12px 16px', background: COLORS.orange + '15', borderRadius: 8 }}>
+        <div style={{ color: COLORS.danger, fontSize: 13, padding: '12px 16px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
           {error}
         </div>
       </div>

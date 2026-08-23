@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { COLORS } from '../lib/colors'
+import { COLORS, BLOCK_COLORS } from '../lib/colors'
 import { RADIUS, SHADOW } from '../lib/designTokens'
 import type { WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { Button } from './ui/Button'
@@ -25,15 +25,6 @@ interface LogWorkoutModalProps {
 }
 
 // ─── Block constants ─────────────────────────────────────────────────────────
-
-// Validated colorblind-safe together (all-pairs — blocks can sit adjacent in any order
-// when drag-reordered). rest stays a plain neutral, not part of the identity set.
-const BLOCK_COLORS: Record<BlockType, string> = {
-  warmup: COLORS.amber,
-  interval: COLORS.purple,
-  rest: COLORS.restBlock,
-  cooldown: COLORS.green,
-}
 
 const BLOCK_LABELS: Record<BlockType, string> = {
   warmup: 'Warmup',
