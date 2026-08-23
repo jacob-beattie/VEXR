@@ -178,19 +178,35 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* YTD Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12 }}>
-        {[
-          { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count) },
-          { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours) },
-          { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km` },
-          { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss) },
-        ].map(s => (
-          <div key={s.label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '16px 20px' }}>
-            <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
+      {isMobile ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {[
+            { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count) },
+            { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours) },
+            { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km` },
+            { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss) },
+          ].map(s => (
+            <div key={s.label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '14px 16px' }}>
+              <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }}>
+          {[
+            { label: `${new Date().getFullYear()} Workouts`, value: String(ytd.count) },
+            { label: `${new Date().getFullYear()} Hours`, value: String(ytd.hours) },
+            { label: `${new Date().getFullYear()} Distance`, value: `${ytd.distanceKm} km` },
+            { label: `${new Date().getFullYear()} TSS`, value: String(ytd.tss) },
+          ].map((s, i, arr) => (
+            <div key={s.label} style={{ flex: 1, padding: '16px 20px', borderRight: i < arr.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
+              <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace' }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Range toggle */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
@@ -387,36 +403,69 @@ export function AnalyticsPage({ workouts, fitnessHistory, weeklyHistory, weeks, 
         <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
           Best Performances — {RANGE_OPTIONS.find(o => o.weeks === weeks)?.label ?? `${weeks}W`}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-          {[
-            {
-              label: 'Longest Run',
-              value: best.longestRun ? `${(best.longestRun.distance_meters! / 1000).toFixed(1)} km` : '—',
-              sub: best.longestRun?.title ?? '',
-            },
-            {
-              label: 'Longest Ride',
-              value: best.longestRide ? `${(best.longestRide.distance_meters! / 1000).toFixed(1)} km` : '—',
-              sub: best.longestRide?.title ?? '',
-            },
-            {
-              label: 'Highest TSS',
-              value: best.highestTSS ? String(best.highestTSS.tss) : '—',
-              sub: best.highestTSS?.title ?? '',
-            },
-            {
-              label: 'Best TSS Week',
-              value: best.bestWeekTSS > 0 ? String(best.bestWeekTSS) : '—',
-              sub: 'all time',
-            },
-          ].map(s => (
-            <div key={s.label} style={{ background: COLORS.surface, borderRadius: 8, padding: '14px 16px', border: `1px solid ${COLORS.border}` }}>
-              <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace', marginBottom: 4 }}>{s.value}</div>
-              {s.sub && <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sub}</div>}
-            </div>
-          ))}
-        </div>
+        {isMobile ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+            {[
+              {
+                label: 'Longest Run',
+                value: best.longestRun ? `${(best.longestRun.distance_meters! / 1000).toFixed(1)} km` : '—',
+                sub: best.longestRun?.title ?? '',
+              },
+              {
+                label: 'Longest Ride',
+                value: best.longestRide ? `${(best.longestRide.distance_meters! / 1000).toFixed(1)} km` : '—',
+                sub: best.longestRide?.title ?? '',
+              },
+              {
+                label: 'Highest TSS',
+                value: best.highestTSS ? String(best.highestTSS.tss) : '—',
+                sub: best.highestTSS?.title ?? '',
+              },
+              {
+                label: 'Best TSS Week',
+                value: best.bestWeekTSS > 0 ? String(best.bestWeekTSS) : '—',
+                sub: 'all time',
+              },
+            ].map(s => (
+              <div key={s.label} style={{ background: COLORS.surface, borderRadius: RADIUS.chip, padding: '12px 14px', border: `1px solid ${COLORS.border}` }}>
+                <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace', marginBottom: 4 }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.chip, marginBottom: 20 }}>
+            {[
+              {
+                label: 'Longest Run',
+                value: best.longestRun ? `${(best.longestRun.distance_meters! / 1000).toFixed(1)} km` : '—',
+                sub: best.longestRun?.title ?? '',
+              },
+              {
+                label: 'Longest Ride',
+                value: best.longestRide ? `${(best.longestRide.distance_meters! / 1000).toFixed(1)} km` : '—',
+                sub: best.longestRide?.title ?? '',
+              },
+              {
+                label: 'Highest TSS',
+                value: best.highestTSS ? String(best.highestTSS.tss) : '—',
+                sub: best.highestTSS?.title ?? '',
+              },
+              {
+                label: 'Best TSS Week',
+                value: best.bestWeekTSS > 0 ? String(best.bestWeekTSS) : '—',
+                sub: 'all time',
+              },
+            ].map((s, i, arr) => (
+              <div key={s.label} style={{ flex: 1, padding: '14px 16px', borderRight: i < arr.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
+                <div style={{ fontSize: 10, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, fontFamily: 'DM Mono, monospace', marginBottom: 4 }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 11, color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+        )}
 
         {Object.keys(best.sportCounts).length > 0 && (
           <>

@@ -98,6 +98,9 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 12 }}>
+        Calories
+      </div>
       <div style={{ position: 'relative', width: 164, height: 164 }}>
         <svg width="164" height="164" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx="82" cy="82" r={r} fill="none" stroke={COLORS.subtle} strokeWidth={11} />
@@ -149,28 +152,6 @@ function MacroBar({ label, consumed, target, color }: { label: string; consumed:
   )
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-function NutritionStatCard({ label, value, unit, sub, color }: {
-  label: string
-  value: string | number
-  unit?: string
-  sub: string
-  color: string
-}) {
-  return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.9 }} />
-      <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 10 }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 7 }}>
-        <span style={{ fontSize: 34, fontWeight: 900, color: COLORS.text, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>{value}</span>
-        {unit && <span style={{ fontSize: 13, color: COLORS.muted, fontWeight: 500 }}>{unit}</span>}
-      </div>
-      <div style={{ fontSize: 12, color, fontWeight: 600 }}>{sub}</div>
-    </div>
-  )
-}
-
 // ─── Hydration Card ───────────────────────────────────────────────────────────
 
 function HydrationCard({ hydration, onSetHydration }: { hydration: number; onSetHydration: (v: number) => void }) {
@@ -179,8 +160,7 @@ function HydrationCard({ hydration, onSetHydration }: { hydration: number; onSet
   const cups = Math.round(hydration / 0.25)
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.7 }} />
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Hydration</div>
         <div style={{ fontSize: 12, color: COLORS.accent, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
@@ -480,27 +460,28 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
 
 // ─── Meal Section ─────────────────────────────────────────────────────────────
 
-function MealSection({ mealKey, items, onOpenAddModal, onRemove }: {
+function MealSection({ mealKey, items, onOpenAddModal, onRemove, isFirst }: {
   mealKey: MealKey
   items: FoodEntry[]
   onOpenAddModal: (meal: MealKey) => void
   onRemove: (id: string) => void
+  isFirst: boolean
 }) {
   const [open, setOpen] = useState(true)
-  const { label, icon, color } = MEAL_META[mealKey]
+  const { label, icon } = MEAL_META[mealKey]
   const totalCal = items.reduce((s, f) => s + f.calories, 0)
 
   return (
-    <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+    <div style={{ borderTop: isFirst ? 'none' : `1px solid ${COLORS.border}` }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '11px 14px', background: COLORS.bg, border: 'none',
+          padding: '12px 0', background: 'none', border: 'none',
           cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: 13, color, width: 18, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontSize: 13, color: COLORS.muted, width: 18, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, flex: 1 }}>{label}</span>
         {items.length > 0 && (
           <span style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Mono', monospace" }}>{totalCal} kcal</span>
@@ -508,13 +489,13 @@ function MealSection({ mealKey, items, onOpenAddModal, onRemove }: {
         <span style={{ fontSize: 9, color: COLORS.muted, marginLeft: 6 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div style={{ background: COLORS.card }}>
+        <div style={{ paddingBottom: 10 }}>
           {items.length === 0 ? (
-            <div style={{ padding: '9px 14px', fontSize: 12, color: COLORS.muted, fontStyle: 'italic' }}>Nothing logged yet</div>
+            <div style={{ padding: '2px 0 8px', fontSize: 12, color: COLORS.muted, fontStyle: 'italic' }}>Nothing logged yet</div>
           ) : items.map(food => (
             <div
               key={food.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: `1px solid ${COLORS.border}` }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: `1px solid ${COLORS.border}` }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: COLORS.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{food.food_name}</div>
@@ -534,17 +515,17 @@ function MealSection({ mealKey, items, onOpenAddModal, onRemove }: {
               >×</button>
             </div>
           ))}
-          <div style={{ padding: '10px 14px', borderTop: `1px solid ${COLORS.border}` }}>
+          <div style={{ paddingTop: 8 }}>
             <button
               onClick={() => onOpenAddModal(mealKey)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                width: '100%', background: 'none', border: `1px dashed ${color}45`,
-                borderRadius: 7, padding: '7px 12px', color, fontSize: 12,
+                width: '100%', background: 'none', border: `1px dashed ${COLORS.border}`,
+                borderRadius: RADIUS.chip, padding: '7px 12px', color: COLORS.muted, fontSize: 12,
                 fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = color + '0e' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = color + '45'; e.currentTarget.style.background = 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.text; e.currentTarget.style.color = COLORS.text }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted }}
             >+ Add Food</button>
           </div>
         </div>
@@ -907,38 +888,6 @@ export function Nutrition() {
         >⚙ Targets</button>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-        <NutritionStatCard
-          label="Calories"
-          value={totals.cal.toLocaleString()}
-          unit="kcal"
-          sub={totals.cal >= targets.calorie_target ? `+${(totals.cal - targets.calorie_target).toLocaleString()} over goal` : `${(targets.calorie_target - totals.cal).toLocaleString()} remaining`}
-          color={COLORS.accent}
-        />
-        <NutritionStatCard
-          label="Protein"
-          value={totals.protein}
-          unit="g"
-          sub={totals.protein >= targets.protein_target ? 'Target reached' : `${targets.protein_target - totals.protein}g to go`}
-          color={MACRO_COLORS.protein}
-        />
-        <NutritionStatCard
-          label="Carbohydrates"
-          value={totals.carbs}
-          unit="g"
-          sub={totals.carbs >= targets.carbs_target ? 'Target reached' : `${targets.carbs_target - totals.carbs}g to go`}
-          color={MACRO_COLORS.carbs}
-        />
-        <NutritionStatCard
-          label="Fat"
-          value={totals.fat}
-          unit="g"
-          sub={totals.fat >= targets.fat_target ? 'Target reached' : `${targets.fat_target - totals.fat}g to go`}
-          color={MACRO_COLORS.fat}
-        />
-      </div>
-
       {/* Two-column layout */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '56% 1fr', gap: 20, alignItems: 'start' }}>
 
@@ -946,14 +895,13 @@ export function Nutrition() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Daily Summary */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.65 }} />
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 18 }}>Daily Summary</div>
             <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' as const }}>
               <CalorieRing consumed={totals.cal} target={targets.calorie_target} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8, minWidth: isMobile ? '100%' : 0 }}>
                 <MacroBar label="Protein" consumed={totals.protein} target={targets.protein_target} color={MACRO_COLORS.protein} />
-                <MacroBar label="Carbs"   consumed={totals.carbs}   target={targets.carbs_target}   color={MACRO_COLORS.carbs} />
+                <MacroBar label="Carbohydrates" consumed={totals.carbs} target={targets.carbs_target} color={MACRO_COLORS.carbs} />
                 <MacroBar label="Fat"     consumed={totals.fat}     target={targets.fat_target}     color={MACRO_COLORS.fat} />
                 {totals.cal > 0 && (
                   <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 13 }}>
@@ -995,13 +943,14 @@ export function Nutrition() {
                 {allItems.length} items
               </div>
             </div>
-            {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealKey[]).map(key => (
+            {(['breakfast', 'lunch', 'dinner', 'snacks'] as MealKey[]).map((key, i) => (
               <MealSection
                 key={key}
                 mealKey={key}
                 items={meals[key]}
                 onOpenAddModal={setAddFoodModal}
                 onRemove={handleRemoveFood}
+                isFirst={i === 0}
               />
             ))}
           </div>

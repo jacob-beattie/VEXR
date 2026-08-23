@@ -29,24 +29,26 @@ function firstSentence(text: string): string {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function MetricCard({
-  label, value, color, sub,
+  label, value, color, sub, last, isMobile,
 }: {
   label: string
   value: string | number
   color: string
   sub?: string
+  last?: boolean
+  isMobile?: boolean
 }) {
   return (
     <div style={{
       flex: 1,
-      background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: RADIUS.card,
       padding: '14px 16px',
       textAlign: 'center',
       minWidth: 80,
       position: 'relative',
       overflow: 'hidden',
+      ...(isMobile
+        ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card }
+        : { borderRight: last ? 'none' : `1px solid ${COLORS.border}` }),
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
       <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
@@ -65,22 +67,24 @@ function MetricCard({
 }
 
 function QuickStatCard({
-  label, value, color, sub, icon,
+  label, value, color, sub, icon, last, isMobile,
 }: {
   label: string
   value: string
   color: string
   sub?: string
   icon?: string
+  last?: boolean
+  isMobile?: boolean
 }) {
   return (
     <div style={{
       flex: 1,
-      background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: RADIUS.card,
       padding: '14px 16px',
       minWidth: 120,
+      ...(isMobile
+        ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card }
+        : { borderRight: last ? 'none' : `1px solid ${COLORS.border}` }),
     }}>
       <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
         {label}
@@ -183,22 +187,26 @@ export function AICoach() {
       {/* ── Metrics row ─────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        gap: isMobile ? 8 : 12,
+        gap: isMobile ? 8 : 0,
         marginBottom: 20,
         flexWrap: isMobile ? 'wrap' : 'nowrap',
+        ...(isMobile ? {} : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }),
       }}>
         <MetricCard
+          isMobile={isMobile}
           label="CTL · Fitness"
           value={fitness.ctl}
           color={PMC_COLORS.ctl}
           sub={ctlChange !== 0 ? `${ctlChange > 0 ? '+' : ''}${ctlChange} this week` : 'stable'}
         />
         <MetricCard
+          isMobile={isMobile}
           label="ATL · Fatigue"
           value={fitness.atl}
           color={PMC_COLORS.atl}
         />
         <MetricCard
+          isMobile={isMobile}
           label="TSB · Form"
           value={fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb)}
           color={COLORS.green}
@@ -206,6 +214,8 @@ export function AICoach() {
         />
         {daysUntilRace !== null && daysUntilRace >= 0 ? (
           <MetricCard
+            isMobile={isMobile}
+            last
             label="Race Countdown"
             value={daysUntilRace}
             color={COLORS.text}
@@ -214,9 +224,6 @@ export function AICoach() {
         ) : (
           <div style={{
             flex: 1,
-            background: COLORS.card,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: RADIUS.card,
             padding: '14px 16px',
             textAlign: 'center',
             minWidth: 80,
@@ -226,6 +233,7 @@ export function AICoach() {
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
+            ...(isMobile ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card } : {}),
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
             <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
@@ -370,18 +378,21 @@ export function AICoach() {
 
       {/* ── Quick stats ─────────────────────────────────────────────────────── */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-        gap: isMobile ? 10 : 12,
+        display: isMobile ? 'grid' : 'flex',
+        gridTemplateColumns: isMobile ? '1fr 1fr' : undefined,
+        gap: isMobile ? 10 : 0,
         marginBottom: 20,
+        ...(isMobile ? {} : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }),
       }}>
         <QuickStatCard
+          isMobile={isMobile}
           label="Training Phase"
           value={phase.label}
           color={phase.color}
           sub={phase.description}
         />
         <QuickStatCard
+          isMobile={isMobile}
           label="Weekly Compliance"
           value={compliance !== null ? `${compliance}%` : '—'}
           color={
@@ -397,6 +408,7 @@ export function AICoach() {
           }
         />
         <QuickStatCard
+          isMobile={isMobile}
           label="TSS This Week"
           value={String(thisWeekTSS)}
           color={COLORS.text}
@@ -412,6 +424,8 @@ export function AICoach() {
           }
         />
         <QuickStatCard
+          isMobile={isMobile}
+          last
           label="CTL Trend"
           value={`${ctlChange >= 0 ? '+' : ''}${ctlChange}`}
           color={ctlChange > 0 ? COLORS.green : ctlChange < 0 ? COLORS.conflictAmber : COLORS.muted}
