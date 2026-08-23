@@ -6,6 +6,7 @@ import {
 } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import { CalendarDay } from './CalendarDay'
 import { workoutTypes } from '../ui/Badge'
 import { useIsMobile } from '../../hooks/useIsMobile'
@@ -44,9 +45,9 @@ function GhostCard({ workout }: { workout: Workout }) {
       borderRight: `2px solid ${wt.color}`,
       borderBottom: `2px solid ${wt.color}`,
       borderLeft: `2px solid ${wt.color}`,
-      borderRadius: 10,
+      borderRadius: RADIUS.card,
       padding: '10px 14px',
-      boxShadow: `0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px ${wt.color}33`,
+      boxShadow: `${SHADOW.dropdown}, 0 0 0 1px ${wt.color}33`,
       minWidth: 160,
       maxWidth: 220,
       pointerEvents: 'none',
@@ -154,8 +155,7 @@ function DraggableWeekCard({ workout, onWorkoutClick }: { workout: Workout; onWo
         borderRadius: 8,
         padding: '10px 10px',
         cursor: isDragging ? 'grabbing' : isPlanned ? 'grab' : 'pointer',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        transition: isDragging ? 'none' : 'box-shadow 0.12s, border-color 0.12s',
+        transition: isDragging ? 'none' : 'border-color 0.12s',
         position: 'relative',
         opacity: isDragging ? 0.3 : 1,
         touchAction: 'none',
@@ -163,13 +163,11 @@ function DraggableWeekCard({ workout, onWorkoutClick }: { workout: Workout; onWo
       }}
       onMouseEnter={e => {
         if (isDragging) return
-        e.currentTarget.style.boxShadow = `0 3px 10px ${wt.shadowColor}, 0 1px 3px rgba(0,0,0,0.06)`
         e.currentTarget.style.borderTopColor = wt.darkBorder
         e.currentTarget.style.borderRightColor = wt.darkBorder
         e.currentTarget.style.borderBottomColor = wt.darkBorder
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'
         e.currentTarget.style.borderTopColor = COLORS.border
         e.currentTarget.style.borderRightColor = COLORS.border
         e.currentTarget.style.borderBottomColor = COLORS.border
@@ -276,7 +274,7 @@ export function CalendarGrid({
 
     return (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{MONTHS[month]} {year}</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -339,7 +337,7 @@ export function CalendarGrid({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: isMobile ? 12 : 24, flex: 1, minWidth: 0 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: COLORS.text }}>{headerLabel}</div>
@@ -447,7 +445,6 @@ export function CalendarGrid({
                             display: 'flex',
                             alignItems: 'center',
                             gap: 12,
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                           }}
                         >
                           <div style={{

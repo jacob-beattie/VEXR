@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout, WorkoutType } from '../../types'
 import { calculatePMC } from '../../lib/calculateMetrics'
@@ -65,7 +66,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
 
   const hasFitness = fitness.ctl > 0 || fitness.atl > 0
 
-  const tsbColor = fitness.tsb > 0 ? COLORS.green : fitness.tsb > -10 ? COLORS.orange : COLORS.danger
+  const tsbColor = fitness.tsb > 0 ? COLORS.green : fitness.tsb > -10 ? COLORS.conflictAmber : COLORS.danger
   const tsbDisplay = fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb)
 
   const sportPills = sportStats.length > 0 && (
@@ -105,7 +106,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
         borderRight: `1px solid ${COLORS.border}`,
         borderBottom: `1px solid ${COLORS.border}`,
         borderLeft: `1px solid ${COLORS.border}`,
-        borderRadius: 12,
+        borderRadius: RADIUS.card,
         padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
@@ -189,7 +190,7 @@ export function WeeklySummary({ workouts, weekStart }: WeeklySummaryProps) {
       borderRight: `1px solid ${COLORS.border}`,
       borderBottom: `1px solid ${COLORS.border}`,
       borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
+      borderRadius: RADIUS.card,
       padding: '14px 20px',
       display: 'flex',
       alignItems: 'center',
