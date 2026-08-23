@@ -1,7 +1,9 @@
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import type { ParsedSession } from '../../types'
 import { SPORT_TABS } from './shared'
 import { SessionsList, type SessionListItem } from './SessionsList'
+import { Button } from '../ui/Button'
 
 interface ImportReviewScreenProps {
   parsedSessions: ParsedSession[]
@@ -109,10 +111,10 @@ export function ImportReviewScreen({
       }}>
         {importError && (
           <div style={{
-            background: `${COLORS.orange}15`,
-            border: `1px solid ${COLORS.orange}40`,
-            borderRadius: 8, padding: '10px 14px',
-            fontSize: 13, color: COLORS.orange,
+            background: `${COLORS.danger}15`,
+            border: `1px solid ${COLORS.danger}40`,
+            borderRadius: RADIUS.card, padding: '10px 14px',
+            fontSize: 13, color: COLORS.danger,
           }}>
             {importError}
           </div>
@@ -124,18 +126,17 @@ export function ImportReviewScreen({
         }}>
         {conflictCount > 0 && (
           <div style={{ fontSize: 12, color: COLORS.muted }}>
-            <span style={{ color: COLORS.amber, fontWeight: 700 }}>⚠ {conflictCount} conflict{conflictCount !== 1 ? 's' : ''} detected</span>
+            <span style={{ color: COLORS.conflictAmber, fontWeight: 700 }}>⚠ {conflictCount} conflict{conflictCount !== 1 ? 's' : ''} detected</span>
             {' '}— sessions overlap with existing calendar entries
           </div>
         )}
-        <button
-          className="purple-glow-btn"
+        <Button
           onClick={onImport}
           disabled={importing}
           style={{ padding: '12px 24px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           {importing ? 'Importing...' : `Import ${parsedSessions.length} Sessions →`}
-        </button>
+        </Button>
         </div>
       </div>
     </div>

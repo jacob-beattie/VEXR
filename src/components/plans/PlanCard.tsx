@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import type { TrainingPlan, SessionSport } from '../../types'
 import type { Tables } from '../../types/database.types'
 import { supabase } from '../../lib/supabase'
@@ -275,7 +276,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
       <div style={{
         background: COLORS.card,
         border: `1px solid ${COLORS.border}`,
-        borderRadius: 14,
+        borderRadius: RADIUS.card,
         padding: '20px 24px',
         position: 'relative',
         overflow: 'hidden',
@@ -381,7 +382,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
           borderRadius: 10,
           padding: '6px 0',
           minWidth: 160,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          boxShadow: SHADOW.dropdown,
           animation: 'fadeSlideUp 0.15s ease',
         }}>
           {menuItems.map((item, i) =>
@@ -397,7 +398,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
                   background: 'none', border: 'none',
                   textAlign: 'left', cursor: 'pointer',
                   fontSize: 13, fontWeight: 500,
-                  color: item.danger ? COLORS.orange : COLORS.text,
+                  color: item.danger ? COLORS.danger : COLORS.text,
                   fontFamily: 'Inter, sans-serif',
                 }}
               >
@@ -421,11 +422,11 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
           <div style={{
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
-            borderRadius: 14,
+            borderRadius: RADIUS.card,
             padding: '28px 32px',
             width: 420,
             maxWidth: 'calc(100vw - 40px)',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            boxShadow: SHADOW.modal,
             animation: 'fadeSlideUp 0.2s ease',
           }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: COLORS.text, marginBottom: 12 }}>
@@ -460,7 +461,7 @@ export function PlanCard({ plan, onRefresh, onToast }: PlanCardProps) {
                 disabled={deleting}
                 style={{
                   padding: '10px 20px',
-                  background: COLORS.orange,
+                  background: COLORS.danger,
                   border: 'none',
                   borderRadius: 8,
                   color: COLORS.white,

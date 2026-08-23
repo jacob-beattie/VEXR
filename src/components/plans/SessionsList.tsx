@@ -214,7 +214,7 @@ export function SessionsList({
                 {s.showConflictColumn && wConflicts > 0 && (
                   <span style={{
                     marginLeft: 'auto', fontSize: 11,
-                    background: COLORS.conflictAmber + '18', color: COLORS.amber,
+                    background: COLORS.conflictAmber + '18', color: COLORS.conflictAmber,
                     border: `1px solid ${COLORS.conflictAmber}40`, borderRadius: 6,
                     padding: '2px 8px', fontWeight: 700,
                   }}>
@@ -253,7 +253,7 @@ export function SessionsList({
                       {s.showConflictColumn && !isMobile && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {session.conflict && (
-                            <span title="Schedule conflict" style={{ fontSize: 13, color: COLORS.amber }}>⚠</span>
+                            <span title="Schedule conflict" style={{ fontSize: 13, color: COLORS.conflictAmber }}>⚠</span>
                           )}
                         </div>
                       )}
@@ -263,7 +263,6 @@ export function SessionsList({
                         <div style={{
                           width: s.dotSize, height: s.dotSize, borderRadius: '50%',
                           background: sportColor, flexShrink: 0,
-                          boxShadow: `0 0 5px ${sportColor}80`,
                         }} />
                         <span style={{
                           fontSize: s.sportLabelFontSize, fontWeight: 700, color: sportColor,
@@ -323,7 +322,7 @@ export function SessionsList({
                           {session.conflict && (
                             <span style={{
                               fontSize: 10, fontWeight: 700,
-                              background: COLORS.conflictAmber + '15', color: COLORS.amber,
+                              background: COLORS.conflictAmber + '15', color: COLORS.conflictAmber,
                               border: `1px solid ${COLORS.conflictAmber}35`,
                               borderRadius: 5, padding: '2px 7px',
                               fontFamily: 'DM Mono, monospace',

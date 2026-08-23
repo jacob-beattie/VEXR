@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import type { ParsedSession } from '../../types'
 import { ImportReviewScreen } from './ImportReviewScreen'
 import { mapEdgeSessions } from './shared'
+import { Button } from '../ui/Button'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useWorkouts } from '../../contexts/WorkoutsContext'
@@ -339,7 +341,7 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(14,165,233,0.12)',
+        boxShadow: isMobile ? 'none' : SHADOW.modal,
         animation: 'fadeSlideUp 0.25s ease',
       }}>
 
@@ -368,10 +370,10 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
             }}>
               {generateError && (
                 <div style={{
-                  background: `${COLORS.orange}15`,
-                  border: `1px solid ${COLORS.orange}40`,
-                  borderRadius: 8, padding: '12px 14px',
-                  fontSize: 13, color: COLORS.orange,
+                  background: `${COLORS.danger}15`,
+                  border: `1px solid ${COLORS.danger}40`,
+                  borderRadius: RADIUS.card, padding: '12px 14px',
+                  fontSize: 13, color: COLORS.danger,
                 }}>
                   {generateError}
                 </div>
@@ -520,13 +522,12 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
             </div>
 
             <div style={{ padding: isMobile ? '16px 20px' : '18px 28px', borderTop: `1px solid ${COLORS.border}` }}>
-              <button
-                className="purple-glow-btn"
+              <Button
                 onClick={handleGenerate}
                 style={{ width: '100%', padding: 14, fontSize: 14 }}
               >
                 Generate Plan →
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -603,7 +604,6 @@ export function GeneratePlanModal({ onClose, onSuccess }: Props) {
                 background: COLORS.accent,
                 borderRadius: 4,
                 transition: 'width 0.5s ease',
-                boxShadow: `0 0 8px ${COLORS.accent}`,
               }} />
             </div>
           </div>
