@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react'
-import { COLORS, PMC_COLORS } from '../../lib/colors'
+import { COLORS, MACRO_COLORS } from '../../lib/colors'
 import { RADIUS } from '../../lib/designTokens'
 import { supabase } from '../../lib/supabase'
 import { localDateKey } from './utils'
-
-// Macro-nutrient identity colors — distinct from PMC/sport data colors that happen to
-// share the same underlying hues (CTL blue / ATL amber / bike violet), validated
-// colorblind-safe together (all-pairs, since the ring/bars/split legend show all three
-// at once). Deliberately not COLORS.green — that's reserved for status/interactive use.
-const MACRO_COLORS = { protein: PMC_COLORS.ctl, carbs: PMC_COLORS.atl, fat: COLORS.purple }
 
 const DEFAULT_TARGETS = { calorie_target: 2800, protein_target: 175, carbs_target: 320, fat_target: 85 }
 

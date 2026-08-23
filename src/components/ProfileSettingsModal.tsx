@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { COLORS } from '../lib/colors'
+import { COLORS, SPORT_COLORS } from '../lib/colors'
 import { RADIUS, SHADOW } from '../lib/designTokens'
 import { supabase } from '../lib/supabase'
 import { paceToSeconds, secsToPaceStr } from '../lib/tss'
@@ -414,7 +414,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
   const sectionStyle: React.CSSProperties = {
     background: COLORS.card,
     border: `1px solid ${COLORS.border}`,
-    borderRadius: 12,
+    borderRadius: RADIUS.card,
     padding: isMobile ? '16px 14px' : '22px 24px',
     marginBottom: 20,
   }
@@ -529,7 +529,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               ) : (
                 <div style={{
                   width: '100%', height: '100%',
-                  background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.purple})`,
+                  background: COLORS.text,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 22, fontWeight: 700, color: COLORS.white,
                 }}>
@@ -685,11 +685,11 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
           {loadingData ? (
             <div style={{ color: COLORS.muted, fontSize: 13, padding: '16px 0' }}>Loading…</div>
           ) : dataError ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, color: COLORS.orange, fontSize: 13, padding: '16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, color: COLORS.danger, fontSize: 13, padding: '16px 0' }}>
               <span>Failed to load benchmark history.</span>
               <button
                 onClick={loadData}
-                style={{ background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6, color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip, color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Retry
               </button>
@@ -699,7 +699,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <BenchmarkSparkline
                 label="FTP"
                 unit="w"
-                color={COLORS.purple}
+                color={SPORT_COLORS.bike}
                 data={ftpChartData}
                 currentValue={form.ftp ? `${form.ftp}w` : ''}
                 higherIsBetter
@@ -707,7 +707,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <BenchmarkSparkline
                 label="Run Pace"
                 unit="min/km"
-                color={COLORS.green}
+                color={SPORT_COLORS.run}
                 data={paceChartData}
                 currentValue={form.run_pace}
                 higherIsBetter={false}
@@ -715,7 +715,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
               <BenchmarkSparkline
                 label="CSS"
                 unit="min/100m"
-                color={COLORS.accent}
+                color={SPORT_COLORS.swim}
                 data={cssChartData}
                 currentValue={form.css}
                 higherIsBetter={false}
@@ -775,10 +775,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                     }}>
                       <div style={{
                         width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                        background: COLORS.purple + '18',
-                        border: `1px solid ${COLORS.purple}35`,
+                        background: SPORT_COLORS.bike + '18',
+                        border: `1px solid ${SPORT_COLORS.bike}35`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 700, color: COLORS.purple,
+                        fontSize: 11, fontWeight: 700, color: SPORT_COLORS.bike,
                       }}>
                         Z{zone.zone_number}
                       </div>
@@ -834,10 +834,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                       }}>
                         <div style={{
                           width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                          background: COLORS.green + '18',
-                          border: `1px solid ${COLORS.green}35`,
+                          background: SPORT_COLORS.run + '18',
+                          border: `1px solid ${SPORT_COLORS.run}35`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: COLORS.green,
+                          fontSize: 11, fontWeight: 700, color: SPORT_COLORS.run,
                         }}>
                           Z{zone.zone_number}
                         </div>
@@ -896,10 +896,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                       }}>
                         <div style={{
                           width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                          background: COLORS.accent + '18',
-                          border: `1px solid ${COLORS.accent}35`,
+                          background: SPORT_COLORS.swim + '18',
+                          border: `1px solid ${SPORT_COLORS.swim}35`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: COLORS.accent,
+                          fontSize: 11, fontWeight: 700, color: SPORT_COLORS.swim,
                         }}>
                           Z{zone.zone_number}
                         </div>
@@ -1057,7 +1057,7 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
                     padding: '8px 16px', cursor: 'pointer',
                     fontFamily: 'inherit', transition: 'all 0.12s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.color = COLORS.orange; e.currentTarget.style.borderColor = COLORS.orange + '60' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = COLORS.danger; e.currentTarget.style.borderColor = COLORS.danger + '60' }}
                   onMouseLeave={e => { e.currentTarget.style.color = COLORS.muted; e.currentTarget.style.borderColor = COLORS.border }}
                 >
                   Disconnect
@@ -1101,10 +1101,10 @@ export function ProfileSettingsModal({ profile, user, onClose, onSave }: Profile
         {/* Error */}
         {error && (
           <div style={{
-            color: COLORS.orange, fontSize: 13,
+            color: COLORS.danger, fontSize: 13,
             padding: '10px 14px',
-            background: COLORS.orange + '15',
-            borderRadius: 8,
+            background: COLORS.danger + '15',
+            borderRadius: RADIUS.card,
             marginBottom: 16,
           }}>
             {error}

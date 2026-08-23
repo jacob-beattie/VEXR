@@ -43,6 +43,13 @@ export const PMC_COLORS = {
 // AnalyticsPage.tsx (ZONE_COLORS) so the ramp never drifts between the two.
 export const HR_ZONE_RAMP = ["#e0947a", "#d1604a", "#b8362a", "#8f2318", "#5c130c"]
 
+// Macro-nutrient identity colors — distinct from PMC/sport data colors that happen to
+// share the same underlying hues (CTL blue / ATL amber / bike violet), validated
+// colorblind-safe together (all-pairs, since the ring/bars/split legend show all three
+// at once). Deliberately not `green` — that's reserved for status/interactive use.
+// Shared by NutritionSummaryCard.tsx and Nutrition.tsx so the mapping never drifts.
+export const MACRO_COLORS = { protein: PMC_COLORS.ctl, carbs: PMC_COLORS.atl, fat: "#9330a8" }
+
 export const SPORT_COLORS: Record<WorkoutType | SessionSport, string> = {
   swim:     "#0a6fd1",
   ride:     "#9330a8",

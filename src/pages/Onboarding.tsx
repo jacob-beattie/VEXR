@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { supabase } from '../lib/supabase'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { TablesUpdate } from '../types/database.types'
@@ -62,7 +63,7 @@ function Tooltip({ id, active, onShow, onHide }: {
           lineHeight: 1.5,
           width: 240,
           zIndex: 10,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          boxShadow: SHADOW.dropdown,
           pointerEvents: 'none',
         }}>
           {TOOLTIPS[id]}
@@ -370,7 +371,7 @@ export function Onboarding() {
             </div>
 
             {error && (
-              <div style={{ marginTop: 20, color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+              <div style={{ marginTop: 20, color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                 {error}
               </div>
             )}
@@ -481,7 +482,7 @@ export function Onboarding() {
             </div>
 
             {error && (
-              <div style={{ marginTop: 20, color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+              <div style={{ marginTop: 20, color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                 {error}
               </div>
             )}
@@ -593,7 +594,7 @@ export function Onboarding() {
             <div style={{
               background: COLORS.surface,
               border: `1px solid ${COLORS.border}`,
-              borderRadius: 12,
+              borderRadius: RADIUS.card,
               padding: '20px 24px',
               display: 'flex',
               flexDirection: 'column',

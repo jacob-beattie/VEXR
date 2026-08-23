@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { supabase } from '../lib/supabase'
 import { Button } from '../components/ui/Button'
 
@@ -72,7 +73,7 @@ export function ResetPassword() {
           <div style={{ fontSize: 13, color: COLORS.muted, letterSpacing: '0.06em', marginTop: 8 }}>Train. Track. Perform.</div>
         </div>
 
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 32 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 32 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, marginBottom: 6 }}>Set new password</div>
           <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 28 }}>Choose a password with at least 6 characters.</div>
 
@@ -81,7 +82,7 @@ export function ResetPassword() {
               Password updated! Redirecting to login…
             </div>
           ) : !validSession ? (
-            <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+            <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
               This reset link is invalid or has expired. Please request a new one.
             </div>
           ) : (
@@ -116,7 +117,7 @@ export function ResetPassword() {
               </div>
 
               {error && (
-                <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                   {error}
                 </div>
               )}

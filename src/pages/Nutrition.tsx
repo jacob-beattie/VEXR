@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { COLORS } from '../lib/colors'
+import { COLORS, MACRO_COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { supabase } from '../lib/supabase'
 import type { Tables } from '../types/database.types'
@@ -35,11 +36,14 @@ interface NutritionTargets {
 type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
 type Meals = Record<MealKey, FoodEntry[]>
 
+// Meal-of-day is identified by icon + label, not color — a 4th distinct hue here would
+// either collide with the macro P/C/F colors shown right beside it in each food row, or
+// force yet another validated categorical set for a purely decorative icon tint.
 const MEAL_META: Record<MealKey, { label: string; icon: string; color: string }> = {
-  breakfast: { label: 'Breakfast', icon: '☀',  color: COLORS.orange },
-  lunch:     { label: 'Lunch',     icon: '◑',  color: COLORS.green  },
-  dinner:    { label: 'Dinner',    icon: '☽',  color: COLORS.purple },
-  snacks:    { label: 'Snacks',    icon: '⊙',  color: COLORS.accent },
+  breakfast: { label: 'Breakfast', icon: '☀',  color: COLORS.muted },
+  lunch:     { label: 'Lunch',     icon: '◑',  color: COLORS.muted },
+  dinner:    { label: 'Dinner',    icon: '☽',  color: COLORS.muted },
+  snacks:    { label: 'Snacks',    icon: '⊙',  color: COLORS.muted },
 }
 
 const DEFAULT_TARGETS: NutritionTargets = {
@@ -89,7 +93,7 @@ function CalorieRing({ consumed, target }: { consumed: number; target: number })
   const circ = 2 * Math.PI * r
   const dash = circ * pct
   const over = consumed > target
-  const ringColor = over ? COLORS.orange : pct >= 0.85 ? COLORS.green : COLORS.accent
+  const ringColor = over ? COLORS.danger : pct >= 0.85 ? COLORS.green : COLORS.accent
   const remaining = Math.max(0, target - consumed)
 
   return (
@@ -134,12 +138,12 @@ function MacroBar({ label, consumed, target, color }: { label: string; consumed:
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>{label}</span>
         <span style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
-          <span style={{ color: over ? COLORS.orange : COLORS.text, fontWeight: 700 }}>{consumed}g</span>
+          <span style={{ color: over ? COLORS.danger : COLORS.text, fontWeight: 700 }}>{consumed}g</span>
           <span style={{ color: COLORS.muted }}> / {target}g</span>
         </span>
       </div>
       <div style={{ height: 5, background: COLORS.subtle, borderRadius: 4, overflow: 'hidden' }}>
-        <div style={{ height: '100%', borderRadius: 4, width: `${pct * 100}%`, background: over ? COLORS.orange : color, transition: 'width 0.5s ease' }} />
+        <div style={{ height: '100%', borderRadius: 4, width: `${pct * 100}%`, background: over ? COLORS.danger : color, transition: 'width 0.5s ease' }} />
       </div>
     </div>
   )
@@ -155,7 +159,7 @@ function NutritionStatCard({ label, value, unit, sub, color }: {
   color: string
 }) {
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.9 }} />
       <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 10 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 7 }}>
@@ -175,7 +179,7 @@ function HydrationCard({ hydration, onSetHydration }: { hydration: number; onSet
   const cups = Math.round(hydration / 0.25)
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.7 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Hydration</div>
@@ -286,7 +290,7 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
 
   const innerStyle = isMobile
     ? { display: 'flex', flexDirection: 'column' as const, height: '100%' }
-    : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24, width: 440, maxWidth: '92vw', maxHeight: '85vh', boxShadow: '0 12px 50px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column' as const }
+    : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 24, width: 440, maxWidth: '92vw', maxHeight: '85vh', boxShadow: SHADOW.modal, display: 'flex', flexDirection: 'column' as const }
 
   return (
     <div style={cardStyle} onClick={e => !isMobile && e.target === e.currentTarget && onClose()}>
@@ -311,8 +315,7 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
                 color: mode === m ? COLORS.text : COLORS.muted,
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-                boxShadow: mode === m ? `0 1px 4px rgba(0,0,0,0.3)` : 'none',
-              }}
+                }}
             >{m === 'browse' ? 'Browse' : '+ Create Food'}</button>
           ))}
         </div>
@@ -357,9 +360,9 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
                     </span>
                     <div style={{ display: 'flex', gap: 10, fontSize: 11, flexShrink: 0, marginLeft: 10 }}>
                       <span style={{ color: COLORS.text, fontFamily: "'DM Mono', monospace", fontWeight: 700 }}>{food.cal}</span>
-                      <span style={{ color: COLORS.green }}>P{food.protein}</span>
-                      <span style={{ color: COLORS.orange }}>C{food.carbs}</span>
-                      <span style={{ color: COLORS.purple }}>F{food.fat}</span>
+                      <span style={{ color: MACRO_COLORS.protein }}>P{food.protein}</span>
+                      <span style={{ color: MACRO_COLORS.carbs }}>C{food.carbs}</span>
+                      <span style={{ color: MACRO_COLORS.fat }}>F{food.fat}</span>
                     </div>
                   </button>
                 )
@@ -377,9 +380,9 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
                 <div style={{ display: 'flex', gap: 20 }}>
                   {[
                     { v: String(selected.cal),     l: 'kcal',    c: COLORS.accent },
-                    { v: `${selected.protein}g`,   l: 'protein', c: COLORS.green  },
-                    { v: `${selected.carbs}g`,     l: 'carbs',   c: COLORS.orange },
-                    { v: `${selected.fat}g`,       l: 'fat',     c: COLORS.purple },
+                    { v: `${selected.protein}g`,   l: 'protein', c: MACRO_COLORS.protein },
+                    { v: `${selected.carbs}g`,     l: 'carbs',   c: MACRO_COLORS.carbs },
+                    { v: `${selected.fat}g`,       l: 'fat',     c: MACRO_COLORS.fat },
                   ].map(({ v, l, c }) => (
                     <div key={l} style={{ textAlign: 'center' }}>
                       <div style={{ color: c, fontFamily: "'DM Mono', monospace", fontWeight: 700, fontSize: 15 }}>{v}</div>
@@ -427,9 +430,9 @@ function AddFoodModal({ meal, builtinFoods, customFoods, onAdd, onSaveCustomFood
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
                   { label: 'Calories', value: newCal, set: setNewCal, unit: 'kcal', color: COLORS.accent },
-                  { label: 'Protein',  value: newProtein, set: setNewProtein, unit: 'g', color: COLORS.green },
-                  { label: 'Carbs',    value: newCarbs,   set: setNewCarbs,   unit: 'g', color: COLORS.orange },
-                  { label: 'Fat',      value: newFat,     set: setNewFat,     unit: 'g', color: COLORS.purple },
+                  { label: 'Protein',  value: newProtein, set: setNewProtein, unit: 'g', color: MACRO_COLORS.protein },
+                  { label: 'Carbs',    value: newCarbs,   set: setNewCarbs,   unit: 'g', color: MACRO_COLORS.carbs },
+                  { label: 'Fat',      value: newFat,     set: setNewFat,     unit: 'g', color: MACRO_COLORS.fat },
                 ].map(({ label: lbl, value, set, unit, color: c }) => (
                   <div key={lbl}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -516,9 +519,9 @@ function MealSection({ mealKey, items, onOpenAddModal, onRemove }: {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: COLORS.text, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{food.food_name}</div>
                 <div style={{ display: 'flex', gap: 8, fontSize: 10, marginTop: 2 }}>
-                  <span style={{ color: COLORS.green }}>P {food.protein}g</span>
-                  <span style={{ color: COLORS.orange }}>C {food.carbs}g</span>
-                  <span style={{ color: COLORS.purple }}>F {food.fat}g</span>
+                  <span style={{ color: MACRO_COLORS.protein }}>P {food.protein}g</span>
+                  <span style={{ color: MACRO_COLORS.carbs }}>C {food.carbs}g</span>
+                  <span style={{ color: MACRO_COLORS.fat }}>F {food.fat}g</span>
                 </div>
               </div>
               <span style={{ fontSize: 14, fontWeight: 800, color: COLORS.text, fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>{food.calories}</span>
@@ -565,9 +568,9 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
 
   const fields = [
     { label: 'Calories', value: cal, set: setCal, unit: 'kcal', color: COLORS.accent },
-    { label: 'Protein',  value: protein, set: setProtein, unit: 'g', color: COLORS.green },
-    { label: 'Carbs',    value: carbs,   set: setCarbs,   unit: 'g', color: COLORS.orange },
-    { label: 'Fat',      value: fat,     set: setFat,     unit: 'g', color: COLORS.purple },
+    { label: 'Protein',  value: protein, set: setProtein, unit: 'g', color: MACRO_COLORS.protein },
+    { label: 'Carbs',    value: carbs,   set: setCarbs,   unit: 'g', color: MACRO_COLORS.carbs },
+    { label: 'Fat',      value: fat,     set: setFat,     unit: 'g', color: MACRO_COLORS.fat },
   ]
 
   const handleSave = () => {
@@ -584,7 +587,7 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
       style={{ position: 'fixed', inset: 0, zIndex: 450, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.65)' }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 24, width: isMobile ? '92vw' : 360, boxShadow: '0 12px 50px rgba(0,0,0,0.55)' }}>
+      <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 24, width: isMobile ? '92vw' : 360, boxShadow: SHADOW.modal }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: COLORS.text }}>Edit Targets</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
@@ -640,11 +643,11 @@ function NutritionTargetsModal({ targets, onSave, onClose }: {
 function WorkoutFuelCard() {
   const phases = [
     {
-      label: 'Pre-Workout', time: '2–3h before', color: COLORS.orange,
+      label: 'Pre-Workout', time: '2–3h before', color: COLORS.amber,
       recs: ['Low fibre, moderate-high carbs', 'Rice + chicken or oats', 'Avoid fats and high fibre'],
     },
     {
-      label: 'During', time: '> 60 min sessions', color: COLORS.accent,
+      label: 'During', time: '> 60 min sessions', color: COLORS.orange,
       recs: ['30–60g carbs/hour', 'Gels, dates, or isotonic drinks', '500–750ml water per hour'],
     },
     {
@@ -654,8 +657,7 @@ function WorkoutFuelCard() {
   ]
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden', marginTop: 12 }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.accent}, ${COLORS.green})` }} />
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', marginTop: 12 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 16 }}>Workout Fuel Guide</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {phases.map((p, i) => (
@@ -848,10 +850,10 @@ export function Nutrition() {
       {(staticError || dayError || actionError) && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
           padding: '10px 16px', marginBottom: 16,
         }}>
-          <span style={{ fontSize: 13, color: COLORS.orange }}>{staticError || dayError || actionError}</span>
+          <span style={{ fontSize: 13, color: COLORS.danger }}>{staticError || dayError || actionError}</span>
           {(staticError || dayError) && (
             <button
               onClick={() => {
@@ -859,8 +861,8 @@ export function Nutrition() {
                 if (dayError) setDayReloadKey(k => k + 1)
               }}
               style={{
-                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+                color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
                 cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
               }}
             >
@@ -919,21 +921,21 @@ export function Nutrition() {
           value={totals.protein}
           unit="g"
           sub={totals.protein >= targets.protein_target ? 'Target reached' : `${targets.protein_target - totals.protein}g to go`}
-          color={COLORS.green}
+          color={MACRO_COLORS.protein}
         />
         <NutritionStatCard
           label="Carbohydrates"
           value={totals.carbs}
           unit="g"
           sub={totals.carbs >= targets.carbs_target ? 'Target reached' : `${targets.carbs_target - totals.carbs}g to go`}
-          color={COLORS.orange}
+          color={MACRO_COLORS.carbs}
         />
         <NutritionStatCard
           label="Fat"
           value={totals.fat}
           unit="g"
           sub={totals.fat >= targets.fat_target ? 'Target reached' : `${targets.fat_target - totals.fat}g to go`}
-          color={COLORS.purple}
+          color={MACRO_COLORS.fat}
         />
       </div>
 
@@ -944,28 +946,28 @@ export function Nutrition() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Daily Summary */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '20px 24px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.accent, opacity: 0.65 }} />
             <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 18 }}>Daily Summary</div>
             <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' as const }}>
               <CalorieRing consumed={totals.cal} target={targets.calorie_target} />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8, minWidth: isMobile ? '100%' : 0 }}>
-                <MacroBar label="Protein" consumed={totals.protein} target={targets.protein_target} color={COLORS.green} />
-                <MacroBar label="Carbs"   consumed={totals.carbs}   target={targets.carbs_target}   color={COLORS.orange} />
-                <MacroBar label="Fat"     consumed={totals.fat}     target={targets.fat_target}     color={COLORS.purple} />
+                <MacroBar label="Protein" consumed={totals.protein} target={targets.protein_target} color={MACRO_COLORS.protein} />
+                <MacroBar label="Carbs"   consumed={totals.carbs}   target={targets.carbs_target}   color={MACRO_COLORS.carbs} />
+                <MacroBar label="Fat"     consumed={totals.fat}     target={targets.fat_target}     color={MACRO_COLORS.fat} />
                 {totals.cal > 0 && (
                   <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 13 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 8 }}>Macro Split</div>
                     <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-                      <div style={{ width: `${proteinPct}%`, background: COLORS.green,  transition: 'width 0.5s ease' }} />
-                      <div style={{ width: `${carbsPct}%`,   background: COLORS.orange, transition: 'width 0.5s ease' }} />
-                      <div style={{ width: `${fatPct}%`,     background: COLORS.purple, transition: 'width 0.5s ease' }} />
+                      <div style={{ width: `${proteinPct}%`, background: MACRO_COLORS.protein, transition: 'width 0.5s ease' }} />
+                      <div style={{ width: `${carbsPct}%`,   background: MACRO_COLORS.carbs, transition: 'width 0.5s ease' }} />
+                      <div style={{ width: `${fatPct}%`,     background: MACRO_COLORS.fat, transition: 'width 0.5s ease' }} />
                     </div>
                     <div style={{ display: 'flex', gap: 14, marginTop: 7 }}>
                       {[
-                        { l: 'Protein', pct: proteinPct, c: COLORS.green  },
-                        { l: 'Carbs',   pct: carbsPct,   c: COLORS.orange },
-                        { l: 'Fat',     pct: fatPct,     c: COLORS.purple },
+                        { l: 'Protein', pct: proteinPct, c: MACRO_COLORS.protein },
+                        { l: 'Carbs',   pct: carbsPct,   c: MACRO_COLORS.carbs },
+                        { l: 'Fat',     pct: fatPct,     c: MACRO_COLORS.fat },
                       ].map(({ l, pct, c }) => (
                         <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: COLORS.muted }}>
                           <div style={{ width: 8, height: 8, borderRadius: 2, background: c, flexShrink: 0 }} />
@@ -986,8 +988,7 @@ export function Nutrition() {
         {/* Right column */}
         <div>
           {/* Meal Log */}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.green}, ${COLORS.purple}, ${COLORS.accent})` }} />
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Meal Log</div>
               <div style={{ fontSize: 11, color: COLORS.muted, fontFamily: "'DM Mono', monospace" }}>

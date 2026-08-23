@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import type { WorkoutLibraryItem, WorkoutType } from '../../types'
 import { supabase } from '../../lib/supabase'
 import { Badge, workoutTypes } from '../ui/Badge'
@@ -76,7 +77,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {actionError && (
-        <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+        <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
           {actionError}
         </div>
       )}
@@ -117,7 +118,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
       )}
 
       {showForm && (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: isMobile ? '18px 16px' : 24 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: isMobile ? '18px 16px' : 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>Add to Library</div>
             {isMobile && (
@@ -172,7 +173,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
       )}
 
       {filtered.length === 0 ? (
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '48px 24px', textAlign: 'center' }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '48px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>No workouts in library</div>
           <div style={{ fontSize: 13, color: COLORS.muted }}>Add your go-to workouts to quickly log them</div>
@@ -185,7 +186,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
             const m = item.duration_minutes % 60
             const duration = h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`
             return (
-              <div key={item.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+              <div key={item.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: wt.color, opacity: 0.7 }} />
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -220,7 +221,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
                   )}
                   <button
                     onClick={() => handleDelete(item.id)}
-                    style={{ background: COLORS.orange + '20', border: `1px solid ${COLORS.orange}40`, color: COLORS.orange, borderRadius: 6, padding: '7px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flex: onAddToCalendar ? undefined : 1, fontFamily: 'inherit' }}
+                    style={{ background: COLORS.danger + '20', border: `1px solid ${COLORS.danger}40`, color: COLORS.danger, borderRadius: RADIUS.chip, padding: '7px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flex: onAddToCalendar ? undefined : 1, fontFamily: 'inherit' }}
                   >
                     Delete
                   </button>
@@ -252,7 +253,7 @@ export function LibraryPage({ items, onRefresh, onAddToCalendar }: LibraryPagePr
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            boxShadow: SHADOW.dropdown,
             fontFamily: 'system-ui, sans-serif',
             lineHeight: 1,
           }}

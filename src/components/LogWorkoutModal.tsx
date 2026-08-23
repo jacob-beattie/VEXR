@@ -26,9 +26,11 @@ interface LogWorkoutModalProps {
 
 // ─── Block constants ─────────────────────────────────────────────────────────
 
+// Validated colorblind-safe together (all-pairs — blocks can sit adjacent in any order
+// when drag-reordered). rest stays a plain neutral, not part of the identity set.
 const BLOCK_COLORS: Record<BlockType, string> = {
-  warmup: COLORS.orange,
-  interval: COLORS.accent,
+  warmup: COLORS.amber,
+  interval: COLORS.purple,
   rest: COLORS.restBlock,
   cooldown: COLORS.green,
 }
@@ -755,7 +757,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
                   )}
                 </div>
                 {missingBenchmark && (
-                  <div style={{ marginTop: 5, fontSize: 10, color: COLORS.orange }}>
+                  <div style={{ marginTop: 5, fontSize: 10, color: COLORS.conflictAmber }}>
                     Set your {missingBenchmark} for auto TSS
                   </div>
                 )}
@@ -865,7 +867,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
           </div>
 
           {error && (
-            <div style={{ color: COLORS.orange, fontSize: 13, padding: '8px 12px', background: COLORS.orange + '15', borderRadius: 8 }}>
+            <div style={{ color: COLORS.danger, fontSize: 13, padding: '8px 12px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
               {error}
             </div>
           )}
