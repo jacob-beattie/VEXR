@@ -1,4 +1,5 @@
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 
 export function StatCard({ label, value, unit, sub, color }: {
   label: string
@@ -12,7 +13,7 @@ export function StatCard({ label, value, unit, sub, color }: {
     <div style={{
       background: COLORS.card,
       border: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
+      borderRadius: RADIUS.card,
       padding: '18px 20px',
       position: 'relative',
       overflow: 'hidden',

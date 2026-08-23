@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWorkouts } from '../contexts/WorkoutsContext'
 import { useProfile } from '../contexts/ProfileContext'
-import { COLORS } from '../lib/colors'
+import { COLORS, PMC_COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { WorkoutDetailModal } from '../components/WorkoutDetailModal'
 import { DayWorkoutsModal } from '../components/DayWorkoutsModal'
@@ -81,15 +82,15 @@ export function Dashboard() {
       {error && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
           padding: '10px 16px', marginBottom: 16,
         }}>
-          <span style={{ fontSize: 13, color: COLORS.orange }}>{error}</span>
+          <span style={{ fontSize: 13, color: COLORS.danger }}>{error}</span>
           <button
             onClick={() => refetchWorkouts()}
             style={{
-              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+              color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
               cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
             }}
           >
@@ -105,7 +106,7 @@ export function Dashboard() {
           borderRight: `1px solid ${COLORS.border}`,
           borderBottom: `1px solid ${COLORS.border}`,
           borderLeft: `3px solid ${COLORS.accent}`,
-          borderRadius: 12,
+          borderRadius: RADIUS.card,
           padding: '13px 18px',
           marginBottom: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
@@ -152,18 +153,15 @@ export function Dashboard() {
 
         {tsb < -20 && !isMobile && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '9px 14px',
-            borderRadius: 8,
-            background: COLORS.orange + '12',
-            borderTop: `1px solid ${COLORS.orange}30`,
-            borderRight: `1px solid ${COLORS.orange}30`,
-            borderBottom: `1px solid ${COLORS.orange}30`,
-            borderLeft: `3px solid ${COLORS.orange}`,
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '8px 14px',
+            borderRadius: RADIUS.chip,
+            background: COLORS.danger,
             flexShrink: 0,
           }}>
-            <span style={{ fontSize: 14 }}>⚠️</span>
-            <span style={{ fontSize: 12, color: COLORS.orange, fontWeight: 600 }}>High Fatigue — consider an easy day</span>
+            <span style={{ fontSize: 12, color: COLORS.white, fontWeight: 700, fontFamily: "'DM Mono', monospace", letterSpacing: '0.02em' }}>
+              ▲ HIGH FATIGUE
+            </span>
           </div>
         )}
       </div>
@@ -179,21 +177,21 @@ export function Dashboard() {
           label="Fitness (CTL)"
           value={ctl}
           sub={ctl < 10 ? 'Log workouts to build' : ctlSub}
-          color={COLORS.accent}
+          color={PMC_COLORS.ctl}
           dimSub={ctl < 10}
         />
         <StatCard
           label="Fatigue (ATL)"
           value={atl}
           sub={atl < 10 ? 'No recent load' : atlSub}
-          color={COLORS.accent}
+          color={PMC_COLORS.atl}
           dimSub={atl < 10}
         />
         <StatCard
           label="Form (TSB)"
           value={tsb > 0 ? `+${tsb}` : tsb}
           sub={tsbSub}
-          color={COLORS.accent}
+          color={COLORS.green}
         />
         {hasRace ? (
           <StatCard
@@ -201,11 +199,11 @@ export function Dashboard() {
             value={raceDays!}
             unit="days"
             sub={profile!.race_goal!}
-            color={COLORS.accent}
+            color={COLORS.text}
           />
         ) : (
           <div style={{
-            background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px',
+            background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px',
             position: 'relative', overflow: 'hidden',
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />

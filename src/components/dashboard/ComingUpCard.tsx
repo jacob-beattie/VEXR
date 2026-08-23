@@ -1,11 +1,12 @@
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout } from '../../types'
 import { formatDuration, formatUpcomingDay } from './utils'
 
 export function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSelect: (w: Workout) => void }) {
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', marginBottom: 14 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Coming Up
       </div>
@@ -40,18 +41,15 @@ export function ComingUpCard({ workouts, onSelect }: { workouts: Workout[], onSe
                   borderRight: `1px solid ${COLORS.border}`,
                   borderBottom: `1px solid ${COLORS.border}`,
                   borderLeft: `3px solid ${wt.color}`,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                   cursor: 'pointer',
-                  transition: 'box-shadow 0.15s, border-color 0.15s',
+                  transition: 'border-color 0.15s',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.boxShadow = `0 4px 12px ${wt.shadowColor}, 0 1px 4px rgba(0,0,0,0.06)`
                   e.currentTarget.style.borderTopColor = wt.darkBorder
                   e.currentTarget.style.borderRightColor = wt.darkBorder
                   e.currentTarget.style.borderBottomColor = wt.darkBorder
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'
                   e.currentTarget.style.borderTopColor = COLORS.border
                   e.currentTarget.style.borderRightColor = COLORS.border
                   e.currentTarget.style.borderBottomColor = COLORS.border

@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
-import { COLORS } from '../../lib/colors'
+import { COLORS, PMC_COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { supabase } from '../../lib/supabase'
 import { localDateKey } from './utils'
+
+// Macro-nutrient identity colors — distinct from PMC/sport data colors that happen to
+// share the same underlying hues (CTL blue / ATL amber / bike violet), validated
+// colorblind-safe together (all-pairs, since the ring/bars/split legend show all three
+// at once). Deliberately not COLORS.green — that's reserved for status/interactive use.
+const MACRO_COLORS = { protein: PMC_COLORS.ctl, carbs: PMC_COLORS.atl, fat: COLORS.purple }
 
 const DEFAULT_TARGETS = { calorie_target: 2800, protein_target: 175, carbs_target: 320, fat_target: 85 }
 
@@ -50,15 +57,13 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
   const calPct = hasData ? Math.min(totals.cal / targets.calorie_target, 1) : 0
   const dash = circ * calPct
   const over = totals.cal > targets.calorie_target
-  const ringColor = over ? COLORS.orange : calPct >= 0.85 ? COLORS.green : COLORS.accent
+  const ringColor = over ? COLORS.danger : calPct >= 0.85 ? COLORS.green : COLORS.accent
   const proteinPct = totals.cal > 0 ? Math.round(totals.protein * 4 / totals.cal * 100) : 0
   const carbsPct   = totals.cal > 0 ? Math.round(totals.carbs   * 4 / totals.cal * 100) : 0
   const fatPct     = totals.cal > 0 ? Math.round(totals.fat     * 9 / totals.cal * 100) : 0
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginTop: 14, position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${COLORS.green}, ${COLORS.orange}, ${COLORS.purple})` }} />
-
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>Nutrition Today</div>
         <button
@@ -72,7 +77,7 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
       {!loaded ? (
         <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.muted, fontSize: 12 }}>Loading…</div>
       ) : error ? (
-        <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.orange, fontSize: 12, textAlign: 'center', padding: '0 12px' }}>
+        <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.danger, fontSize: 12, textAlign: 'center', padding: '0 12px' }}>
           Couldn't load today's nutrition data.
         </div>
       ) : !hasData ? (
@@ -124,9 +129,9 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
             {/* Macro bars */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11, paddingTop: 4 }}>
               {[
-                { label: 'Protein', consumed: totals.protein, target: targets.protein_target, color: COLORS.green },
-                { label: 'Carbs',   consumed: totals.carbs,   target: targets.carbs_target,   color: COLORS.orange },
-                { label: 'Fat',     consumed: totals.fat,     target: targets.fat_target,     color: COLORS.purple },
+                { label: 'Protein', consumed: totals.protein, target: targets.protein_target, color: MACRO_COLORS.protein },
+                { label: 'Carbs',   consumed: totals.carbs,   target: targets.carbs_target,   color: MACRO_COLORS.carbs },
+                { label: 'Fat',     consumed: totals.fat,     target: targets.fat_target,     color: MACRO_COLORS.fat },
               ].map(({ label, consumed, target, color }) => {
                 const barPct = Math.min(consumed / target, 1)
                 const isOver = consumed > target
@@ -135,12 +140,12 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>{label}</span>
                       <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace" }}>
-                        <span style={{ color: isOver ? COLORS.orange : COLORS.text, fontWeight: 700 }}>{consumed}g</span>
+                        <span style={{ color: isOver ? COLORS.danger : COLORS.text, fontWeight: 700 }}>{consumed}g</span>
                         <span style={{ color: COLORS.muted }}> / {target}g</span>
                       </span>
                     </div>
                     <div style={{ height: 4, background: COLORS.subtle, borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 3, width: `${barPct * 100}%`, background: isOver ? COLORS.orange : color, transition: 'width 0.5s ease' }} />
+                      <div style={{ height: '100%', borderRadius: 3, width: `${barPct * 100}%`, background: isOver ? COLORS.danger : color, transition: 'width 0.5s ease' }} />
                     </div>
                   </div>
                 )
@@ -152,15 +157,15 @@ export function NutritionSummaryCard({ onNavigate }: { onNavigate: () => void })
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${COLORS.border}` }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: 7 }}>Macro Split</div>
             <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
-              <div style={{ width: `${proteinPct}%`, background: COLORS.green,  transition: 'width 0.5s ease' }} />
-              <div style={{ width: `${carbsPct}%`,   background: COLORS.orange, transition: 'width 0.5s ease' }} />
-              <div style={{ width: `${fatPct}%`,     background: COLORS.purple, transition: 'width 0.5s ease' }} />
+              <div style={{ width: `${proteinPct}%`, background: MACRO_COLORS.protein, transition: 'width 0.5s ease' }} />
+              <div style={{ width: `${carbsPct}%`,   background: MACRO_COLORS.carbs,   transition: 'width 0.5s ease' }} />
+              <div style={{ width: `${fatPct}%`,     background: MACRO_COLORS.fat,     transition: 'width 0.5s ease' }} />
             </div>
             <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
               {[
-                { l: 'Protein', p: proteinPct, c: COLORS.green  },
-                { l: 'Carbs',   p: carbsPct,   c: COLORS.orange },
-                { l: 'Fat',     p: fatPct,     c: COLORS.purple },
+                { l: 'Protein', p: proteinPct, c: MACRO_COLORS.protein },
+                { l: 'Carbs',   p: carbsPct,   c: MACRO_COLORS.carbs   },
+                { l: 'Fat',     p: fatPct,     c: MACRO_COLORS.fat     },
               ].map(({ l, p, c }) => (
                 <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: COLORS.muted }}>
                   <div style={{ width: 7, height: 7, borderRadius: 2, background: c, flexShrink: 0 }} />
