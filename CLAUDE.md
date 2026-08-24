@@ -253,6 +253,7 @@ Apply these continuously while writing or modifying code — not just when expli
 
 ### Tests
 
+- **Write tests before implementation.** Derive test cases from what the correct behaviour of the feature should be — the spec, the requirement, the intended contract — not from whatever the implementation ends up doing. Tests written after the fact tend to just restate the implementation's actual behaviour (including its bugs) instead of verifying correctness against it. This applies to new business logic and to bug fixes: write a failing test that encodes the correct behaviour first, then make it pass.
 - New business logic — especially calculation/derived-metric logic in `lib/` and edge function shared helpers — should get a test, following the existing co-location pattern (`__tests__/` beside the file under test).
 - Use the existing Supabase mock (`src/test/mocks/supabase.ts`); seed table data with `seedMockTable`/scope it with `setMockCurrentUser` per test rather than hand-rolling a new ad hoc mock. Only reach for a one-off `mockFrom.mockImplementationOnce(...)` override for things the mock doesn't model (e.g. a raw transport/DB error).
 - Don't write tests that just restate the implementation (asserting internal calls) — test behaviour and output.
