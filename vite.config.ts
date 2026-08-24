@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   test: {
@@ -16,6 +17,25 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
+    VitePWA({
+      manifest: false,
+      injectRegister: false,
+      registerType: 'prompt',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        navigateFallback: '/index.html',
+        // Never cache Supabase (REST/Auth/Realtime/Storage/Edge Functions) — data must
+        // always hit the network live, never be served stale from the service worker.
+        // Realtime's WebSocket upgrade isn't interceptable by a SW at all, so no rule
+        // is needed (or possible) for it.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co'),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
+    }),
   ],
   optimizeDeps: {
     exclude: ['pdfjs-dist'],

@@ -207,7 +207,7 @@ npm test          # run all tests once
 npm run test:watch  # watch mode
 ```
 
-411 tests across 34 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
+415 tests across 35 files using Vitest + @testing-library/react. Tests live in `__tests__/` directories beside the files they cover. The Supabase client is mocked via `src/test/mocks/supabase.ts` — a chainable, in-memory query builder that actually filters seeded rows and enforces row-level security (scoped to whichever user `setMockCurrentUser()` sets), rather than returning a canned response regardless of the query shape.
 
 `.github/workflows/ci.yml` runs lint, type check, and the full test suite on every push/PR to `main` — a red test suite or a type error now shows as a failing check on the commit before it can reach production, instead of only surfacing after a manual `npm test` (or not at all). This does not block Vercel's own auto-deploy (a separate, bigger integration); it's a visible gate, not a hard stop, today.
 

@@ -12,6 +12,7 @@ import { TopBar } from './components/layout/TopBar'
 import { LogWorkoutModal } from './components/LogWorkoutModal'
 import { ProfileSettingsModal } from './components/ProfileSettingsModal'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { PWAUpdateToast } from './components/PWAUpdateToast'
 import type { User } from '@supabase/supabase-js'
 
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
@@ -407,18 +408,21 @@ function StravaCallbackWrapper() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
-          <Route path="/*" element={<ProtectedLayout />} />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+    <>
+      <PWAUpdateToast />
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/strava/callback" element={<StravaCallbackWrapper />} />
+            <Route path="/*" element={<ProtectedLayout />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </>
   )
 }
