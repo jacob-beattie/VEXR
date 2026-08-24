@@ -13,7 +13,7 @@ CORE (SHIPPED)
 ✅ Training Plans: create, start, complete, delete plans
 ✅ Workout Library: save templates, filter by type, delete
 ✅ Real-time sync: Supabase realtime channel keeps all views in sync
-✅ Dark mode only
+✅ Dark mode only (superseded — see "Splits" design system below)
 ✅ Vercel deployment config
 ✅ Dashboard redesign: today's workout + mark complete, CTL/ATL/TSB cards, race countdown, weekly load progress, upcoming 4 days
 ✅ Profile Settings: name/sport/FTP/pace/CSS/max HR, benchmark history charts, training zones (all auto-calc — cycling from FTP, running from threshold pace, swimming from CSS, heart rate from max HR)
@@ -29,7 +29,7 @@ CORE (SHIPPED)
 ✅ Calendar week view: full-width 7-column layout, larger workout cards showing title/duration/TSS/distance
 ✅ Weekly Summary strip: appears above the week view calendar; activity stats (workouts/duration/TSS/distance/elevation/calories + per-sport rows) on left; CTL/ATL/TSB panel on right
 ✅ Mobile responsiveness: full 390px (iPhone 15) support across all pages and modals — sidebar hamburger + overlay, bottom nav bar, stat cards 2×2, scrollable WeeklySummary, calendar month view dot layout + DayBottomSheet, calendar week view vertical stack, full-screen modals (LogWorkout/WorkoutDetail/ProfileSettings), analytics 2-col grids, Library FAB + scrollable filter strip — via useIsMobile hook
-✅ Nutrition page (/nutrition): daily calorie/macro/hydration tracking; date navigator (today/yesterday/tomorrow); 4 stat cards (calories/protein/carbs/fat vs targets); SVG calorie ring with colour-coded progress arc; macro progress bars + macro split segment; meal log (breakfast/lunch/dinner/snacks) with collapsible sections; add food from global DB or create custom; hydration with 12-cup grid + ±250ml buttons; workout fuel guide (pre/during/recovery); edit macro targets modal; food database pulled from Supabase `food_database` table; custom foods per user in `nutrition_custom_foods`
+✅ Nutrition page (/nutrition): daily calorie/macro/hydration tracking; date navigator (today/yesterday/tomorrow); Daily Summary panel combining an SVG calorie ring (colour shifts accent→green→danger) with protein/carbs/fat progress bars + macro split segmented bar in one panel (no separate stat-card row — removed in the design-overhaul branch since it duplicated the same four numbers); meal log (breakfast/lunch/dinner/snacks) with collapsible sections; add food from global DB or create custom; hydration with 12-cup grid + ±250ml buttons; workout fuel guide (pre/during/recovery); edit macro targets modal; food database pulled from Supabase `food_database` table; custom foods per user in `nutrition_custom_foods`
 
 AI-POWERED
 -----------
@@ -77,6 +77,7 @@ UX / QUALITY OF LIFE
 ✅ Performance: lazy-loaded pages + manualChunks vendor splitting, main bundle 962KB → 33KB
 ✅ Production hardening: React ErrorBoundary (blank screen → reload prompt), password reset flow on login page (/reset-password route), loading + error states on Plans and Library pages, rate limiting on strava-auth (5/hr) and strava-sync (3/hr), 30s AbortController timeouts on all Anthropic API calls, generate-plan max_tokens 16k→8k, robots.txt to block crawlers
 ✅ Dashboard redesign: full-width greeting header (time-based, dynamic week/race subtitle, high-fatigue badge); 4 stat cards (CTL/ATL/TSB/Race with coloured top borders and contextual sub-text); two-column layout (left: fitness area chart + weekly load; right: coming up + AI coach teaser + season goals); no top bar on dashboard — greeting replaces it; season goals CRUD backed by Supabase `goals` table
+✅ "Splits" design system overhaul: light theme only (dropped the earlier always-dark skin), instrument-panel precision look; one reserved interactive accent colour (signal green, links/focus/active-nav only — never a button fill or chart colour); colour must always represent real data (sport/zone/status), never used decoratively; chart/semantic palettes (PMC_COLORS, SPORT_COLORS, HR_ZONE_RAMP, MACRO_COLORS, BLOCK_COLORS) run through colorblind-safety validation (OKLab ΔE under simulated protanopia/deuteranopia); DM Mono promoted to the hero face for every number on a page, not just stat-card details; no shadows on in-flow content (hairline borders only — shadows reserved for real floating overlays via SHADOW tokens); no decorative gradients; dividered single-panel treatment replaces grids of individually-bordered stat cards; rebuilt across Training Plans, Nutrition, Library, and remaining modals/auth pages plus a final color-correctness sweep
 - One-tap workout logging: log a run in under 30 seconds
 - Offline mode: log workouts without internet, sync later
 - Push notifications: daily workout reminders, weekly summary
