@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 
 interface ButtonProps {
   children: ReactNode
@@ -13,7 +14,7 @@ interface ButtonProps {
 export function Button({ children, onClick, variant = 'primary', type = 'button', disabled, style }: ButtonProps) {
   const base: CSSProperties = {
     border: 'none',
-    borderRadius: 8,
+    borderRadius: RADIUS.button,
     padding: '10px 18px',
     fontSize: 13,
     fontWeight: 700,

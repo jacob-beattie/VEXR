@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { COLORS } from '../lib/colors'
+import { COLORS, BLOCK_COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import type { WorkoutType, WorkoutBlock, BlockType } from '../types'
 import { Button } from './ui/Button'
 import { workoutTypes } from './ui/Badge'
@@ -24,13 +25,6 @@ interface LogWorkoutModalProps {
 }
 
 // ─── Block constants ─────────────────────────────────────────────────────────
-
-const BLOCK_COLORS: Record<BlockType, string> = {
-  warmup: COLORS.orange,
-  interval: COLORS.accent,
-  rest: COLORS.restBlock,
-  cooldown: COLORS.green,
-}
 
 const BLOCK_LABELS: Record<BlockType, string> = {
   warmup: 'Warmup',
@@ -540,7 +534,8 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
         style={{
           background: COLORS.card,
           border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
-          borderRadius: isMobile ? 0 : 16,
+          borderRadius: isMobile ? 0 : RADIUS.card,
+          boxShadow: isMobile ? 'none' : SHADOW.modal,
           padding: isMobile ? '20px 16px' : 28,
           width: '100%',
           maxWidth: isMobile ? '100%' : 540,
@@ -753,7 +748,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
                   )}
                 </div>
                 {missingBenchmark && (
-                  <div style={{ marginTop: 5, fontSize: 10, color: COLORS.orange }}>
+                  <div style={{ marginTop: 5, fontSize: 10, color: COLORS.conflictAmber }}>
                     Set your {missingBenchmark} for auto TSS
                   </div>
                 )}
@@ -863,7 +858,7 @@ export function LogWorkoutModal({ onClose, onSubmit, initialDate }: LogWorkoutMo
           </div>
 
           {error && (
-            <div style={{ color: COLORS.orange, fontSize: 13, padding: '8px 12px', background: COLORS.orange + '15', borderRadius: 8 }}>
+            <div style={{ color: COLORS.danger, fontSize: 13, padding: '8px 12px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
               {error}
             </div>
           )}

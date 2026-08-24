@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { COLORS } from '../lib/colors'
+import { COLORS, SPORT_COLORS, BLOCK_COLORS } from '../lib/colors'
+import { RADIUS, SHADOW } from '../lib/designTokens'
 import { workoutTypes } from './ui/Badge'
 import { Button } from './ui/Button'
 import { paceToSeconds, secsToPaceStr } from '../lib/tss'
@@ -19,7 +20,7 @@ interface SessionPhase {
 
 const PHASE_META: Record<SessionPhase['type'], { color: string; label: string }> = {
   warmup:   { color: COLORS.green,   label: 'Warmup' },
-  main:     { color: COLORS.orange,  label: 'Main Set' },
+  main:     { color: COLORS.amber,   label: 'Main Set' },
   cooldown: { color: COLORS.muted,   label: 'Cooldown' },
   tip:      { color: COLORS.tipText, label: 'Tip' },
 }
@@ -126,13 +127,6 @@ function SessionPlanVisual({ phases, totalDuration }: { phases: SessionPhase[]; 
       )}
     </div>
   )
-}
-
-const BLOCK_COLORS: Record<BlockType, string> = {
-  warmup: COLORS.orange,
-  interval: COLORS.accent,
-  rest: COLORS.restBlock,
-  cooldown: COLORS.green,
 }
 
 const BLOCK_LABELS: Record<BlockType, string> = {
@@ -332,19 +326,19 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
     statCards.push({ label: 'Avg Pace', value: workout.avg_pace, unit: workout.type === 'swim' ? '/100m' : '/km', color: COLORS.green })
   }
   if (workout.avg_power && workout.avg_power > 0) {
-    statCards.push({ label: 'Avg Power', value: String(workout.avg_power), unit: 'w', color: COLORS.accent })
+    statCards.push({ label: 'Avg Power', value: String(workout.avg_power), unit: 'w', color: SPORT_COLORS.bike })
   }
   if (workout.heart_rate_avg && workout.heart_rate_avg > 0) {
     statCards.push({ label: 'Avg HR', value: String(workout.heart_rate_avg), unit: 'bpm', color: COLORS.heartRate })
   }
   if (workout.heart_rate_max && workout.heart_rate_max > 0) {
-    statCards.push({ label: 'Max HR', value: String(workout.heart_rate_max), unit: 'bpm', color: COLORS.orange })
+    statCards.push({ label: 'Max HR', value: String(workout.heart_rate_max), unit: 'bpm', color: COLORS.heartRate })
   }
   if (workout.calories && workout.calories > 0) {
     statCards.push({ label: 'Calories', value: String(workout.calories), unit: 'kcal' })
   }
   if (workout.elevation_gain && workout.elevation_gain > 0) {
-    statCards.push({ label: 'Elevation', value: String(workout.elevation_gain), unit: 'm', color: COLORS.purple })
+    statCards.push({ label: 'Elevation', value: String(workout.elevation_gain), unit: 'm' })
   }
 
   return (
@@ -364,7 +358,8 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
         style={{
           background: COLORS.card,
           border: isMobile ? 'none' : `1px solid ${COLORS.border}`,
-          borderRadius: isMobile ? 0 : 16,
+          borderRadius: isMobile ? 0 : RADIUS.card,
+          boxShadow: isMobile ? 'none' : SHADOW.modal,
           width: '100%',
           maxWidth: isMobile ? '100%' : 520,
           maxHeight: isMobile ? '100dvh' : '90vh',
@@ -374,7 +369,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
         }}
       >
         {/* Colour bar */}
-        <div style={{ height: 3, background: wt.color, opacity: 0.8, borderRadius: '16px 16px 0 0' }} />
+        <div style={{ height: 3, background: wt.color, opacity: 0.8, borderRadius: isMobile ? 0 : `${RADIUS.card}px ${RADIUS.card}px 0 0` }} />
 
         <div style={{ padding: 28 }}>
           {/* Header */}
@@ -432,9 +427,9 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Session Focus</div>
                   <span style={{
-                    fontSize: 12, fontWeight: 700, color: COLORS.accent,
-                    background: COLORS.accent + '18', border: `1px solid ${COLORS.accent}30`,
-                    borderRadius: 6, padding: '5px 12px',
+                    fontSize: 12, fontWeight: 700, color: COLORS.text,
+                    background: COLORS.subtle, border: `1px solid ${COLORS.border}`,
+                    borderRadius: RADIUS.chip, padding: '5px 12px',
                   }}>
                     {workout.zone}
                   </span>
@@ -510,14 +505,14 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
                   variant="secondary"
                   onClick={handleDelete}
                   disabled={deleting}
-                  style={{ color: COLORS.orange, borderColor: COLORS.orange + '50' }}
+                  style={{ color: COLORS.danger, borderColor: COLORS.danger + '50' }}
                 >
                   {deleting ? 'Deleting…' : 'Delete'}
                 </Button>
               </div>
 
               {error && (
-                <div style={{ marginTop: 12, color: COLORS.orange, fontSize: 13, padding: '8px 12px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                <div style={{ marginTop: 12, color: COLORS.danger, fontSize: 13, padding: '8px 12px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                   {error}
                 </div>
               )}
@@ -656,7 +651,7 @@ export function WorkoutDetailModal({ workout, onClose, onDelete, onUpdate }: Wor
               </div>
 
               {error && (
-                <div style={{ color: COLORS.orange, fontSize: 13, padding: '8px 12px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                <div style={{ color: COLORS.danger, fontSize: 13, padding: '8px 12px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                   {error}
                 </div>
               )}

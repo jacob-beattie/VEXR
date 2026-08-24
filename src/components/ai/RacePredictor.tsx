@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { COLORS } from '../../lib/colors'
+import { COLORS, SPORT_COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import type { Profile } from '../../types'
@@ -38,14 +39,14 @@ function LowCtlWarning() {
     <div style={{
       margin: '0 0 12px',
       padding: '8px 14px',
-      background: COLORS.orange + '12',
-      borderTop: `1px solid ${COLORS.orange}30`,
-      borderRight: `1px solid ${COLORS.orange}30`,
-      borderBottom: `1px solid ${COLORS.orange}30`,
-      borderLeft: `3px solid ${COLORS.orange}`,
-      borderRadius: 8,
+      background: COLORS.conflictAmber + '12',
+      borderTop: `1px solid ${COLORS.conflictAmber}30`,
+      borderRight: `1px solid ${COLORS.conflictAmber}30`,
+      borderBottom: `1px solid ${COLORS.conflictAmber}30`,
+      borderLeft: `3px solid ${COLORS.conflictAmber}`,
+      borderRadius: RADIUS.card,
       fontSize: 12,
-      color: COLORS.orange,
+      color: COLORS.conflictAmber,
     }}>
       Log more workouts for more accurate predictions — predictions improve as CTL builds above 10.
     </div>
@@ -76,11 +77,11 @@ function TriSplitBar({ row, isMobile }: { row: TriRow; isMobile: boolean }) {
   const total = row.totalSec
   const pct = (s: number) => `${(s / total * 100).toFixed(1)}%`
   const segments = [
-    { label: 'Swim', seconds: row.swimSec, color: COLORS.accent },
+    { label: 'Swim', seconds: row.swimSec, color: SPORT_COLORS.swim },
     { label: 'T1', seconds: row.t1Sec, color: COLORS.border },
-    { label: 'Bike', seconds: row.bikeSec, color: COLORS.purple },
+    { label: 'Bike', seconds: row.bikeSec, color: SPORT_COLORS.bike },
     { label: 'T2', seconds: row.t2Sec, color: COLORS.border },
-    { label: 'Run', seconds: row.runSec, color: COLORS.green },
+    { label: 'Run', seconds: row.runSec, color: SPORT_COLORS.run },
   ]
 
   return (
@@ -277,7 +278,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         key={r.name} label={r.name}
         time={fmtTime(r.totalSeconds)}
         sub={fmtPace(r.paceSecondsPerKm)}
-        color={COLORS.green}
+        color={SPORT_COLORS.run}
         isLast={i === runRows.length - 1}
       />
     )))
@@ -290,7 +291,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         key={r.name} label={r.name}
         time={fmtTime(r.totalSeconds)}
         sub={`${r.avgSpeedKmh.toFixed(1)} km/h · ${r.avgPowerW}w`}
-        color={COLORS.purple}
+        color={SPORT_COLORS.bike}
         isLast={i === bikeRows.length - 1}
       />
     )))
@@ -303,7 +304,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         key={r.name} label={r.name}
         time={fmtTime(r.totalSeconds)}
         sub={fmtPace100m(r.paceSeconds100m)}
-        color={COLORS.accent}
+        color={SPORT_COLORS.swim}
         isLast={i === swimRows.length - 1}
       />
     )))
@@ -359,7 +360,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
       borderRight: `1px solid ${COLORS.border}`,
       borderBottom: `1px solid ${COLORS.border}`,
       borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 14,
+      borderRadius: RADIUS.card,
       padding: isMobile ? '20px 16px' : '24px 28px',
       marginBottom: 20,
     }}>
@@ -391,7 +392,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
                   border: `1px solid ${COLORS.border}`, borderRadius: 8,
                   padding: '10px 12px', fontSize: 12, color: COLORS.text,
                   lineHeight: 1.5, width: 260, zIndex: 10,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)', pointerEvents: 'none',
+                  boxShadow: SHADOW.dropdown, pointerEvents: 'none',
                 }}>
                   Predictions are based on your CTL, FTP, threshold pace and CSS. As your fitness improves, predictions update automatically.
                 </div>
@@ -441,7 +442,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
                 borderBottom: `1px solid ${COLORS.border}`,
                 borderLeft: `1px solid ${COLORS.border}`,
                 borderRadius: 6,
-                color: narrativeStale ? COLORS.orange : COLORS.muted,
+                color: narrativeStale ? COLORS.conflictAmber : COLORS.muted,
                 fontSize: 11, padding: '4px 10px',
                 cursor: narrativeLoading ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', fontWeight: 600,
@@ -496,7 +497,7 @@ export function RacePredictor({ profile, ctl }: RacePredictorProps) {
         )}
 
         {narrativeError && (
-          <div style={{ marginTop: 10, fontSize: 12, color: COLORS.orange, padding: '8px 12px', background: COLORS.orange + '10', borderRadius: 6 }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: COLORS.danger, padding: '8px 12px', background: COLORS.danger + '10', borderRadius: RADIUS.chip }}>
             {narrativeError}
           </div>
         )}

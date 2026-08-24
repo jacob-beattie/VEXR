@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 
@@ -76,7 +77,7 @@ export function Signup() {
           <div style={{ fontSize: 11, color: COLORS.muted, letterSpacing: '0.14em', marginTop: 4 }}>TRAINING SYSTEM</div>
         </div>
 
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 32 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 32 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, marginBottom: 6 }}>Create account</div>
           <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 28 }}>Start tracking your training today</div>
 
@@ -124,7 +125,7 @@ export function Signup() {
             </div>
 
             {error && (
-              <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+              <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                 {error}
               </div>
             )}

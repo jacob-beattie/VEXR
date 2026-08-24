@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -77,7 +78,7 @@ export function Login() {
           <div style={{ fontSize: 13, color: COLORS.muted, letterSpacing: '0.06em', marginTop: 8 }}>Train. Track. Perform.</div>
         </div>
 
-        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 32 }}>
+        <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: 32 }}>
           {showReset ? (
             <>
               <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, marginBottom: 6 }}>Reset password</div>
@@ -98,7 +99,7 @@ export function Login() {
                     autoComplete="email"
                   />
                   {resetError && (
-                    <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                    <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                       {resetError}
                     </div>
                   )}
@@ -149,7 +150,7 @@ export function Login() {
                 </div>
 
                 {error && (
-                  <div style={{ color: COLORS.orange, fontSize: 13, padding: '10px 14px', background: COLORS.orange + '15', borderRadius: 8 }}>
+                  <div style={{ color: COLORS.danger, fontSize: 13, padding: '10px 14px', background: COLORS.danger + '15', borderRadius: RADIUS.card }}>
                     {error}
                   </div>
                 )}

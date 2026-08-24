@@ -1,4 +1,4 @@
-import { COLORS } from './colors'
+import { HR_ZONE_RAMP } from './colors'
 import { getWeekStart, getWeekEnd } from './dateUtils'
 import { paceToSeconds } from './tss'
 import type { Workout } from '../types'
@@ -37,7 +37,7 @@ const PACE_BANDS = [
   { label: 'Mar', minKm: 40, maxKm: 45 },
 ]
 
-export const HR_ZONE_COLORS = [COLORS.accent, COLORS.green, COLORS.amber, COLORS.orange, COLORS.danger]
+export const HR_ZONE_COLORS = HR_ZONE_RAMP
 export const HR_ZONE_LABELS = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5']
 
 export function parseZone(zone: string | null | undefined): string {

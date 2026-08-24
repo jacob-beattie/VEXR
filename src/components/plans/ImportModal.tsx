@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { COLORS } from '../../lib/colors'
+import { RADIUS, SHADOW } from '../../lib/designTokens'
 import type { ParsedSession } from '../../types'
 import { ImportReviewScreen } from './ImportReviewScreen'
 import { mapEdgeSessions } from './shared'
+import { Button } from '../ui/Button'
 import { supabase } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useWorkouts } from '../../contexts/WorkoutsContext'
@@ -364,7 +366,7 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(14,165,233,0.12)',
+        boxShadow: isMobile ? 'none' : SHADOW.modal,
         animation: 'fadeSlideUp 0.25s ease',
       }}>
 
@@ -396,10 +398,10 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
               {/* Error banner */}
               {parseError && (
                 <div style={{
-                  background: `${COLORS.orange}15`,
-                  border: `1px solid ${COLORS.orange}40`,
-                  borderRadius: 8, padding: '12px 14px',
-                  fontSize: 13, color: COLORS.orange,
+                  background: `${COLORS.danger}15`,
+                  border: `1px solid ${COLORS.danger}40`,
+                  borderRadius: RADIUS.card, padding: '12px 14px',
+                  fontSize: 13, color: COLORS.danger,
                 }}>
                   {parseError}
                 </div>
@@ -407,15 +409,30 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
 
               {/* Upload type tabs */}
               <div style={{ display: 'flex', borderBottom: `1px solid ${COLORS.border}` }}>
-                {(['pdf', 'html', 'text'] as const).map(t => (
-                  <button
-                    key={t}
-                    className={`upload-tab${uploadTab === t ? ' active' : ''}`}
-                    onClick={() => { setUploadTab(t); setUploadedFile(null); setParseError(null) }}
-                  >
-                    {t === 'pdf' ? 'PDF' : t === 'html' ? 'HTML' : 'Text'}
-                  </button>
-                ))}
+                {(['pdf', 'html', 'text'] as const).map(t => {
+                  const active = uploadTab === t
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => { setUploadTab(t); setUploadedFile(null); setParseError(null) }}
+                      style={{
+                        flex: 1, padding: '9px 0', textAlign: 'center',
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        border: 'none', background: 'transparent',
+                        color: active ? COLORS.text : COLORS.muted,
+                        fontFamily: 'inherit', position: 'relative',
+                      }}
+                    >
+                      {t === 'pdf' ? 'PDF' : t === 'html' ? 'HTML' : 'Text'}
+                      {active && (
+                        <span style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0, height: 2,
+                          background: COLORS.accent, borderRadius: '2px 2px 0 0',
+                        }} />
+                      )}
+                    </button>
+                  )
+                })}
               </div>
 
               {/* Upload area or textarea */}
@@ -526,14 +543,13 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
 
             {/* Footer */}
             <div style={{ padding: isMobile ? '16px 20px' : '18px 28px', borderTop: `1px solid ${COLORS.border}` }}>
-              <button
-                className="purple-glow-btn"
+              <Button
                 onClick={handleParse}
                 disabled={extracting}
                 style={{ width: '100%', padding: 14, fontSize: 14 }}
               >
                 {extracting ? 'Reading file...' : 'Parse Plan →'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -614,7 +630,6 @@ export function ImportModal({ onClose, onImportSuccess }: ImportModalProps) {
                 background: COLORS.accent,
                 borderRadius: 4,
                 transition: 'width 0.5s ease',
-                boxShadow: `0 0 8px ${COLORS.accent}`,
               }} />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { supabase } from '../../lib/supabase'
 
 export function AICoachTeaser({ onClick }: { onClick: () => void }) {
@@ -31,27 +32,15 @@ export function AICoachTeaser({ onClick }: { onClick: () => void }) {
   return (
     <div style={{
       background: COLORS.card,
-      borderTop: `1px solid ${COLORS.border}`,
-      borderRight: `1px solid ${COLORS.border}`,
-      borderBottom: `1px solid ${COLORS.border}`,
-      borderLeft: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: RADIUS.card,
       padding: '18px 20px',
-      position: 'relative',
-      overflow: 'hidden',
     }}>
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: `linear-gradient(90deg, transparent, ${COLORS.accent}90, transparent)`,
-      }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 14, color: COLORS.accent }}>✦</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          AI Coach
-        </span>
+      <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+        AI Coach Note
       </div>
       {error ? (
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.orange, lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: COLORS.danger, lineHeight: 1.6 }}>
           Couldn't load your latest briefing preview.
         </p>
       ) : checked && !preview && (

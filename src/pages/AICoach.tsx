@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { COLORS } from '../lib/colors'
+import { COLORS, PMC_COLORS } from '../lib/colors'
+import { RADIUS } from '../lib/designTokens'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useAICoachData } from '../hooks/useAICoachData'
 import { RacePredictor } from '../components/ai/RacePredictor'
@@ -28,24 +29,26 @@ function firstSentence(text: string): string {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function MetricCard({
-  label, value, color, sub,
+  label, value, color, sub, last, isMobile,
 }: {
   label: string
   value: string | number
   color: string
   sub?: string
+  last?: boolean
+  isMobile?: boolean
 }) {
   return (
     <div style={{
       flex: 1,
-      background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
       padding: '14px 16px',
       textAlign: 'center',
       minWidth: 80,
       position: 'relative',
       overflow: 'hidden',
+      ...(isMobile
+        ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card }
+        : { borderRight: last ? 'none' : `1px solid ${COLORS.border}` }),
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color, opacity: 0.85 }} />
       <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
@@ -64,22 +67,24 @@ function MetricCard({
 }
 
 function QuickStatCard({
-  label, value, color, sub, icon,
+  label, value, color, sub, icon, last, isMobile,
 }: {
   label: string
   value: string
   color: string
   sub?: string
   icon?: string
+  last?: boolean
+  isMobile?: boolean
 }) {
   return (
     <div style={{
       flex: 1,
-      background: COLORS.card,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 12,
       padding: '14px 16px',
       minWidth: 120,
+      ...(isMobile
+        ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card }
+        : { borderRight: last ? 'none' : `1px solid ${COLORS.border}` }),
     }}>
       <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
         {label}
@@ -142,15 +147,15 @@ export function AICoach() {
       {workoutsError && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
           padding: '10px 16px', marginBottom: 16,
         }}>
-          <span style={{ fontSize: 13, color: COLORS.orange }}>{workoutsError}</span>
+          <span style={{ fontSize: 13, color: COLORS.danger }}>{workoutsError}</span>
           <button
             onClick={() => refetchWorkouts()}
             style={{
-              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+              color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
               cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
             }}
           >
@@ -162,15 +167,15 @@ export function AICoach() {
       {briefingsError && (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+          background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
           padding: '10px 16px', marginBottom: 16,
         }}>
-          <span style={{ fontSize: 13, color: COLORS.orange }}>{briefingsError}</span>
+          <span style={{ fontSize: 13, color: COLORS.danger }}>{briefingsError}</span>
           <button
             onClick={() => refetchBriefings()}
             style={{
-              background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-              color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+              background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+              color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
               cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
             }}
           >
@@ -182,22 +187,26 @@ export function AICoach() {
       {/* ── Metrics row ─────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        gap: isMobile ? 8 : 12,
+        gap: isMobile ? 8 : 0,
         marginBottom: 20,
         flexWrap: isMobile ? 'wrap' : 'nowrap',
+        ...(isMobile ? {} : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }),
       }}>
         <MetricCard
+          isMobile={isMobile}
           label="CTL · Fitness"
           value={fitness.ctl}
-          color={COLORS.purple}
+          color={PMC_COLORS.ctl}
           sub={ctlChange !== 0 ? `${ctlChange > 0 ? '+' : ''}${ctlChange} this week` : 'stable'}
         />
         <MetricCard
+          isMobile={isMobile}
           label="ATL · Fatigue"
           value={fitness.atl}
-          color={COLORS.orange}
+          color={PMC_COLORS.atl}
         />
         <MetricCard
+          isMobile={isMobile}
           label="TSB · Form"
           value={fitness.tsb > 0 ? `+${fitness.tsb}` : String(fitness.tsb)}
           color={COLORS.green}
@@ -205,17 +214,16 @@ export function AICoach() {
         />
         {daysUntilRace !== null && daysUntilRace >= 0 ? (
           <MetricCard
+            isMobile={isMobile}
+            last
             label="Race Countdown"
             value={daysUntilRace}
-            color={COLORS.purple}
+            color={COLORS.text}
             sub={profile?.race_goal ?? undefined}
           />
         ) : (
           <div style={{
             flex: 1,
-            background: COLORS.card,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 12,
             padding: '14px 16px',
             textAlign: 'center',
             minWidth: 80,
@@ -225,6 +233,7 @@ export function AICoach() {
             justifyContent: 'center',
             position: 'relative',
             overflow: 'hidden',
+            ...(isMobile ? { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card } : {}),
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLORS.muted, opacity: 0.3 }} />
             <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
@@ -238,28 +247,15 @@ export function AICoach() {
       {/* ── Main briefing card ───────────────────────────────────────────────── */}
       <div style={{
         background: COLORS.card,
-        borderTop: `1px solid ${COLORS.border}`,
-        borderRight: `1px solid ${COLORS.border}`,
-        borderBottom: `1px solid ${COLORS.border}`,
-        borderLeft: `3px solid ${COLORS.accent}`,
-        borderRadius: 14,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: RADIUS.card,
         padding: '24px 28px',
         marginBottom: 20,
-        position: 'relative',
-        overflow: 'hidden',
       }}>
-        {/* Gradient glow top border */}
-        <div style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0,
-          height: 2,
-          background: `linear-gradient(90deg, transparent, ${COLORS.accent}, ${COLORS.accent}80, transparent)`,
-        }} />
-
         {/* Card header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.accent, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>
               Weekly Briefing
             </div>
             {current && (
@@ -371,7 +367,7 @@ export function AICoach() {
 
         {/* Error state */}
         {genError && (
-          <div style={{ marginTop: 12, fontSize: 12, color: COLORS.orange, padding: '8px 12px', background: COLORS.orange + '10', borderRadius: 6 }}>
+          <div style={{ marginTop: 12, fontSize: 12, color: COLORS.danger, padding: '8px 12px', background: COLORS.danger + '10', borderRadius: RADIUS.chip }}>
             {genError}
           </div>
         )}
@@ -382,24 +378,27 @@ export function AICoach() {
 
       {/* ── Quick stats ─────────────────────────────────────────────────────── */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-        gap: isMobile ? 10 : 12,
+        display: isMobile ? 'grid' : 'flex',
+        gridTemplateColumns: isMobile ? '1fr 1fr' : undefined,
+        gap: isMobile ? 10 : 0,
         marginBottom: 20,
+        ...(isMobile ? {} : { background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, overflow: 'hidden' }),
       }}>
         <QuickStatCard
+          isMobile={isMobile}
           label="Training Phase"
           value={phase.label}
           color={phase.color}
           sub={phase.description}
         />
         <QuickStatCard
+          isMobile={isMobile}
           label="Weekly Compliance"
           value={compliance !== null ? `${compliance}%` : '—'}
           color={
             compliance === null ? COLORS.muted
             : compliance >= 80 ? COLORS.green
-            : compliance >= 50 ? COLORS.orange
+            : compliance >= 50 ? COLORS.conflictAmber
             : COLORS.danger
           }
           sub={
@@ -409,6 +408,7 @@ export function AICoach() {
           }
         />
         <QuickStatCard
+          isMobile={isMobile}
           label="TSS This Week"
           value={String(thisWeekTSS)}
           color={COLORS.text}
@@ -424,9 +424,11 @@ export function AICoach() {
           }
         />
         <QuickStatCard
+          isMobile={isMobile}
+          last
           label="CTL Trend"
           value={`${ctlChange >= 0 ? '+' : ''}${ctlChange}`}
-          color={ctlChange > 0 ? COLORS.green : ctlChange < 0 ? COLORS.orange : COLORS.muted}
+          color={ctlChange > 0 ? COLORS.green : ctlChange < 0 ? COLORS.conflictAmber : COLORS.muted}
           sub="fitness change this week"
           icon={ctlChange > 0 ? '↑' : ctlChange < 0 ? '↓' : undefined}
         />
@@ -440,7 +442,7 @@ export function AICoach() {
           borderRight: `1px solid ${COLORS.border}`,
           borderBottom: `1px solid ${COLORS.border}`,
           borderLeft: `1px solid ${COLORS.border}`,
-          borderRadius: 14,
+          borderRadius: RADIUS.card,
           overflow: 'hidden',
         }}>
           <div style={{ padding: '16px 24px', borderBottom: `1px solid ${COLORS.border}` }}>
@@ -483,7 +485,7 @@ export function AICoach() {
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: COLORS.accent, fontWeight: 600, marginBottom: 4, letterSpacing: '0.04em' }}>
+                    <div style={{ fontSize: 11, color: COLORS.muted, fontWeight: 600, marginBottom: 4, letterSpacing: '0.04em' }}>
                       {formatHistoryDate(b.generated_at)}
                     </div>
                     <div style={{

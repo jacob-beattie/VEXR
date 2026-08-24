@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { COLORS } from './lib/colors'
+import { RADIUS } from './lib/designTokens'
 import { useAuth } from './hooks/useAuth'
 import { useIsMobile } from './hooks/useIsMobile'
 import { WorkoutsProvider, useWorkouts } from './contexts/WorkoutsContext'
@@ -73,7 +74,7 @@ function AICoachErrorFallback() {
 const pageTitles: Record<string, { title: string; subtitle: string; titleIcon?: string; titleIconColor?: string }> = {
   '/calendar': { title: 'Training Calendar', subtitle: 'Track and plan your sessions' },
   '/analytics': { title: 'Performance Analytics', subtitle: 'Trends, fitness, and load analysis' },
-  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦', titleIconColor: COLORS.accent },
+  '/ai-coach': { title: 'AI Coach', subtitle: 'Powered by Claude · Personalised weekly recommendations', titleIcon: '✦' },
   '/plans': { title: 'Training Plans', subtitle: 'Manage your structured training' },
   '/library': { title: 'Workout Library', subtitle: 'Your saved workout templates' },
   '/nutrition': { title: 'Nutrition', subtitle: 'Track your daily fuel and macros' },
@@ -267,15 +268,15 @@ function AppShell({ signOut, user }: { signOut: () => Promise<void>; user: User 
         {profileError && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            background: COLORS.orange + '15', border: `1px solid ${COLORS.orange}40`, borderRadius: 10,
+            background: COLORS.danger + '15', border: `1px solid ${COLORS.danger}40`, borderRadius: RADIUS.card,
             padding: '10px 16px', marginBottom: 16,
           }}>
-            <span style={{ fontSize: 13, color: COLORS.orange }}>{profileError}</span>
+            <span style={{ fontSize: 13, color: COLORS.danger }}>{profileError}</span>
             <button
               onClick={() => refetchProfile()}
               style={{
-                background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6,
-                color: COLORS.orange, fontSize: 12, fontWeight: 700, padding: '4px 10px',
+                background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip,
+                color: COLORS.danger, fontSize: 12, fontWeight: 700, padding: '4px 10px',
                 cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
               }}
             >

@@ -99,7 +99,7 @@ export function StravaCallback() {
         {status === 'error' && (
           <>
             <div style={{ fontSize: 32, marginBottom: 16 }}>✕</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.orange, marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.danger, marginBottom: 8 }}>
               Connection failed
             </div>
             <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 24, lineHeight: 1.5 }}>

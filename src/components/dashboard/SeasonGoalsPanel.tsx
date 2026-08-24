@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { useGoals } from '../../hooks/useGoals'
 
 export function SeasonGoalsPanel() {
@@ -15,7 +16,7 @@ export function SeasonGoalsPanel() {
   const completed = goals.filter(g => g.completed)
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px', marginTop: 14 }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px', marginTop: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Season Goals
@@ -58,11 +59,11 @@ export function SeasonGoalsPanel() {
       {loadingGoals ? (
         <div style={{ color: COLORS.muted, fontSize: 12, padding: '4px 0' }}>Loading…</div>
       ) : error ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: COLORS.orange, fontSize: 12, padding: '4px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, color: COLORS.danger, fontSize: 12, padding: '4px 0' }}>
           <span>Failed to load goals.</span>
           <button
             onClick={refetch}
-            style={{ background: 'none', border: `1px solid ${COLORS.orange}60`, borderRadius: 6, color: COLORS.orange, fontSize: 11, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ background: 'none', border: `1px solid ${COLORS.danger}60`, borderRadius: RADIUS.chip, color: COLORS.danger, fontSize: 11, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
           >
             Retry
           </button>
@@ -113,7 +114,7 @@ export function SeasonGoalsPanel() {
       )}
 
       {mutationError && (
-        <div style={{ marginTop: 10, fontSize: 11, color: COLORS.orange, padding: '6px 10px', background: COLORS.orange + '10', borderRadius: 6 }}>
+        <div style={{ marginTop: 10, fontSize: 11, color: COLORS.danger, padding: '6px 10px', background: COLORS.danger + '10', borderRadius: RADIUS.chip }}>
           {mutationError}
         </div>
       )}

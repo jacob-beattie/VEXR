@@ -1,9 +1,11 @@
 import { useState, useRef, lazy, Suspense } from 'react'
 import { COLORS } from '../../lib/colors'
+import { SHADOW } from '../../lib/designTokens'
 import type { TrainingPlan } from '../../types'
 import { PlanCard } from './PlanCard'
 import { GeneratePlanModal } from './GeneratePlanModal'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { Button } from '../ui/Button'
 
 // ImportModal statically pulls in all of pdfjs-dist (134 kB gzip) for PDF text extraction —
 // lazy-loaded so that cost is only paid by visitors who actually click "Import Plan", not
@@ -49,9 +51,9 @@ function EmptyState({ onImport, onGenerate }: { onImport: () => void; onGenerate
         Generate a personalised plan with AI, or import one from your coach.
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button className="purple-glow-btn" onClick={onGenerate} style={{ padding: '13px 28px', fontSize: 14 }}>
+        <Button onClick={onGenerate} style={{ padding: '13px 28px', fontSize: 14 }}>
           ✦ Generate Plan
-        </button>
+        </Button>
         <button
           onClick={onImport}
           style={{
@@ -107,13 +109,12 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
           >
             Import Plan
           </button>
-          <button
-            className="purple-glow-btn"
+          <Button
             onClick={() => setShowGenerate(true)}
             style={{ padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             ✦ Generate Plan
-          </button>
+          </Button>
         </div>
       )}
 
@@ -157,7 +158,7 @@ export function PlansPage({ plans, onRefresh }: PlansPageProps) {
             padding: '12px 18px',
             display: 'flex', alignItems: 'center', gap: 10,
             cursor: 'pointer',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            boxShadow: SHADOW.dropdown,
             maxWidth: 360,
             animation: 'fadeSlideUp 0.25s ease',
           }}

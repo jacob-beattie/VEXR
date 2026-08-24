@@ -1,4 +1,5 @@
 import { COLORS } from '../../lib/colors'
+import { RADIUS } from '../../lib/designTokens'
 import { workoutTypes } from '../ui/Badge'
 import type { Workout } from '../../types'
 import { localDateKey } from './utils'
@@ -25,7 +26,7 @@ export function WeeklyLoadCard({ weekWorkouts, onDayClick }: { weekWorkouts: Wor
   const sportColor = (type: string) => workoutTypes[type as keyof typeof workoutTypes]?.color ?? COLORS.muted
 
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 20px' }}>
+    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: RADIUS.card, padding: '18px 20px' }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
         Weekly Load
       </div>

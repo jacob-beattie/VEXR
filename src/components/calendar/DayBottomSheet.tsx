@@ -124,7 +124,7 @@ export function DayBottomSheet({ date, workouts, onSelectWorkout, onAddWorkout, 
                       </span>
                     )}
                     {w.distance_meters && w.distance_meters > 0 && (
-                      <span style={{ fontSize: 12, color: COLORS.green, fontFamily: 'DM Mono, monospace' }}>
+                      <span style={{ fontSize: 12, color: COLORS.muted, fontFamily: 'DM Mono, monospace' }}>
                         {(w.distance_meters / 1000).toFixed(1)} km
                       </span>
                     )}
